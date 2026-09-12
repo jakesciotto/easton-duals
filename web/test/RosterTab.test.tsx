@@ -55,6 +55,17 @@ const moveTo = async (user: ReturnType<typeof userEvent.setup>, team: string) =>
 }
 
 describe('RosterTab', () => {
+  // A column narrower than a row's fixed tracks (about 335px: select, state, age, weight,
+  // the 56px Link cell, two icons, seven gaps and the padding) collapses the name track,
+  // the only flexible one, to nothing. 400px keeps three columns at 1280 as before and
+  // leaves the name at least 65px at the minimum.
+  it('gives every team column room for the name beside the fixed tracks', () => {
+    fakeFetch(() => ({ json: [] }))
+    mount()
+    const grid = screen.getByRole('region', { name: 'Unassigned' }).parentElement as HTMLElement
+    expect(grid.className).toContain('minmax(400px,1fr)')
+  })
+
   it('prints the numeric column labels once per field instead of a badge on every row', () => {
     fakeFetch(() => ({ json: [] }))
     mount()
@@ -99,7 +110,7 @@ describe('RosterTab', () => {
     fakeFetch(() => ({ json: [] }))
     mount()
     const grid = screen.getByRole('region', { name: 'Ridgeline' }).parentElement
-    expect(grid?.className).toContain('repeat(auto-fit,minmax(280px,1fr))')
+    expect(grid?.className).toContain('repeat(auto-fit,minmax(400px,1fr))')
     expect(grid?.className).not.toContain('grid-cols-3')
     expect(grid?.children).toHaveLength(3)
     const heads = Array.from(document.querySelectorAll('[data-slot="field-head"]'))

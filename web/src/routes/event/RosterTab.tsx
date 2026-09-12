@@ -280,7 +280,7 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
           </DialogContent>
         )}
       </Dialog>
-      <div className="grid items-start gap-6 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
+      <div className="grid items-start gap-6 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))]">
         {groups.map(g => (
           <RosterGroup
             onAdd={() => setAddOpen(true)}
