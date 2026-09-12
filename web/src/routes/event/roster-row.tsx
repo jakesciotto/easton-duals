@@ -116,7 +116,22 @@ export function looksLikeLine(candidate: { firstName: string; lastName: string; 
   return `Looks like ${athleteName(candidate)}, ${candidate.wlLocation}`
 }
 
-export function RosterRow({ kid, selected, fault, inMatch, suggestion, onSelect, onPatch, onRemove, onLink, onConfirm, onDismiss, onProfile, onDragStart }: {
+/**
+ * Spec A. What the pool holds for a linked row wherever it disagrees, so an organizer
+ * editing a cell by hand can see WellnessLiving would write something else. A field the
+ * pool never measured is skipped rather than read as a disagreement.
+ */
+export function wlMismatchTitle(kid: AthleteRow, record: RosterCandidate): string | null {
+  const diffs = [
+    record.age !== null && record.age !== kid.age ? `${record.age}y` : null,
+    record.weightLbs !== null && record.weightLbs !== kid.weightLbs ? `${record.weightLbs} lb` : null,
+    record.belt !== null && record.belt !== kid.belt ? beltLabel(record.belt) : null,
+    record.gender !== null && record.gender !== kid.gender ? genderLabel(record.gender) : null,
+  ].filter((d): d is string => d !== null)
+  return diffs.length === 0 ? null : `WellnessLiving: ${diffs.join(', ')}`
+}
+
+export function RosterRow({ kid, selected, fault, inMatch, suggestion, wlRecord, onSelect, onPatch, onRemove, onLink, onConfirm, onDismiss, onProfile, onDragStart }: {
   kid: AthleteRow
   selected: boolean
   fault: boolean
@@ -128,6 +143,8 @@ export function RosterRow({ kid, selected, fault, inMatch, suggestion, onSelect,
    * words arrive late.
    */
   suggestion: RosterCandidate | undefined
+  /** Spec A. The same pool, read by the row's own wlUid rather than a pending suggestion's. */
+  wlRecord: RosterCandidate | undefined
   onSelect: (v: boolean, range: boolean) => void
   onPatch: (body: Partial<AthleteRow>) => void
   onRemove: () => void
@@ -145,6 +162,7 @@ export function RosterRow({ kid, selected, fault, inMatch, suggestion, onSelect,
   const name = athleteName(kid)
   const range = useRef(false)
   const state = fault ? 'fault' : kid.age === null || kid.weightLbs === null ? 'attend' : 'ok'
+  const mismatch = kid.wlUid !== null && wlRecord !== undefined ? wlMismatchTitle(kid, wlRecord) : null
   // The refusal is printed on the row's own meta line, because a disabled control
   // takes no pointer events and so can never show a title.
   const meta = [
@@ -192,7 +210,12 @@ export function RosterRow({ kid, selected, fault, inMatch, suggestion, onSelect,
         )}
       />
       <span className="min-w-0 font-sans">
-        <span className="block truncate t3 font-medium! text-white" title={name}>{name}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0 truncate t3 font-medium! text-white" title={name}>{name}</span>
+          {mismatch !== null && (
+            <span aria-label={mismatch} title={mismatch} className="size-1.5 shrink-0 rounded-full bg-attend" />
+          )}
+        </span>
         <span className="block truncate t2 font-normal! leading-4! text-gray-10">
           {meta}
           {suggested !== null && suggestion !== undefined && (

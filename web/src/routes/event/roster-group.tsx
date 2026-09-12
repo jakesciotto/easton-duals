@@ -92,6 +92,7 @@ export function RosterGroup({
                   fault={faults.has(k.id)}
                   inMatch={inMatch.has(k.id)}
                   suggestion={k.suggestedWlUid === null ? undefined : suggestions.get(k.suggestedWlUid)}
+                  wlRecord={k.wlUid === null ? undefined : suggestions.get(k.wlUid)}
                   onSelect={(v, range) => onSelect(k.id, v, range)}
                   onPatch={body => onPatch(k.id, body)}
                   onRemove={() => onRemove(k)}

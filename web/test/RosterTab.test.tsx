@@ -975,3 +975,58 @@ describe('RosterTab, the WellnessLiving link', () => {
     expect(alert.querySelector('[data-slot="alert-description"]')).toHaveTextContent('credentials are not set')
   })
 })
+
+/** Spec A. The dot beside a linked row's name when the pool disagrees with a cell on it. */
+describe('RosterTab, the WellnessLiving mismatch dot', () => {
+  const POOL = [
+    { wlUid: 'w1', firstName: 'Mateo', lastName: 'Kidd', belt: 'grey', wlLocation: 'Boulder', leaderboardId: null, erp: null, age: 9, weightLbs: 60, gender: 'M' },
+    { wlUid: 'w3', firstName: 'Olive', lastName: 'Kidd', belt: 'grey', wlLocation: 'Boulder', leaderboardId: null, erp: null, age: 8, weightLbs: 61, gender: 'F' },
+  ]
+  const withPool = () => fakeFetch(url => (url === '/api/events/7/candidates' ? { json: POOL } : { json: [] }))
+
+  // Olivia carries an unrelated pending suggestion so the tab's one candidates fetch has a
+  // reason to run; Mateo is the linked row the dot is actually about.
+  const withMateo = (over: Partial<EventDetail['athletes'][number]> = {}): EventDetail => ({
+    ...detail,
+    athletes: [
+      kid(100, 1, 'Mateo', { wlUid: 'w1', wlLocation: 'Boulder', ...over }),
+      kid(200, 2, 'Olivia', { suggestedWlUid: 'w3', suggestedScore: 0.8 }),
+    ],
+  })
+
+  // Waits on the one other effect of the same pool load before asserting on Mateo, since
+  // the fetch is async and nothing else about his own row changes when it resolves.
+  const waitForPool = () => screen.findByText(/Looks like Olive Kidd, Boulder/)
+
+  it('shows the dot with the exact title when the pool disagrees on age', async () => {
+    withPool()
+    // Mateo's own age is the kid() default of 8; the pool says 9. Weight, belt and
+    // gender all match, so age is the only difference in the title.
+    mount(withMateo())
+    await waitForPool()
+    const teamA = screen.getByRole('region', { name: 'Ridgeline' })
+    const dot = within(teamA).getByTitle('WellnessLiving: 9y')
+    expect(dot).toHaveAttribute('aria-label', 'WellnessLiving: 9y')
+  })
+
+  it('shows no dot once the linked row matches the pool', async () => {
+    withPool()
+    mount(withMateo({ age: 9 }))
+    await waitForPool()
+    const teamA = screen.getByRole('region', { name: 'Ridgeline' })
+    expect(within(teamA).queryByTitle(/WellnessLiving:/)).not.toBeInTheDocument()
+  })
+
+  it('shows no dot for an unlinked row even once the pool has loaded', async () => {
+    withPool()
+    mount({
+      ...detail,
+      athletes: [
+        kid(100, null, 'Mateo'),
+        kid(200, 2, 'Olivia', { suggestedWlUid: 'w3', suggestedScore: 0.8 }),
+      ],
+    })
+    await waitForPool()
+    expect(screen.queryByTitle(/WellnessLiving:/)).not.toBeInTheDocument()
+  })
+})
