@@ -32,6 +32,9 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   // The name a mid-loop failure stopped on. The server's message says what went wrong
   // and never who, which on a bulk remove is the only fact the organizer needs.
   const [stoppedOn, setStoppedOn] = useState<string | null>(null)
+  // What the last Create match press did: the pair's names plus any warning, a plain
+  // confirmation, or the server's own refusal. One slot, cleared the same way as report.
+  const [matchNotice, setMatchNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const anchor = useRef<number | null>(null)
   const eventId = detail.event.id
   const assign = useAdminMutation(eventId, (v: { ids: number[]; teamId: number | null }) => adminApi(`/api/events/${eventId}/athletes/assign`, { method: 'POST', body: v }))
@@ -39,6 +42,8 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   const remove = useAdminMutation(eventId, (id: number) => adminApi(`/api/athletes/${id}`, { method: 'DELETE' }))
   const confirm = useAdminMutation(eventId, (v: { id: number; wlUid: string }) => adminApi(`/api/athletes/${v.id}/link`, { method: 'POST', body: { wlUid: v.wlUid } }))
   const dismiss = useAdminMutation(eventId, (v: { id: number; wlUid: string }) => adminApi(`/api/athletes/${v.id}/dismiss`, { method: 'POST', body: { wlUid: v.wlUid } }))
+  const createMatch = useAdminMutation(eventId, (v: { athleteAId: number; athleteBId: number }) =>
+    adminApi<{ warnings?: string[] }>(`/api/events/${eventId}/matches`, { method: 'POST', body: v }))
 
   // A suggestion is stored as a uid, and the name behind it lives in the pool the sync
   // cached. The key is the uids themselves, so a sync that replaces the pool reads the new
@@ -90,8 +95,9 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   }
 
   const clearSelection = () => setSelected(new Set())
+  const clearMessages = () => { setReport(null); setMatchNotice(null) }
   const moveTo = (ids: number[], teamId: number | null) => {
-    setReport(null)
+    clearMessages()
     const moving = ids.filter(id => detail.athletes.find(a => a.id === id)?.teamId !== teamId)
     if (moving.length === 0) {
       clearSelection()
@@ -100,7 +106,7 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
     assign.mutate({ ids: moving, teamId }, { onSuccess: clearSelection })
   }
 
-  const onPatch = (id: number, body: Partial<AthleteRow>) => { setReport(null); patch.mutate({ id, body }, {
+  const onPatch = (id: number, body: Partial<AthleteRow>) => { clearMessages(); patch.mutate({ id, body }, {
     // A refused write is the row's own state, not a banner the organizer has to
     // match back to a name, so the state rule carries it until the row saves.
     onError: () => setFaults(f => new Set(f).add(id)),
@@ -123,7 +129,7 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   }
   const runRemove = async () => {
     setStoppedOn(null)
-    setReport(null)
+    clearMessages()
     const done: number[] = []
     let halted: AthleteRow | null = null
     for (const kid of removing) {
@@ -154,6 +160,39 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
     () => new Set(detail.matches.flatMap(m => [m.athleteAId, m.athleteBId])),
     [detail.matches],
   )
+  // inMatch above spans every status, which is right for a delete the server refuses for
+  // good even once a match is done. Create match asks a narrower question: a kid whose
+  // only match is done is free to be paired again, a rematch being a warning rather than
+  // a refusal, so this set is scoped to the two statuses nobody has settled yet.
+  const unfought = useMemo(
+    () => new Set(detail.matches.filter(m => m.status === 'pending' || m.status === 'live').flatMap(m => [m.athleteAId, m.athleteBId])),
+    [detail.matches],
+  )
+  const [pairAId, pairBId] = selected.size === 2 ? order.filter(id => selected.has(id)) : []
+  const pairA = detail.athletes.find(a => a.id === pairAId)
+  const pairB = detail.athletes.find(a => a.id === pairBId)
+  const matchDisabledTitle = !pairA || !pairB
+    ? undefined
+    : pairA.teamId === null || pairB.teamId === null || pairA.teamId === pairB.teamId
+      ? 'Pick two competitors on different teams.'
+      : unfought.has(pairA.id) ? `${athleteName(pairA)} already has a match.`
+        : unfought.has(pairB.id) ? `${athleteName(pairB)} already has a match.`
+          : undefined
+  const runCreateMatch = () => {
+    if (!pairA || !pairB) return
+    clearMessages()
+    createMatch.mutate({ athleteAId: pairA.id, athleteBId: pairB.id }, {
+      onSuccess: r => {
+        const warnings = r?.warnings ?? []
+        setMatchNotice({
+          ok: true,
+          text: warnings.length === 0 ? 'Match created.' : `${athleteName(pairA)} and ${athleteName(pairB)}: ${warnings.join('. ')}.`,
+        })
+        clearSelection()
+      },
+      onError: e => setMatchNotice({ ok: false, text: writeErrorMessage(e) }),
+    })
+  }
   const selectedRows = detail.athletes.filter(a => selected.has(a.id))
   const removable = selectedRows.filter(a => !inMatch.has(a.id))
   const blockedCount = selectedRows.length - removable.length
@@ -192,6 +231,11 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
               { key: 'none', label: 'Move to Unassigned', disabled: false, onSelect: () => moveTo([...selected], null) },
             ]}
           />
+          {selected.size === 2 && (
+            <Button size="sm" variant="ghost" disabled={matchDisabledTitle !== undefined} title={matchDisabledTitle} onClick={runCreateMatch}>
+              Create match
+            </Button>
+          )}
           <Button size="sm" variant="ghost" disabled={removable.length === 0} onClick={() => setRemoving(removable)}>Remove</Button>
           <Button size="sm" variant="ghost" onClick={clearSelection}>Clear</Button>
           {/* Refuse rather than ask (6.8): the blocked competitors are dropped from the
@@ -239,6 +283,11 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
               {reportLines(report).map(line => <span key={line}>{line}</span>)}
             </span>
           </AlertDescription>
+        </Alert>
+      )}
+      {matchNotice && (
+        <Alert variant={matchNotice.ok ? 'attend' : 'fault'}>
+          <AlertDescription>{matchNotice.text}</AlertDescription>
         </Alert>
       )}
       <AddKidDialog detail={detail} open={addOpen} onOpenChange={setAddOpen} />
@@ -298,9 +347,9 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
             onSelect={onSelect}
             onPatch={onPatch}
             onRemove={kid => setRemoving([kid])}
-            onLink={kid => { setReport(null); setLinking(kid) }}
-            onConfirm={(kid, wlUid) => { setReport(null); confirm.mutate({ id: kid.id, wlUid }) }}
-            onDismiss={(kid, wlUid) => { setReport(null); dismiss.mutate({ id: kid.id, wlUid }) }}
+            onLink={kid => { clearMessages(); setLinking(kid) }}
+            onConfirm={(kid, wlUid) => { clearMessages(); confirm.mutate({ id: kid.id, wlUid }) }}
+            onDismiss={(kid, wlUid) => { clearMessages(); dismiss.mutate({ id: kid.id, wlUid }) }}
             onProfile={setProfileFor}
             onDragStart={drag.start}
           />

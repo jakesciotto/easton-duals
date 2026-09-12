@@ -54,6 +54,11 @@ const moveTo = async (user: ReturnType<typeof userEvent.setup>, team: string) =>
   await user.click(await screen.findByRole('menuitem', { name: `Move to ${team}` }))
 }
 
+const selectPair = async (user: ReturnType<typeof userEvent.setup>, a: string, b: string) => {
+  await user.click(screen.getByRole('checkbox', { name: `Select ${a}` }))
+  await user.click(screen.getByRole('checkbox', { name: `Select ${b}` }))
+}
+
 describe('RosterTab', () => {
   // A column narrower than a row's fixed tracks (about 335px: select, state, age, weight,
   // the 56px Link cell, two icons, seven gaps and the padding) collapses the name track,
@@ -527,6 +532,120 @@ describe('RosterTab', () => {
     await user.type(within(dialog).getByLabelText('Last name'), 'Wong')
     await user.click(within(dialog).getByRole('button', { name: 'Add competitor' }))
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('age must be between 3 and 17')
+  })
+})
+
+/**
+ * The selection bar's Create match button: exactly two picks on different teams, neither
+ * already in an unfought match. Reuses the same create route the Add match dialog posts
+ * to, but the pair comes straight off the roster with no ruleset or mat chosen.
+ */
+describe('RosterTab, Create match', () => {
+  it('shows the button only at exactly two selected', async () => {
+    fakeFetch(() => ({ json: [] }))
+    mount()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('checkbox', { name: 'Select Noah Kid' }))
+    expect(screen.queryByRole('button', { name: 'Create match' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: 'Select Zoe Kid' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Select Mateo Kid' }))
+    expect(screen.queryByRole('button', { name: 'Create match' })).not.toBeInTheDocument()
+  })
+
+  it('disables the button with the team reason for two competitors on one team', async () => {
+    fakeFetch(() => ({ json: [] }))
+    mount({ ...detail, athletes: [...detail.athletes, kid(150, 1, 'Diego')] })
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Diego Kid')
+    const button = screen.getByRole('button', { name: 'Create match' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('title', 'Pick two competitors on different teams.')
+  })
+
+  it('enables the button for two competitors on different teams', async () => {
+    fakeFetch(() => ({ json: [] }))
+    mount()
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    expect(screen.getByRole('button', { name: 'Create match' })).toBeEnabled()
+  })
+
+  it('disables the button with the match reason when a pick is already in a pending match', async () => {
+    fakeFetch(() => ({ json: [] }))
+    mount(placed)
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    const button = screen.getByRole('button', { name: 'Create match' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('title', 'Olivia Kid already has a match.')
+  })
+
+  // 300/200's match started live rather than pending: the same busy rule has to hold
+  // for both statuses nobody has settled yet.
+  it('disables the button with the match reason when a pick is already in a live match', async () => {
+    fakeFetch(() => ({ json: [] }))
+    mount({ ...placed, matches: [{ ...placed.matches[0], status: 'live' }] })
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    const button = screen.getByRole('button', { name: 'Create match' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('title', 'Olivia Kid already has a match.')
+  })
+
+  // A kid whose only match is done is free to be paired again -- a rematch is a warning,
+  // not a refusal -- so the busy check must not reuse inMatch's any-status set verbatim.
+  it('leaves the button enabled when a pick only has a done match', async () => {
+    fakeFetch(() => ({ json: [] }))
+    mount({ ...placed, matches: [{ ...placed.matches[0], status: 'done' }] })
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    expect(screen.getByRole('button', { name: 'Create match' })).toBeEnabled()
+  })
+
+  it('posts the pair to the create route and reports Match created with no warnings, clearing the selection', async () => {
+    const f = fakeFetch((url, init) => {
+      if (url === '/api/events/7/matches' && init?.method === 'POST') return { status: 201, json: { warnings: [] } }
+      return { json: [] }
+    })
+    mount()
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    await user.click(screen.getByRole('button', { name: 'Create match' }))
+    await vi.waitFor(() => expect(f.calls.some(c => c.url === '/api/events/7/matches')).toBe(true))
+    const i = f.calls.findIndex(c => c.url === '/api/events/7/matches')
+    expect(f.body(i)).toEqual({ athleteAId: 100, athleteBId: 200 })
+    expect(await screen.findByText('Match created.')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Selection' })).not.toBeInTheDocument()
+  })
+
+  it('renders the warnings in the message slot, prefixed by the pair names', async () => {
+    fakeFetch((url, init) => {
+      if (url === '/api/events/7/matches' && init?.method === 'POST') {
+        return { status: 201, json: { warnings: ['2 weight classes apart', 'Already met'] } }
+      }
+      return { json: [] }
+    })
+    mount()
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    await user.click(screen.getByRole('button', { name: 'Create match' }))
+    expect(await screen.findByText('Mateo Kid and Olivia Kid: 2 weight classes apart. Already met.')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Selection' })).not.toBeInTheDocument()
+  })
+
+  it('shows the server message and keeps the selection standing on a 409', async () => {
+    fakeFetch((url, init) => {
+      if (url === '/api/events/7/matches' && init?.method === 'POST') {
+        return { status: 409, json: { error: { code: 'match_state', message: 'that pair cannot be matched right now' } } }
+      }
+      return { json: [] }
+    })
+    mount()
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    await user.click(screen.getByRole('button', { name: 'Create match' }))
+    expect(await screen.findByText('that pair cannot be matched right now')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Selection' })).toBeInTheDocument()
   })
 })
 
