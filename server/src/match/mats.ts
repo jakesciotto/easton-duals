@@ -1,7 +1,8 @@
-import { and, asc, eq, ne, sql } from 'drizzle-orm'
+import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm'
 import type { DbLike } from '../db/client.js'
 import { events, mats, matches, matchEvents, type MatchRow, type MatRow } from '../db/schema.js'
 import { loadMatch, recompute, MatchStateError } from './events.js'
+import { assertDependentsPending, clearDependents } from './fill.js'
 import { recordAudit } from '../audit/log.js'
 import type { AuditActor } from '../shared/types.js'
 
@@ -95,6 +96,17 @@ export async function advanceMat(db: DbLike, matId: number, actor: AuditActor): 
   })
 }
 
+/**
+ * Every mat of the event with nothing on it, given another look at its queue. A match that
+ * was blocked when its mat last advanced becomes runnable the moment the kid holding it up
+ * finishes elsewhere or the feeder it waits on fills it in, and nothing else would notice.
+ */
+export async function releaseIdleMats(db: DbLike, eventId: number, actor: AuditActor): Promise<void> {
+  const idle = await db.select({ id: mats.id }).from(mats)
+    .where(and(eq(mats.eventId, eventId), isNull(mats.currentMatchId))).all()
+  for (const mat of idle) await advanceMat(db, mat.id, actor)
+}
+
 export async function reopenMatch(db: DbLike, matchId: number): Promise<MatchRow> {
   return db.transaction(async tx => {
     const match = await loadMatch(tx, matchId)
@@ -102,6 +114,9 @@ export async function reopenMatch(db: DbLike, matchId: number): Promise<MatchRow
     if (!ev) throw new MatchStateError('event not found')
     if (ev.status === 'setup') throw new MatchStateError('start the event before reopening a match')
     if (match.status !== 'done') throw new MatchStateError('only a done match can be reopened')
+    // A bracket side this result filled goes back to empty, so the next end fills it with
+    // whoever wins this time. A dependent that has already run refuses the reopen outright.
+    await assertDependentsPending(tx, match.id)
     if (match.matId !== null) {
       const mat = await loadMat(tx, match.matId)
       if (mat.currentMatchId !== null && mat.currentMatchId !== match.id) {
@@ -115,6 +130,7 @@ export async function reopenMatch(db: DbLike, matchId: number): Promise<MatchRow
     }
     const seq = match.lastSeq + 1
     await tx.insert(matchEvents).values({ id: adminEventId(match.id, seq), matchId: match.id, seq, type: 'admin', payload: { kind: 'reopen' }, at: new Date().toISOString() }).run()
+    await clearDependents(tx, match.id)
     return recompute(tx, match.id)
   })
 }

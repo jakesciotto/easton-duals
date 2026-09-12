@@ -2,7 +2,8 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { DbLike } from '../db/client.js'
 import { events, matches, matchEvents, rulesets, type MatchRow, type MatchEventRow, type RulesetRow } from '../db/schema.js'
 import { deriveMatch, deriveOutcome, effectiveLengthMs } from './derive.js'
-import { EXTEND_MAX_MS, EXTEND_MIN_MS, type MatchResult } from '../shared/types.js'
+import { fillDependents } from './fill.js'
+import { EXTEND_MAX_MS, EXTEND_MIN_MS, type AuditActor, type MatchResult } from '../shared/types.js'
 
 export class SeqConflict extends Error {
   constructor(public readonly currentSeq: number) {
@@ -55,6 +56,8 @@ export interface EndInput {
   lastSeq: number
   winnerAthleteId?: number
   at?: string
+  /** Who the fill this end triggers is recorded under. The mat that ended it, usually. */
+  actor?: AuditActor
 }
 
 export interface ExtendInput {
@@ -249,7 +252,9 @@ export async function endMatch(db: DbLike, input: EndInput): Promise<AppendResul
     if (match.clockStartedAt) rows.push({ id: `${input.id}:pause`, matchId: match.id, seq: ++seq, type: 'clock_pause', at })
     rows.push({ id: input.id, matchId: match.id, seq: ++seq, type: 'end', athleteId: result.winnerAthleteId, payload: { kind: 'end', ...result }, at })
     await tx.insert(matchEvents).values(rows).run()
-    return { duplicate: false, match: await recompute(tx, match.id) }
+    const ended = await recompute(tx, match.id)
+    await fillDependents(tx, ended, input.actor ?? 'system')
+    return { duplicate: false, match: ended }
   })
 }
 

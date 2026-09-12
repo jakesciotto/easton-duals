@@ -3,6 +3,7 @@ import type { DbLike } from '../db/client.js'
 import { events, rulesets, mats, matches, matchEvents, type MatchRow } from '../db/schema.js'
 import { loadMatch, recompute, sidesOf, MatchStateError } from './events.js'
 import { advanceMat } from './mats.js'
+import { assertDependentsPending, fillDependents } from './fill.js'
 import { resolvePair } from './pairs.js'
 import { CERTIFIED_MESSAGE } from '../audit/certify.js'
 import type { WinType } from '../shared/types.js'
@@ -74,6 +75,11 @@ export async function enterResult(db: DbLike, matchId: number, input: EntryInput
     const wasDone = match.status === 'done'
     await assertEventOpen(tx, match.eventId, wasDone)
     if (input.winnerAthleteId !== match.athleteAId && input.winnerAthleteId !== match.athleteBId) throw new MatchStateError('athlete not in match')
+    // A correction that names the other kid changes who came out of this match, so every
+    // side it fed has to still be waiting. The check runs before anything is written, so a
+    // refusal leaves the result the board is showing exactly as it was.
+    const winnerMoved = wasDone && input.winnerAthleteId !== match.winnerAthleteId
+    if (winnerMoved) await assertDependentsPending(tx, matchId)
     const at = input.at ?? new Date().toISOString()
     if (match.status === 'pending') await tx.update(matches).set({ status: 'live' }).where(eq(matches.id, matchId)).run()
 
@@ -94,6 +100,9 @@ export async function enterResult(db: DbLike, matchId: number, input: EntryInput
     await tx.insert(matchEvents).values(rows).run()
 
     const updated = await recompute(tx, matchId)
+    // A first result hands the winner and the loser on. A correction only does so when it
+    // moved the winner: one that fixes the points alone leaves every side as it was.
+    if (!wasDone || winnerMoved) await fillDependents(tx, updated, 'desk')
     if (updated.matId !== null) {
       const mat = await tx.select().from(mats).where(eq(mats.id, updated.matId)).get()
       // Both entry routes attribute their own writes to 'desk', so the mat this result frees

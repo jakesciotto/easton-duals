@@ -10,6 +10,7 @@ import { eventDetail } from './events.js'
 import { bumpVersion } from '../match/events.js'
 import { createMatch } from '../match/create.js'
 import { resolvePair } from '../match/pairs.js'
+import { dependentsOf } from '../match/fill.js'
 import { pairWarnings } from '../matchmaker/propose.js'
 import { recordAudit, HISTORY_LIMIT } from '../audit/log.js'
 import { assertNotCertified } from '../audit/certify.js'
@@ -83,6 +84,9 @@ matchRoutes.patch('/matches/:matchId', requireAdmin, validate('json', patchSchem
   const body = c.req.valid('json')
   const update: Partial<typeof matches.$inferInsert> = {}
   if (body.athleteAId !== undefined || body.athleteBId !== undefined) {
+    // A division decides its own pairs, so a kid is changed by editing the division and
+    // generating it again. The mat, the order, the length and the style stay editable.
+    if (existing.divisionId !== null) return errorJson(c, 409, 'match_state', 'edit the division')
     const aId = body.athleteAId ?? existing.athleteAId
     const bId = body.athleteBId ?? existing.athleteBId
     if (aId === null || bId === null) return errorJson(c, 422, 'validation', 'a bracket side is filled by the match that feeds it')
@@ -118,6 +122,9 @@ matchRoutes.delete('/matches/:matchId', requireAdmin, async c => {
   if (!existing) return errorJson(c, 404, 'not_found', 'match not found')
   await assertNotCertified(db, existing.eventId)
   if (existing.status !== 'pending') return errorJson(c, 409, 'match_state', 'only a pending match can be deleted. End it from the Live tab, then edit the result.')
+  if (existing.divisionId !== null) return errorJson(c, 409, 'match_state', 'delete the division')
+  const dependents = await dependentsOf(db, id)
+  if (dependents.length > 0) return errorJson(c, 409, 'match_state', `M${dependents[0].number} feeds from this match`)
   await db.transaction(async tx => {
     await tx.update(mats).set({ currentMatchId: null }).where(eq(mats.currentMatchId, id)).run()
     await tx.delete(matches).where(eq(matches.id, id)).run()

@@ -222,7 +222,7 @@ scoringRoutes.post('/matches/:matchId/end', requireMatOrAdmin(matIdFromMatch), v
     // is real visible state, and a version pinned to the duplicate flag would hide it from
     // every poller. A spurious bump costs one snapshot rebuild.
     const r = await db.transaction(async tx => {
-      const ended = await endMatch(tx, { ...c.req.valid('json'), matchId })
+      const ended = await endMatch(tx, { ...c.req.valid('json'), matchId, actor })
       if (!ended.duplicate) {
         await recordAudit(tx, {
           eventId: ended.match.eventId, matchId, actor, action: 'end',
