@@ -32,8 +32,8 @@ const detail: EventDetail = {
   matches: [], candidateCount: 0,
 }
 
-function mount(opts: { start?: number; onOpenChange?: (o: boolean) => void } = {}) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function mount(opts: { start?: number; onOpenChange?: (o: boolean) => void; qc?: QueryClient } = {}) {
+  const qc = opts.qc ?? new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
       <AddMatchDialog detail={detail} start={opts.start ?? null} open onOpenChange={opts.onOpenChange ?? (() => {})} />
@@ -115,6 +115,21 @@ describe('AddMatchDialog', () => {
     expect(await within(dialog).findByText('4 weight classes apart')).toBeInTheDocument()
     expect(within(dialog).getByText('Already met')).toBeInTheDocument()
     expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  // A designed match deletes the drafts holding either kid on the server, so the draft
+  // list the Matches tab reads must refetch with the event.
+  it('invalidates the drafts after a match is created', async () => {
+    fakeFetch(() => ({ status: 201, json: { warnings: [] } }))
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidated = vi.spyOn(qc, 'invalidateQueries')
+    mount({ qc })
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    await pick(dialog, 'First competitor', /Mateo Rivera/)
+    await pick(dialog, 'Second competitor', /Olivia Kim/)
+    await user.click(within(dialog).getByRole('button', { name: 'Add match' }))
+    await vi.waitFor(() => expect(invalidated).toHaveBeenCalledWith({ queryKey: ['proposals', 7] }))
   })
 
   it('closes on a pairing the server had nothing to say about', async () => {

@@ -39,8 +39,7 @@ const placed: EventDetail = {
   }],
 }
 
-function mount(d: EventDetail = detail) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function mount(d: EventDetail = detail, qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   render(<QueryClientProvider client={qc}><RosterTab detail={d} /></QueryClientProvider>)
 }
 
@@ -616,6 +615,22 @@ describe('RosterTab, Create match', () => {
     expect(f.body(i)).toEqual({ athleteAId: 100, athleteBId: 200 })
     expect(await screen.findByText('Match created.')).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Selection' })).not.toBeInTheDocument()
+  })
+
+  // A designed match deletes the drafts holding either kid on the server, so the draft
+  // list the Matches tab reads must refetch with the event.
+  it('invalidates the drafts after a match is created', async () => {
+    fakeFetch((url, init) => {
+      if (url === '/api/events/7/matches' && init?.method === 'POST') return { status: 201, json: { warnings: [] } }
+      return { json: [] }
+    })
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidated = vi.spyOn(qc, 'invalidateQueries')
+    mount(detail, qc)
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    await user.click(screen.getByRole('button', { name: 'Create match' }))
+    await vi.waitFor(() => expect(invalidated).toHaveBeenCalledWith({ queryKey: ['proposals', 7] }))
   })
 
   it('renders the warnings in the message slot, prefixed by the pair names', async () => {

@@ -93,7 +93,7 @@ describe('confirming', () => {
     expect((await call(app, 'POST', `/api/proposals/${made.body[0].id}/confirm`)).status).toBe(401)
   })
 
-  it('drops the draft when a hand-designed match claims the kid, so confirming it 404s', async () => {
+  it('drops both drafts when a hand-designed match claims their kids, so confirming either 404s', async () => {
     const { app, db, adminToken, s, id } = await pool(THREE)
     const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
     // The pool moved on under the draft: the organizer added this pair by hand, which

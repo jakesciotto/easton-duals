@@ -82,7 +82,9 @@ export function AddMatchDialog({ detail, start, open, onOpenChange }: {
   // What the server said about the pair it just accepted. A warning never blocks a save,
   // so it is reported after the write rather than instead of it.
   const [warnings, setWarnings] = useState<string[]>([])
-  const create = useAdminMutation(detail.event.id, (body: unknown) => adminApi<CreateResult>(`/api/events/${detail.event.id}/matches`, { method: 'POST', body }))
+  // A hand-designed match can drop a proposal on either competitor, so this write
+  // invalidates the draft list the same way propose, confirm and swap already do.
+  const create = useAdminMutation(detail.event.id, (body: unknown) => adminApi<CreateResult>(`/api/events/${detail.event.id}/matches`, { method: 'POST', body }), { proposals: true })
 
   // Opening the dialog is the only thing that resets the form, so the deps stay at the
   // two facts the caller controls: a later edit to the roster or the rulesets must not

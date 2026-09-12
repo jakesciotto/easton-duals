@@ -42,8 +42,10 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   const remove = useAdminMutation(eventId, (id: number) => adminApi(`/api/athletes/${id}`, { method: 'DELETE' }))
   const confirm = useAdminMutation(eventId, (v: { id: number; wlUid: string }) => adminApi(`/api/athletes/${v.id}/link`, { method: 'POST', body: { wlUid: v.wlUid } }))
   const dismiss = useAdminMutation(eventId, (v: { id: number; wlUid: string }) => adminApi(`/api/athletes/${v.id}/dismiss`, { method: 'POST', body: { wlUid: v.wlUid } }))
+  // A hand-designed match can drop a proposal on either competitor, so this write
+  // invalidates the draft list the same way propose, confirm and swap already do.
   const createMatch = useAdminMutation(eventId, (v: { athleteAId: number; athleteBId: number }) =>
-    adminApi<{ warnings?: string[] }>(`/api/events/${eventId}/matches`, { method: 'POST', body: v }))
+    adminApi<{ warnings?: string[] }>(`/api/events/${eventId}/matches`, { method: 'POST', body: v }), { proposals: true })
 
   // A suggestion is stored as a uid, and the name behind it lives in the pool the sync
   // cached. The key is the uids themselves, so a sync that replaces the pool reads the new
