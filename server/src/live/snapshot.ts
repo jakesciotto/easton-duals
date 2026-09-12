@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import type { DbLike } from '../db/client.js'
 import { events, teams, athletes, rulesets, mats, matches, type MatchRow, type AthleteRow, type EventRow } from '../db/schema.js'
-import { ON_DECK_DEPTH, type Snapshot, type MatchView, type MatchSide, type MatView, type TeamView, type TeamColor, type EventContact } from '../shared/types.js'
+import { ON_DECK_DEPTH, type Snapshot, type MatchView, type MatchSide, type MatView, type TeamView, type TeamColor, type EventContact, type Feed, type FeedTake } from '../shared/types.js'
 import { rankTeams } from '../shared/leaderboard.js'
 import { MatchStateError, endedAtByMatch } from '../match/events.js'
 import { effectiveLengthMs } from '../match/derive.js'
@@ -37,21 +37,45 @@ export function eventContact(ev: Pick<EventRow, 'contactName' | 'contactPhone'>)
   return name && phone ? { name, phone } : null
 }
 
-export function toMatchView(m: MatchRow, athleteById: Map<number, AthleteRow>, endedAt: string | null, names: NameForm = 'public'): MatchView {
+/** "Winner of M7" or "Loser of M7", which is all an empty side has to print. */
+export function feedLabel(feed: Feed): string {
+  return `${feed.take === 'winner' ? 'Winner' : 'Loser'} of M${feed.matchNumber}`
+}
+
+/**
+ * `numberOf` turns a feeder's match id into the number every surface prints. A caller
+ * that cannot reach the feeder answers null, and the side falls back to 'Unknown' rather
+ * than naming a match nobody can look up.
+ */
+export function toMatchView(
+  m: MatchRow,
+  athleteById: Map<number, AthleteRow>,
+  endedAt: string | null,
+  names: NameForm = 'public',
+  numberOf: (matchId: number) => number | null = () => null,
+): MatchView {
   const lengthMs = effectiveLengthMs(m)
-  const side = (id: number, score: number): MatchSide => {
-    const a = athleteById.get(id)
+  const feedOf = (matchId: number | null, take: FeedTake | null): Feed | null => {
+    if (matchId === null || take === null) return null
+    const matchNumber = numberOf(matchId)
+    return matchNumber === null ? null : { matchId, matchNumber, take }
+  }
+  const side = (id: number | null, score: number, feed: Feed | null): MatchSide => {
+    const a = id === null ? undefined : athleteById.get(id)
     return {
       athleteId: id,
-      name: a ? (names === 'full' ? `${a.firstName} ${a.lastName}` : publicName(a.firstName, a.lastName)) : 'Unknown',
+      name: a ? (names === 'full' ? `${a.firstName} ${a.lastName}` : publicName(a.firstName, a.lastName))
+        : feed && id === null ? feedLabel(feed) : 'Unknown',
       teamId: a?.teamId ?? null,
       belt: a?.belt ?? null,
       weightLbs: a?.weightLbs ?? null,
       score,
+      feed,
     }
   }
   return {
     id: m.id,
+    number: m.number,
     orderIndex: m.orderIndex,
     matId: m.matId,
     status: m.status,
@@ -59,8 +83,11 @@ export function toMatchView(m: MatchRow, athleteById: Map<number, AthleteRow>, e
     lengthSec: Math.round(lengthMs / 1000),
     why: m.why,
     source: m.source,
-    a: side(m.athleteAId, m.pointsA),
-    b: side(m.athleteBId, m.pointsB),
+    style: m.style,
+    divisionId: m.divisionId,
+    round: m.round,
+    a: side(m.athleteAId, m.pointsA, feedOf(m.feedAMatchId, m.feedATake)),
+    b: side(m.athleteBId, m.pointsB, feedOf(m.feedBMatchId, m.feedBTake)),
     clock: { elapsedMs: m.clockElapsedMs, startedAt: m.clockStartedAt, lengthMs },
     result: m.winnerAthleteId !== null && m.winType !== null ? { winnerAthleteId: m.winnerAthleteId, winType: m.winType } : null,
     pendingTerminal: m.pendingTerminalAthleteId !== null && m.pendingTerminalKey !== null
@@ -81,7 +108,9 @@ export async function buildSnapshot(db: DbLike, eventId: number, opts: SnapshotO
   const matRows = await db.select().from(mats).where(eq(mats.eventId, eventId)).orderBy(asc(mats.number)).all()
   const matchRows = await db.select().from(matches).where(eq(matches.eventId, eventId)).orderBy(asc(matches.orderIndex), asc(matches.id)).all()
   const endedAtById = await endedAtByMatch(db, matchRows.map(m => m.id))
-  const views = matchRows.map(m => toMatchView(m, athleteById, endedAtById.get(m.id) ?? null, opts.names ?? 'public'))
+  const numberById = new Map(matchRows.map(m => [m.id, m.number]))
+  const numberOf = (matchId: number) => numberById.get(matchId) ?? null
+  const views = matchRows.map(m => toMatchView(m, athleteById, endedAtById.get(m.id) ?? null, opts.names ?? 'public', numberOf))
 
   const tally = new Map<number, { wins: number; points: number }>(teamRows.map(t => [t.id, { wins: 0, points: 0 }]))
   const add = (teamId: number | null, wins: number, points: number) => {

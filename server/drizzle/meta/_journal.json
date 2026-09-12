@@ -85,6 +85,13 @@
       "when": 1789146990595,
       "tag": "0011_multi_team",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1789249269086,
+      "tag": "0012_match_progression",
+      "breakpoints": true
     }
   ]
 }

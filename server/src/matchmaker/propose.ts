@@ -153,7 +153,7 @@ export async function proposeMatches(db: DbLike, eventId: number): Promise<Propo
     // A kid with an unfought match is spoken for. One whose matches have all settled is
     // free again, but never against the same opponent twice.
     const busy = new Set(matchRows.filter(m => isUnfought(m.status)).flatMap(m => [m.a, m.b]))
-    const met = new Set(matchRows.map(m => pairKey(m.a, m.b)))
+    const met = new Set(matchRows.flatMap(m => m.a === null || m.b === null ? [] : [pairKey(m.a, m.b)]))
 
     const free = roster.filter(k =>
       k.teamId !== null && positionOf.has(k.teamId) && k.age !== null && k.weightLbs !== null && !busy.has(k.id))

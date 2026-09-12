@@ -14,10 +14,23 @@ export type EventStatus = 'setup' | 'live' | 'done' | 'certified'
 export type EventMode = 'live' | 'entry'
 /**
  * Where a match came from. 'proposed' is a proposal the organizer confirmed; 'designed'
- * is a pair a person picked in the Add match dialog. Every row written before the
- * proposer existed reads 'designed'.
+ * is a pair a person picked in the Add match dialog; 'generated' is one match of a
+ * division. Every row written before the proposer existed reads 'designed'.
  */
-export type MatchSource = 'designed' | 'proposed'
+export type MatchSource = 'designed' | 'proposed' | 'generated'
+
+/** Every match is one or the other. Rows written before divisions existed read gi. */
+export type Style = 'gi' | 'nogi'
+export type DivisionFormat = 'round_robin' | 'single_elim' | 'double_elim'
+/** What a division runs. 'both' generates two independent sets, gi first. */
+export type DivisionStyles = 'gi' | 'nogi' | 'both'
+/** Which side of a finished match fills an empty side of a later one. */
+export type FeedTake = 'winner' | 'loser'
+
+// How many kids a format takes. Round robin grows quadratically, so it stops at ten; the
+// brackets stop at sixteen, which is four rounds. Double elimination needs three, because
+// two kids meeting twice is not a bracket.
+export const DIVISION_LIMITS = { round_robin: [2, 10], single_elim: [2, 16], double_elim: [3, 16] } as const
 export type MatchEventType = 'score' | 'set_score' | 'clock_start' | 'clock_pause' | 'clock_extend' | 'terminal' | 'end' | 'admin'
 
 export interface RulesetAction { key: string; label: string; points: number }
@@ -120,17 +133,27 @@ export interface Proposal {
   b: ProposalSide
 }
 
+/** Where an empty side's kid comes from: the winner or the loser of an earlier match. */
+export interface Feed { matchId: number; matchNumber: number; take: FeedTake }
+
+/**
+ * A side of a match. `athleteId` is null while a bracket side waits on its feeder, and
+ * `name` then reads "Winner of M7" or "Loser of M7" so every surface has a line to print.
+ * A filled side keeps its `feed`, because that is where the kid came from.
+ */
 export interface MatchSide {
-  athleteId: number
+  athleteId: number | null
   name: string
   teamId: number | null
   belt: string | null
   weightLbs: number | null
   score: number
+  feed: Feed | null
 }
 
 export interface MatchView {
   id: number
+  number: number
   orderIndex: number
   matId: number | null
   status: MatchStatus
@@ -138,6 +161,9 @@ export interface MatchView {
   lengthSec: number
   why: string | null
   source: MatchSource
+  style: Style
+  divisionId: number | null
+  round: number | null
   a: MatchSide
   b: MatchSide
   clock: ClockState

@@ -1,5 +1,5 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex, primaryKey } from 'drizzle-orm/sqlite-core'
-import type { RulesetAction, RulesetTerminal, MatchEventPayload, AuditAction, AuditActor, AuditDetail, MatchSource, SyncChanges } from '../shared/types.js'
+import { sqliteTable, text, integer, real, index, uniqueIndex, primaryKey, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core'
+import type { RulesetAction, RulesetTerminal, MatchEventPayload, AuditAction, AuditActor, AuditDetail, MatchSource, SyncChanges, DivisionFormat, DivisionStyles, FeedTake, Style } from '../shared/types.js'
 
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
@@ -116,10 +116,34 @@ export const mats = sqliteTable('mats', {
   bindEpoch: integer('bind_epoch').notNull().default(0),
 }, t => [uniqueIndex('mats_event_number_idx').on(t.eventId, t.number)])
 
+// A named set of kids across teams that runs one format. Its matches are generated from
+// its members and regenerated whole whenever the set changes, so nothing here is edited
+// match by match.
+export const divisions = sqliteTable('divisions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  eventId: integer('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  format: text('format', { enum: ['round_robin', 'single_elim', 'double_elim'] }).$type<DivisionFormat>().notNull(),
+  styles: text('styles', { enum: ['gi', 'nogi', 'both'] }).$type<DivisionStyles>().notNull(),
+  position: integer('position').notNull(),
+  createdAt: text('created_at').notNull(),
+}, t => [index('divisions_event_idx').on(t.eventId)])
+
+// Seeding is the listed order, so the seed is stored rather than derived: reordering the
+// members is the whole of what "Seed by rating" and a drag do.
+export const divisionMembers = sqliteTable('division_members', {
+  divisionId: integer('division_id').notNull().references(() => divisions.id, { onDelete: 'cascade' }),
+  athleteId: integer('athlete_id').notNull().references(() => athletes.id, { onDelete: 'cascade' }),
+  seed: integer('seed').notNull(),
+}, t => [primaryKey({ columns: [t.divisionId, t.athleteId] })])
+
 export const matches = sqliteTable('matches', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   eventId: integer('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   matId: integer('mat_id').references(() => mats.id, { onDelete: 'set null' }),
+  // Stable for the life of the match and printed as M12 everywhere. The order index moves
+  // whenever the day is reordered, so it cannot be what a person calls a match.
+  number: integer('number').notNull(),
   orderIndex: integer('order_index').notNull(),
   rulesetId: integer('ruleset_id').notNull().references(() => rulesets.id),
   lengthSec: integer('length_sec').notNull(),
@@ -127,8 +151,14 @@ export const matches = sqliteTable('matches', {
   // read on every poll and by the expiry sweep, which never load the event log. lengthSec
   // stays the designed length so a recompute can rebuild this from the log alone.
   extensionMs: integer('extension_ms').notNull().default(0),
-  athleteAId: integer('athlete_a_id').notNull().references(() => athletes.id),
-  athleteBId: integer('athlete_b_id').notNull().references(() => athletes.id),
+  // Null only while a bracket side waits on its feeder. The server fills it inside the
+  // transaction that ends the feeder, and a mat never starts a match with an empty side.
+  athleteAId: integer('athlete_a_id').references(() => athletes.id),
+  athleteBId: integer('athlete_b_id').references(() => athletes.id),
+  feedAMatchId: integer('feed_a_match_id').references((): AnySQLiteColumn => matches.id, { onDelete: 'set null' }),
+  feedATake: text('feed_a_take', { enum: ['winner', 'loser'] }).$type<FeedTake>(),
+  feedBMatchId: integer('feed_b_match_id').references((): AnySQLiteColumn => matches.id, { onDelete: 'set null' }),
+  feedBTake: text('feed_b_take', { enum: ['winner', 'loser'] }).$type<FeedTake>(),
   status: text('status', { enum: ['pending', 'live', 'done'] }).notNull().default('pending'),
   winnerAthleteId: integer('winner_athlete_id'),
   winType: text('win_type', { enum: ['submission', 'points', 'decision'] }),
@@ -140,12 +170,18 @@ export const matches = sqliteTable('matches', {
   pendingTerminalKey: text('pending_terminal_key'),
   lastSeq: integer('last_seq').notNull().default(0),
   why: text('why'),
-  // Where the pairing came from: the proposer, or a person in the Add match dialog.
-  // Rows written before 0011 were all designed by hand or by the retired generator.
-  source: text('source', { enum: ['designed', 'proposed'] }).$type<MatchSource>().notNull().default('designed'),
+  style: text('style', { enum: ['gi', 'nogi'] }).$type<Style>().notNull().default('gi'),
+  divisionId: integer('division_id').references(() => divisions.id, { onDelete: 'cascade' }),
+  // The division's own round, 1 at the first. Null for a pair and for round robin.
+  round: integer('round'),
+  // Where the pairing came from: the proposer, a person in the Add match dialog, or a
+  // division. Rows written before 0011 were all designed by hand or by the retired
+  // generator.
+  source: text('source', { enum: ['designed', 'proposed', 'generated'] }).$type<MatchSource>().notNull().default('designed'),
 }, t => [
   index('matches_event_order_idx').on(t.eventId, t.orderIndex),
   index('matches_mat_idx').on(t.matId),
+  uniqueIndex('matches_event_number_idx').on(t.eventId, t.number),
 ])
 
 // A draft pairing the organizer has not confirmed. Nothing here reaches the board: a
@@ -158,6 +194,7 @@ export const proposals = sqliteTable('proposals', {
   athleteBId: integer('athlete_b_id').notNull().references(() => athletes.id, { onDelete: 'cascade' }),
   cost: real('cost').notNull(),
   why: text('why').notNull(),
+  style: text('style', { enum: ['gi', 'nogi'] }).$type<Style>().notNull().default('gi'),
   createdAt: text('created_at').notNull(),
 }, t => [index('proposals_event_idx').on(t.eventId)])
 
@@ -201,6 +238,8 @@ export type AthleteRow = typeof athletes.$inferSelect
 export type RosterCandidateRow = typeof rosterCandidates.$inferSelect
 export type RulesetRow = typeof rulesets.$inferSelect
 export type MatRow = typeof mats.$inferSelect
+export type DivisionRow = typeof divisions.$inferSelect
+export type DivisionMemberRow = typeof divisionMembers.$inferSelect
 export type MatchRow = typeof matches.$inferSelect
 export type ProposalRow = typeof proposals.$inferSelect
 export type MatchEventRow = typeof matchEvents.$inferSelect

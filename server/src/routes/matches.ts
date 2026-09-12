@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { and, asc, eq, inArray, or } from 'drizzle-orm'
 import type { Env } from '../context.js'
-import { auditLog, events, rulesets, mats, matches, proposals } from '../db/schema.js'
+import type { DbLike } from '../db/client.js'
+import { auditLog, events, rulesets, mats, matches, proposals, type MatchRow } from '../db/schema.js'
 import { validate } from '../lib/validate.js'
 import { errorJson, requireAdmin } from '../auth/middleware.js'
 import { eventDetail } from './events.js'
@@ -23,6 +24,13 @@ const createSchema = z.object({
   matId: z.number().int().nullable().optional(),
 })
 const patchSchema = createSchema.partial()
+
+// A bracket match has nothing to warn about until both of its sides are filled, and the
+// pair it ends up with was never anybody's choice.
+const matchWarnings = async (db: DbLike, m: MatchRow) =>
+  m.athleteAId === null || m.athleteBId === null
+    ? []
+    : pairWarnings(db, m.eventId, m.athleteAId, m.athleteBId, { exceptMatchId: m.id })
 
 export const matchRoutes = new Hono<Env>()
 
@@ -49,12 +57,10 @@ matchRoutes.post('/events/:eventId/matches', requireAdmin, validate('json', crea
   let removedProposals = 0
   const created = await createMatch(db, { eventId, ...body, source: 'designed' }, {
     also: async (tx, match) => {
+      const sides = [match.athleteAId, match.athleteBId].filter((id): id is number => id !== null)
       const stale = await tx.select({ id: proposals.id }).from(proposals).where(and(
         eq(proposals.eventId, eventId),
-        or(
-          inArray(proposals.athleteAId, [match.athleteAId, match.athleteBId]),
-          inArray(proposals.athleteBId, [match.athleteAId, match.athleteBId]),
-        ),
+        or(inArray(proposals.athleteAId, sides), inArray(proposals.athleteBId, sides)),
       )).all()
       if (stale.length > 0) await tx.delete(proposals).where(inArray(proposals.id, stale.map(p => p.id))).run()
       removedProposals = stale.length
@@ -63,7 +69,7 @@ matchRoutes.post('/events/:eventId/matches', requireAdmin, validate('json', crea
   if (!created.ok) return errorJson(c, created.code === 'match_state' ? 409 : 422, created.code, created.message)
   // A pair a person picked is never refused for being odd, only reported back, because the
   // organizer knows things the roster does not.
-  const warnings = await pairWarnings(db, eventId, created.match.athleteAId, created.match.athleteBId, { exceptMatchId: created.match.id })
+  const warnings = await matchWarnings(db, created.match)
   return c.json({ ...created.match, warnings, removedProposals }, 201)
 })
 
@@ -77,7 +83,10 @@ matchRoutes.patch('/matches/:matchId', requireAdmin, validate('json', patchSchem
   const body = c.req.valid('json')
   const update: Partial<typeof matches.$inferInsert> = {}
   if (body.athleteAId !== undefined || body.athleteBId !== undefined) {
-    const pair = await resolvePair(db, existing.eventId, body.athleteAId ?? existing.athleteAId, body.athleteBId ?? existing.athleteBId)
+    const aId = body.athleteAId ?? existing.athleteAId
+    const bId = body.athleteBId ?? existing.athleteBId
+    if (aId === null || bId === null) return errorJson(c, 422, 'validation', 'a bracket side is filled by the match that feeds it')
+    const pair = await resolvePair(db, existing.eventId, aId, bId)
     if (typeof pair === 'string') return errorJson(c, 422, 'validation', pair)
     update.athleteAId = pair.a
     update.athleteBId = pair.b
@@ -99,8 +108,7 @@ matchRoutes.patch('/matches/:matchId', requireAdmin, validate('json', patchSchem
     await bumpVersion(tx, existing.eventId)
   })
   const row = (await db.select().from(matches).where(eq(matches.id, id)).get())!
-  const warnings = await pairWarnings(db, existing.eventId, row.athleteAId, row.athleteBId, { exceptMatchId: id })
-  return c.json({ ...row, warnings })
+  return c.json({ ...row, warnings: await matchWarnings(db, row) })
 })
 
 matchRoutes.delete('/matches/:matchId', requireAdmin, async c => {

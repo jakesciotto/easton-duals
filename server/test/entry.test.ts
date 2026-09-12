@@ -88,7 +88,7 @@ describe('createEntry', () => {
     const db = await freshDb()
     const s = await seedEvent(db, { matCount: 1, live: true, matches: 1 })
     const extra = await db.insert(matches).values({
-      eventId: s.eventId, matId: null, orderIndex: 5, rulesetId: s.rulesetId,
+      eventId: s.eventId, matId: null, number: 5, orderIndex: 5, rulesetId: s.rulesetId,
       lengthSec: 300, athleteAId: s.a1, athleteBId: s.b1,
     }).returning().get()
     const r = await createEntry(db, s.eventId, { entryId: 'entry-0002', athleteAId: s.a1, athleteBId: s.b1, pointsA: 2, pointsB: 0, winnerAthleteId: s.a1, winType: 'points' })

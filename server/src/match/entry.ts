@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import type { DbLike } from '../db/client.js'
 import { events, rulesets, mats, matches, matchEvents, type MatchRow } from '../db/schema.js'
-import { loadMatch, recompute, MatchStateError } from './events.js'
+import { loadMatch, recompute, sidesOf, MatchStateError } from './events.js'
 import { advanceMat } from './mats.js'
 import { resolvePair } from './pairs.js'
 import { CERTIFIED_MESSAGE } from '../audit/certify.js'
@@ -83,9 +83,10 @@ export async function enterResult(db: DbLike, matchId: number, input: EntryInput
       const s = ++seq
       rows.push({ id: rows.length === 0 ? entryKey(input.entryId) : `${entryKey(input.entryId)}:${s}`, matchId, seq: s, at, ...row })
     }
+    const sides = sidesOf(match)
     if (match.clockStartedAt) push({ type: 'clock_pause' })
-    push({ type: 'set_score', athleteId: match.athleteAId, points: input.pointsA })
-    push({ type: 'set_score', athleteId: match.athleteBId, points: input.pointsB })
+    push({ type: 'set_score', athleteId: sides.a, points: input.pointsA })
+    push({ type: 'set_score', athleteId: sides.b, points: input.pointsB })
     const result = { winnerAthleteId: input.winnerAthleteId, winType: input.winType }
     const reason = input.reason ? { reason: input.reason } : {}
     if (wasDone) push({ type: 'admin', athleteId: result.winnerAthleteId, payload: { kind: 'edit_result', ...result, ...reason } })
@@ -138,10 +139,13 @@ export async function createEntry(db: DbLike, eventId: number, input: CreateEntr
         ? await tx.select().from(rulesets).where(and(eq(rulesets.id, input.rulesetId), eq(rulesets.eventId, eventId))).get()
         : await tx.select().from(rulesets).where(eq(rulesets.eventId, eventId)).orderBy(asc(rulesets.id)).get()
       if (!ruleset) throw new MatchStateError('ruleset not found')
-      const max = await tx.select({ m: sql<number>`coalesce(max(${matches.orderIndex}), -1)` }).from(matches).where(eq(matches.eventId, eventId)).get()
+      const max = await tx.select({
+        order: sql<number>`coalesce(max(${matches.orderIndex}), -1)`,
+        number: sql<number>`coalesce(max(${matches.number}), 0)`,
+      }).from(matches).where(eq(matches.eventId, eventId)).get()
       matchId = (await tx.insert(matches).values({
         eventId, athleteAId: pair.a, athleteBId: pair.b, rulesetId: ruleset.id, lengthSec: ruleset.defaultLengthSec,
-        matId: null, orderIndex: (max?.m ?? -1) + 1, why: 'entered by hand',
+        matId: null, number: (max?.number ?? 0) + 1, orderIndex: (max?.order ?? -1) + 1, why: 'entered by hand',
       }).returning().get()).id
     }
     return { ...await enterResult(tx, matchId, input), created: existing === undefined }

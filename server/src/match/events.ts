@@ -104,9 +104,20 @@ export async function loadRuleset(db: DbLike, rulesetId: number): Promise<Rulese
   return row
 }
 
+/**
+ * The two kids, or a refusal. A bracket side stays empty until its feeder ends, and
+ * nothing scores a match in that state: a mat never loads one and the desk has no pair to
+ * name a winner from.
+ */
+export function sidesOf(match: MatchRow): { a: number; b: number } {
+  if (match.athleteAId === null || match.athleteBId === null) throw new MatchStateError(`M${match.number} is waiting on a feed`)
+  return { a: match.athleteAId, b: match.athleteBId }
+}
+
 export async function recompute(db: DbLike, matchId: number): Promise<MatchRow> {
   const match = await loadMatch(db, matchId)
-  const d = deriveMatch(await loadEvents(db, matchId), match.athleteAId, match.athleteBId, match.lengthSec * 1000)
+  const sides = sidesOf(match)
+  const d = deriveMatch(await loadEvents(db, matchId), sides.a, sides.b, match.lengthSec * 1000)
   const status = d.result ? 'done' : match.status === 'pending' ? 'pending' : 'live'
   await db.update(matches).set({
     pointsA: d.scoreA,
@@ -211,8 +222,9 @@ export async function endMatch(db: DbLike, input: EndInput): Promise<AppendResul
     if ('duplicate' in g) return g.duplicate
     const match = g.match
     const at = input.at ?? new Date().toISOString()
-    const d = deriveMatch(await loadEvents(tx, match.id), match.athleteAId, match.athleteBId, match.lengthSec * 1000)
-    const outcome = deriveOutcome(d, match.athleteAId, match.athleteBId, (await loadRuleset(tx, match.rulesetId)).terminals)
+    const sides = sidesOf(match)
+    const d = deriveMatch(await loadEvents(tx, match.id), sides.a, sides.b, match.lengthSec * 1000)
+    const outcome = deriveOutcome(d, sides.a, sides.b, (await loadRuleset(tx, match.rulesetId)).terminals)
     let result: MatchResult
     if (outcome.kind === 'decided') {
       result = { winnerAthleteId: outcome.winnerAthleteId, winType: outcome.winType }

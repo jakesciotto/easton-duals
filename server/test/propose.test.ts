@@ -146,7 +146,7 @@ describe('proposeMatches', () => {
       { name: 'Kai', team: 'C' },
     ])
     const match = await db.insert(matches).values({
-      eventId: s.eventId, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300, status: 'live',
+      eventId: s.eventId, number: 1, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300, status: 'live',
       athleteAId: id('Ines'), athleteBId: id('Kai'),
     }).returning().get()
     expect(await proposeMatches(db, s.eventId)).toEqual([])
@@ -163,7 +163,7 @@ describe('proposeMatches', () => {
       { name: 'Kai', team: 'C' },
     ])
     const match = await db.insert(matches).values({
-      eventId: s.eventId, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300,
+      eventId: s.eventId, number: 1, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300,
       athleteAId: id('Ines'), athleteBId: id('Kai'),
     }).returning().get()
     expect(await proposeMatches(db, s.eventId)).toEqual([])
@@ -180,7 +180,7 @@ describe('proposeMatches', () => {
       { name: 'Bruno', team: 'B' },
     ])
     await db.insert(matches).values({
-      eventId: s.eventId, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300, status: 'done',
+      eventId: s.eventId, number: 1, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300, status: 'done',
       athleteAId: id('Bruno'), athleteBId: id('Ines'),
     }).run()
     expect(await proposeMatches(db, s.eventId)).toEqual([])

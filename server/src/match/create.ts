@@ -59,17 +59,21 @@ export async function createMatch(
     && !await db.select({ id: mats.id }).from(mats).where(and(eq(mats.id, input.matId), eq(mats.eventId, eventId))).get()) {
     return { ok: false, code: 'validation', message: 'mat is not on this event' }
   }
-  const max = await db.select({ m: sql<number>`coalesce(max(${matches.orderIndex}), -1)` }).from(matches).where(eq(matches.eventId, eventId)).get()
   const matId = input.matId === undefined ? await leastLoadedMat(db, eventId) : input.matId
   try {
     const match = await db.transaction(async tx => {
       const refusal = await hooks.guard?.(tx)
       if (refusal) throw new GuardRefused(refusal)
+      const max = await tx.select({
+        order: sql<number>`coalesce(max(${matches.orderIndex}), -1)`,
+        number: sql<number>`coalesce(max(${matches.number}), 0)`,
+      }).from(matches).where(eq(matches.eventId, eventId)).get()
       const inserted = await tx.insert(matches).values({
         eventId, athleteAId: pair.a, athleteBId: pair.b, rulesetId: ruleset.id,
         lengthSec: input.lengthSec ?? ruleset.defaultLengthSec,
         matId,
-        orderIndex: (max?.m ?? -1) + 1,
+        number: (max?.number ?? 0) + 1,
+        orderIndex: (max?.order ?? -1) + 1,
         source: input.source,
       }).returning().get()
       // An idle mat has nothing to advance it, so on a live event scored on the mats the

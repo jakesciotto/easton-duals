@@ -70,7 +70,7 @@ export async function seedEvent(db: Db, opts: { matCount?: number; live?: boolea
   const count = Math.min(opts.matches ?? 2, 2)
   const pairs = [[kids[0].id, kids[2].id], [kids[1].id, kids[3].id]]
   const matchRows = count === 0 ? [] : await db.insert(matches).values(pairs.slice(0, count).map(([a, b], i) => ({
-    eventId: ev.id, matId: matRows[i % matRows.length].id, orderIndex: i, rulesetId: rs.id,
+    eventId: ev.id, matId: matRows[i % matRows.length].id, number: i + 1, orderIndex: i, rulesetId: rs.id,
     lengthSec: DEFAULT_LENGTH_SEC, athleteAId: a, athleteBId: b,
   }))).returning().all()
   if (opts.live) {

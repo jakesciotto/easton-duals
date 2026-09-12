@@ -61,7 +61,7 @@ describe('migration 0011 adds proposals and the match source', () => {
       await db.run(sql`insert into proposals
         (id, event_id, athlete_a_id, athlete_b_id, cost, why, created_at)
         values (1, 1, 1, 2, 2.5, 'same class, 1 year apart', '2026-10-03T15:30:00.000Z')`)
-      expect(await db.get<Record<string, unknown>>(sql`select * from proposals where id = 1`)).toEqual({
+      expect(await db.get<Record<string, unknown>>(sql`select id, event_id, athlete_a_id, athlete_b_id, cost, why, created_at from proposals where id = 1`)).toEqual({
         id: 1, event_id: 1, athlete_a_id: 1, athlete_b_id: 2, cost: 2.5,
         why: 'same class, 1 year apart', created_at: '2026-10-03T15:30:00.000Z',
       })

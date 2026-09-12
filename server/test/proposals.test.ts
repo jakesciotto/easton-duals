@@ -31,7 +31,7 @@ const THREE: Kid[] = [
 
 async function pending(db: Db, eventId: number, rulesetId: number, aId: number, bId: number) {
   await db.insert(matches).values({
-    eventId, orderIndex: 99, rulesetId, lengthSec: 300, athleteAId: aId, athleteBId: bId,
+    eventId, number: 99, orderIndex: 99, rulesetId, lengthSec: 300, athleteAId: aId, athleteBId: bId,
   }).run()
 }
 
@@ -141,7 +141,7 @@ describe('confirming', () => {
     expect(made.body).toHaveLength(2)
     // Ines is on a mat right now. Her draft is stale until that match settles.
     await db.insert(matches).values({
-      eventId: s.eventId, matId: s.matIds[0], orderIndex: 40, rulesetId: s.rulesetId, lengthSec: 300,
+      eventId: s.eventId, matId: s.matIds[0], number: 40, orderIndex: 40, rulesetId: s.rulesetId, lengthSec: 300,
       status: 'live', athleteAId: id('Ines'), athleteBId: id('Kai'),
     }).run()
 
@@ -199,7 +199,7 @@ describe('swapping a kid into a draft', () => {
     ])
     const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
     await db.insert(matches).values({
-      eventId: s.eventId, orderIndex: 50, rulesetId: s.rulesetId, lengthSec: 300, status: 'done',
+      eventId: s.eventId, number: 50, orderIndex: 50, rulesetId: s.rulesetId, lengthSec: 300, status: 'done',
       athleteAId: id('Ines'), athleteBId: id('Kai'),
     }).run()
     const swapped = await call(app, 'PATCH', `/api/proposals/${made.body[0].id}`, { athleteBId: id('Kai') }, adminToken)
