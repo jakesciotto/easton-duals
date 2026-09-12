@@ -168,7 +168,12 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
     () => new Set(detail.matches.filter(m => m.status === 'pending' || m.status === 'live').flatMap(m => [m.athleteAId, m.athleteBId])),
     [detail.matches],
   )
-  const [pairAId, pairBId] = selected.size === 2 ? order.filter(id => selected.has(id)) : []
+  // Gated on rows that still exist in detail.athletes, not on selected.size: a pick
+  // another admin session removed (or a sync/paste replaced) drops out here the same way
+  // it already does for removable below, so a vanished pick makes the button disappear
+  // instead of rendering enabled and silently doing nothing on click.
+  const selectedRows = detail.athletes.filter(a => selected.has(a.id))
+  const [pairAId, pairBId] = selectedRows.length === 2 ? order.filter(id => selected.has(id)) : []
   const pairA = detail.athletes.find(a => a.id === pairAId)
   const pairB = detail.athletes.find(a => a.id === pairBId)
   const matchDisabledTitle = !pairA || !pairB
@@ -193,7 +198,6 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
       onError: e => setMatchNotice({ ok: false, text: writeErrorMessage(e) }),
     })
   }
-  const selectedRows = detail.athletes.filter(a => selected.has(a.id))
   const removable = selectedRows.filter(a => !inMatch.has(a.id))
   const blockedCount = selectedRows.length - removable.length
   const needsData = detail.athletes.filter(a => a.age === null || a.weightLbs === null).length
@@ -231,8 +235,8 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
               { key: 'none', label: 'Move to Unassigned', disabled: false, onSelect: () => moveTo([...selected], null) },
             ]}
           />
-          {selected.size === 2 && (
-            <Button size="sm" variant="ghost" disabled={matchDisabledTitle !== undefined} title={matchDisabledTitle} onClick={runCreateMatch}>
+          {selectedRows.length === 2 && (
+            <Button size="sm" variant="ghost" disabled={matchDisabledTitle !== undefined || createMatch.isPending} title={matchDisabledTitle} onClick={runCreateMatch}>
               Create match
             </Button>
           )}

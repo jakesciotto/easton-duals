@@ -647,6 +647,49 @@ describe('RosterTab, Create match', () => {
     expect(await screen.findByText('that pair cannot be matched right now')).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Selection' })).toBeInTheDocument()
   })
+
+  // AddMatchDialog guards its own submit the same way: disabled={!ready || create.isPending}.
+  // Without the isPending half here, a fast double-click fires two POSTs, and the server
+  // has no dedup guard for an identical pair (Already met is only a warning).
+  it('disables the button and posts once when clicked again while the request is in flight', async () => {
+    let release = () => {}
+    const held = new Promise<void>(resolve => { release = resolve })
+    const f = fakeFetch(async (url, init) => {
+      if (url === '/api/events/7/matches' && init?.method === 'POST') {
+        await held
+        return { status: 201, json: { warnings: [] } }
+      }
+      return { json: [] }
+    })
+    mount()
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    const button = screen.getByRole('button', { name: 'Create match' })
+    await user.click(button)
+    expect(button).toBeDisabled()
+    await user.click(button)
+    release()
+    await vi.waitFor(() => expect(screen.queryByRole('group', { name: 'Selection' })).not.toBeInTheDocument())
+    expect(f.calls.filter(c => c.url === '/api/events/7/matches')).toHaveLength(1)
+  })
+
+  // selectedRows (and removable, below it) already drop an id detail.athletes no longer
+  // carries; the pair has to be gated the same way, or a vanished pick renders the button
+  // enabled off a stale selection and a click hits the early return and does nothing.
+  it('hides the button once a selected pick no longer exists on the roster', async () => {
+    fakeFetch(() => ({ json: [] }))
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { rerender } = render(<QueryClientProvider client={qc}><RosterTab detail={detail} /></QueryClientProvider>)
+    const user = userEvent.setup()
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    expect(screen.getByRole('button', { name: 'Create match' })).toBeEnabled()
+
+    // Olivia drops out from under the standing selection, the way another admin's delete
+    // or a sync/paste replacing the roster would arrive as a refetched detail.
+    const withoutOlivia = { ...detail, athletes: detail.athletes.filter(a => a.id !== 200) }
+    rerender(<QueryClientProvider client={qc}><RosterTab detail={withoutOlivia} /></QueryClientProvider>)
+    expect(screen.queryByRole('button', { name: 'Create match' })).not.toBeInTheDocument()
+  })
 })
 
 /**
