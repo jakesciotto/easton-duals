@@ -67,6 +67,7 @@ export type AuditAction =
   // more, but the log is append only and every event run before then carries the rows.
   | 'propose' | 'generate'
   | 'ruleset_create' | 'ruleset_edit' | 'ruleset_delete'
+  | 'division_create' | 'division_edit' | 'division_delete' | 'fill' | 'schedule'
   // Backfilled rows carry the match event's own type, and two of those are not verbs any
   // live write records: a desk entry's absolute score, and the pre-0007 admin event kind.
   | 'set_score' | 'admin'
@@ -131,6 +132,27 @@ export interface Proposal {
   why: string
   a: ProposalSide
   b: ProposalSide
+}
+
+/** One kid in a division, in seed order. The seed is the listed order, 1 at the top. */
+export interface DivisionMember { athleteId: number; seed: number; firstName: string; lastName: string; teamId: number | null; erp: number | null }
+
+/**
+ * A division as the console reads it. `running` is true once any of its matches is live
+ * or done, which is when editing, seeding and deleting stop. `warnings` is recomputed
+ * from the members rather than stored, so it always describes the set as it stands.
+ */
+export interface DivisionView {
+  id: number
+  eventId: number
+  name: string
+  format: DivisionFormat
+  styles: DivisionStyles
+  position: number
+  members: DivisionMember[]
+  matchIds: number[]
+  running: boolean
+  warnings: string[]
 }
 
 /** Where an empty side's kid comes from: the winner or the loser of an earlier match. */
