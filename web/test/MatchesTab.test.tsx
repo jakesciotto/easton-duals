@@ -7,7 +7,7 @@ import { MatchesTab } from '@/routes/event/MatchesTab'
 import { setAdminToken } from '@/lib/auth'
 import { CERTIFIED_REFUSAL } from '@/lib/eventMode'
 import { HISTORY_NOTE } from '@/routes/event/MatchHistorySheet'
-import type { EventDetail, MatchRow } from '@/lib/types'
+import type { EventDetail, MatchRow, Proposal, ProposalSide } from '@/lib/types'
 import { fakeFetch, sampleMatch, sampleSnapshot, snapshotFeed, type Reply } from './fakes'
 
 beforeEach(() => { localStorage.clear(); setAdminToken('tok') })
@@ -393,6 +393,66 @@ describe('MatchesTab', () => {
     const el = screen.getByText('beat')
     expect(el.className).toContain('text-gray-10')
     expect(el.className).not.toContain('text-gray-9')
+  })
+})
+
+describe('MatchesTab without a match', () => {
+  // Mateo and Olivia are in a pending match, Ava and Noah's only match is done, and Kai
+  // and Iris are free until a draft names one of them.
+  const draftDetail: EventDetail = {
+    ...detail,
+    matches: [
+      match(1, { athleteAId: 100, athleteBId: 200, status: 'pending' }),
+      match(2, { athleteAId: 101, athleteBId: 201, status: 'done', winnerAthleteId: 101, winType: 'points' }),
+    ],
+  }
+  const draftSide = (athleteId: number, teamId: number, firstName: string, lastName: string): ProposalSide =>
+    ({ athleteId, teamId, firstName, lastName, age: null, weightLbs: null, weightClass: null, belt: null, erp: null })
+  const draftProposal = (id: number, a: ProposalSide, b: ProposalSide): Proposal =>
+    ({ id, eventId: 7, cost: 0, why: 'same class', a, b })
+
+  function mountWithProposals(proposals: Proposal[]) {
+    const f = fakeFetch(url =>
+      /\/snapshot(\?|$)/.test(url) ? { json: { version: 0 } }
+        : url === '/api/events/7/proposals' ? { json: proposals }
+          : { json: {} })
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={qc}><MatchesTab detail={draftDetail} /></QueryClientProvider>)
+    return f
+  }
+
+  it('drops a drafted competitor from the list and counts it in the line', async () => {
+    mountWithProposals([draftProposal(1, draftSide(202, 2, 'Kai', 'Wong'), draftSide(100, 1, 'Mateo', 'Rivera'))])
+    // The proposals query is async, so the drafted count only appears once it settles.
+    expect(await screen.findByText(/more have a proposed match/)).toHaveTextContent('1 more have a proposed match.')
+    const free = screen.getByRole('region', { name: 'Without a match' })
+    expect(within(free).queryByText('Kai Wong')).not.toBeInTheDocument()
+    expect(within(free).getByText('Iris Nolan')).toBeInTheDocument()
+    expect(within(free).getByText('Ava Park')).toBeInTheDocument()
+    expect(within(free).getByText('Noah Tran')).toBeInTheDocument()
+  })
+
+  it('keeps a competitor in a pending match off the list, whatever else is drafted', async () => {
+    mountWithProposals([draftProposal(2, draftSide(202, 2, 'Kai', 'Wong'), draftSide(300, 3, 'Iris', 'Nolan'))])
+    await screen.findByText(/more have a proposed match/)
+    const free = screen.getByRole('region', { name: 'Without a match' })
+    expect(within(free).queryByText('Mateo Rivera')).not.toBeInTheDocument()
+    expect(within(free).queryByText('Olivia Kim')).not.toBeInTheDocument()
+  })
+
+  it('keeps a competitor whose only match is done on the list, whatever else is drafted', async () => {
+    mountWithProposals([draftProposal(2, draftSide(202, 2, 'Kai', 'Wong'), draftSide(300, 3, 'Iris', 'Nolan'))])
+    await screen.findByText(/more have a proposed match/)
+    const free = screen.getByRole('region', { name: 'Without a match' })
+    expect(within(free).getByText('Ava Park')).toBeInTheDocument()
+    expect(within(free).getByText('Noah Tran')).toBeInTheDocument()
+  })
+
+  it('says nothing extra when nothing is drafted', async () => {
+    mountWithProposals([])
+    // Waits for the same query to settle before trusting the absence of the line.
+    await screen.findByText('No proposals yet.')
+    expect(screen.queryByText(/more have a proposed match/)).not.toBeInTheDocument()
   })
 })
 

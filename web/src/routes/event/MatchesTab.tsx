@@ -4,7 +4,7 @@ import { DndContext, PointerSensor, useSensor, useSensors, closestCenter, type D
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVerticalIcon } from 'lucide-react'
-import { adminApi, useAdminMutation } from '@/lib/queries'
+import { adminApi, useAdminMutation, useProposals } from '@/lib/queries'
 import { useSnapshot } from '@/lib/useSnapshot'
 import { pollIntervalForSnapshot } from '@/lib/pollInterval'
 import { CERTIFIED_REFUSAL, modeOf, statusOf, writeErrorMessage } from '@/lib/eventMode'
@@ -419,6 +419,9 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
   // after the board had already stopped trusting it.
   const { snapshot, live: liveSnapshot, lastSuccessAt } = useSnapshot(eventId)
   const pollIntervalMs = pollIntervalForSnapshot(snapshot)
+  // The same list the Proposals panel reads. A kid already on one side of a draft is
+  // spoken for the moment it is confirmed, so "Without a match" should not offer them.
+  const proposals = useProposals(eventId).data ?? []
   // The room's own account of how the event runs, not this browser's detail cache: the
   // organizer switches the event from a phone at the same desk and nothing invalidates
   // the cache when they do.
@@ -525,10 +528,16 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
     ...detail.mats.map(mat => ({ value: String(mat.id), label: `Mat ${mat.number}` })),
   ], [detail.mats])
   const rulesetItems = useMemo(() => detail.rulesets.map(r => ({ value: String(r.id), label: r.name })), [detail.rulesets])
-  // Spec 6's "Without a match": a competitor in a pending or a live match is busy, and
-  // one whose matches have all settled is free to be paired again.
+  // Spec 6's "Without a match": a competitor in a pending or a live match is busy, one
+  // whose matches have all settled is free to be paired again, and one already on either
+  // side of a proposal is spoken for the moment that draft is confirmed.
   const booked = new Set(detail.matches.filter(m => m.status === 'pending' || m.status === 'live').flatMap(m => [m.athleteAId, m.athleteBId]))
-  const free = detail.teams.map(t => ({ team: t, kids: detail.athletes.filter(a => a.teamId === t.id && !booked.has(a.id)) }))
+  const draftedIds = new Set(proposals.flatMap(p => [p.a.athleteId, p.b.athleteId]))
+  const drafted = detail.athletes.filter(a => !booked.has(a.id) && draftedIds.has(a.id)).length
+  const free = detail.teams.map(t => ({
+    team: t,
+    kids: detail.athletes.filter(a => a.teamId === t.id && !booked.has(a.id) && !draftedIds.has(a.id)),
+  }))
   const openAdd = (startId: number | null) => { setAddStart(startId); setAddOpen(true) }
   const holds = (line: MatchLine) => hovered !== null && (line.row.athleteAId === hovered || line.row.athleteBId === hovered)
   const viewOf = (line: MatchLine) => matchViewOf(line.row, detail, snapshot)
@@ -676,6 +685,7 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
 
       <section aria-label="Without a match" className="grid gap-3">
         <h3 className="t4">Without a match</h3>
+        {drafted > 0 && <p className="t2 text-gray-10"><span className="fig">{drafted}</span> more have a proposed match.</p>}
         <div className="grid items-start gap-6 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
           {free.map(({ team, kids }) => (
             <div key={team.id} className="grid min-w-0 gap-3">
