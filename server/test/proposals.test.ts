@@ -93,23 +93,22 @@ describe('confirming', () => {
     expect((await call(app, 'POST', `/api/proposals/${made.body[0].id}/confirm`)).status).toBe(401)
   })
 
-  it('refuses a draft whose kid was given a match by hand', async () => {
+  it('drops the draft when a hand-designed match claims the kid, so confirming it 404s', async () => {
     const { app, db, adminToken, s, id } = await pool(THREE)
     const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
-    // The pool moved on under the draft: the organizer added this pair by hand.
+    // The pool moved on under the draft: the organizer added this pair by hand, which
+    // drops both drafts immediately rather than leaving them stale for confirm to refuse.
     const added = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: id('Ines'), athleteBId: id('Kai') }, adminToken)
     expect(added.status).toBe(201)
+    expect(added.body.removedProposals).toBe(2)
 
     const refused = await call(app, 'POST', `/api/proposals/${made.body[0].id}/confirm`, undefined, adminToken)
-    expect(refused.status).toBe(409)
-    expect(refused.body.error.code).toBe('match_state')
-    expect(refused.body.error.message).toBe('Ines Vantel already has a match')
-    // The draft is left for the organizer to swap or remove, and nothing was written.
-    expect(await db.select().from(proposals).where(eq(proposals.id, made.body[0].id)).get()).toBeDefined()
+    expect(refused.status).toBe(404)
+    expect(await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()).toEqual([])
     expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toHaveLength(1)
   })
 
-  it('confirms what it can and counts the drafts it left behind', async () => {
+  it('confirms what it can, after a hand-designed match drops the draft it made stale', async () => {
     const { app, db, adminToken, s, id } = await pool([
       { name: 'Ines', team: 'A' },
       { name: 'Bruno', team: 'B' },
@@ -119,15 +118,16 @@ describe('confirming', () => {
     ])
     const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
     expect(made.body.map((p: any) => [p.a.firstName, p.b.firstName])).toEqual([['Ines', 'Bruno'], ['Nadia', 'Kai']])
-    // Pilar is in no draft, so this hand-added match makes the first draft stale and
-    // leaves the second one alone.
-    expect((await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: id('Ines'), athleteBId: id('Pilar') }, adminToken)).status).toBe(201)
+    // Pilar is in no draft, so this hand-added match drops the first draft immediately
+    // and leaves the second one alone.
+    const added = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: id('Ines'), athleteBId: id('Pilar') }, adminToken)
+    expect(added.status).toBe(201)
+    expect(added.body.removedProposals).toBe(1)
 
     const all = await call(app, 'POST', `/api/events/${s.eventId}/proposals/confirm-all`, undefined, adminToken)
     expect(all.status).toBe(201)
-    expect(all.body).toEqual({ created: 1, skipped: 1 })
-    const left = await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()
-    expect(left.map(p => p.id)).toEqual([made.body[0].id])
+    expect(all.body).toEqual({ created: 1, skipped: 0 })
+    expect(await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()).toEqual([])
     const rows = await db.select().from(matches).where(eq(matches.eventId, s.eventId)).orderBy(matches.orderIndex).all()
     expect(rows.map(m => [m.athleteAId, m.athleteBId, m.source])).toEqual([
       [id('Ines'), id('Pilar'), 'designed'],

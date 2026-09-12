@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { createTestApp, call } from './helpers.js'
 import { seedEvent } from './fixtures.js'
-import { athletes, mats, matches } from '../src/db/schema.js'
+import { athletes, mats, matches, proposals } from '../src/db/schema.js'
 
 describe('match routes', () => {
   it('creates by hand with team order fixed, patches, deletes, reorders', async () => {
@@ -123,5 +123,32 @@ describe('match routes', () => {
     const deleted = await call(app, 'DELETE', `/api/matches/${s.matchIds[0]}`, undefined, adminToken)
     expect(deleted.status).toBe(409)
     expect(deleted.body.error.message).toBe('only a pending match can be deleted. End it from the Live tab, then edit the result.')
+  })
+
+  it('drops both drafts a hand-designed match makes stale, and reports the count', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    await db.insert(proposals).values([
+      { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, cost: 0, why: 'same class', createdAt: '2026-08-27T00:00:00.000Z' },
+      { eventId: s.eventId, athleteAId: s.a2, athleteBId: s.b2, cost: 0, why: 'same class', createdAt: '2026-08-27T00:00:00.000Z' },
+    ]).run()
+    // a1 sits in the first draft and b2 sits in the second, so pairing them by hand
+    // makes both drafts stale at once.
+    const created = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: s.a1, athleteBId: s.b2 }, adminToken)
+    expect(created.status).toBe(201)
+    expect(created.body.removedProposals).toBe(2)
+    expect(await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()).toEqual([])
+  })
+
+  it('leaves other drafts alone when neither hand-designed competitor is drafted', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    const untouched = await db.insert(proposals).values({
+      eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, cost: 0, why: 'same class', createdAt: '2026-08-27T00:00:00.000Z',
+    }).returning().get()
+    const created = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: s.a2, athleteBId: s.b2 }, adminToken)
+    expect(created.status).toBe(201)
+    expect(created.body.removedProposals).toBe(0)
+    expect(await db.select().from(proposals).where(eq(proposals.id, untouched.id)).get()).toBeDefined()
   })
 })

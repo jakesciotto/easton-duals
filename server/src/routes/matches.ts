@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, inArray, or } from 'drizzle-orm'
 import type { Env } from '../context.js'
-import { auditLog, events, rulesets, mats, matches } from '../db/schema.js'
+import { auditLog, events, rulesets, mats, matches, proposals } from '../db/schema.js'
 import { validate } from '../lib/validate.js'
 import { errorJson, requireAdmin } from '../auth/middleware.js'
 import { eventDetail } from './events.js'
@@ -43,12 +43,28 @@ matchRoutes.post('/events/:eventId/matches', requireAdmin, validate('json', crea
   if (!await db.select({ id: events.id }).from(events).where(eq(events.id, eventId)).get()) return errorJson(c, 404, 'not_found', 'event not found')
   await assertNotCertified(db, eventId)
   const body = c.req.valid('json')
-  const created = await createMatch(db, { eventId, ...body, source: 'designed' })
+  // A hand-designed pair can make an existing draft stale on either side, the way
+  // confirming a proposal drops its own draft. Left alone, the draft would sit in the
+  // table looking live until somebody tried to confirm it and was refused.
+  let removedProposals = 0
+  const created = await createMatch(db, { eventId, ...body, source: 'designed' }, {
+    also: async (tx, match) => {
+      const stale = await tx.select({ id: proposals.id }).from(proposals).where(and(
+        eq(proposals.eventId, eventId),
+        or(
+          inArray(proposals.athleteAId, [match.athleteAId, match.athleteBId]),
+          inArray(proposals.athleteBId, [match.athleteAId, match.athleteBId]),
+        ),
+      )).all()
+      if (stale.length > 0) await tx.delete(proposals).where(inArray(proposals.id, stale.map(p => p.id))).run()
+      removedProposals = stale.length
+    },
+  })
   if (!created.ok) return errorJson(c, created.code === 'match_state' ? 409 : 422, created.code, created.message)
   // A pair a person picked is never refused for being odd, only reported back, because the
   // organizer knows things the roster does not.
   const warnings = await pairWarnings(db, eventId, created.match.athleteAId, created.match.athleteBId, { exceptMatchId: created.match.id })
-  return c.json({ ...created.match, warnings }, 201)
+  return c.json({ ...created.match, warnings, removedProposals }, 201)
 })
 
 matchRoutes.patch('/matches/:matchId', requireAdmin, validate('json', patchSchema), async c => {
