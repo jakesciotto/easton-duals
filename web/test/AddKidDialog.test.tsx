@@ -39,32 +39,46 @@ function wl(search: (url: string) => Reply) {
   })
 }
 
-function mount(detail: EventDetail) {
+function mount(detail: EventDetail, initialTeamId: number | null = null) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(<QueryClientProvider client={qc}><AddKidDialog detail={detail} open onOpenChange={() => {}} /></QueryClientProvider>)
+  render(<QueryClientProvider client={qc}><AddKidDialog detail={detail} open onOpenChange={() => {}} initialTeamId={initialTeamId} /></QueryClientProvider>)
+}
+
+// Spec B: the dialog now always opens on Manual, so every test about the search itself
+// switches to the WellnessLiving tab first.
+async function mountOnSearch(detail: EventDetail, initialTeamId: number | null = null) {
+  mount(detail, initialTeamId)
+  await userEvent.setup().click(await screen.findByRole('tab', { name: 'From WellnessLiving' }))
 }
 
 const searchField = () => screen.getByLabelText('Search')
 
 describe('AddKidDialog', () => {
-  // Spec 4. The cached pool is the subset the last sync found, so there is nothing to
-  // browse: anybody else is reached by name.
-  it('defaults to the WellnessLiving tab once a sync has found a pool, and searches by name', async () => {
+  // Spec B. A pool no longer decides the opening tab: opening the dialog is now a manual
+  // add by default, with the WellnessLiving search still one press away.
+  it('opens on the manual tab even once a sync has found a pool, and still searches from the other tab', async () => {
     const f = wl(() => ({ json: [zoe, kai] }))
     mount(baseDetail)
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('tab', { name: 'From WellnessLiving' })).toHaveAttribute('aria-selected', 'true')
-    expect(f.calls.some(c => c.url.includes('/candidates'))).toBe(false)
+    expect(within(dialog).getByRole('tab', { name: 'Manual' })).toHaveAttribute('aria-selected', 'true')
 
+    await userEvent.setup().click(within(dialog).getByRole('tab', { name: 'From WellnessLiving' }))
     await userEvent.setup().type(searchField(), 'martin')
     expect(await screen.findByText('Zoe Martin')).toBeInTheDocument()
     expect(f.calls.filter(c => c.url.includes('/wl-search')).at(-1)?.url).toBe('/api/events/7/wl-search?q=martin')
   })
 
+  // Spec B. The column's own "Add a competitor" control hands the dialog its team; the
+  // manual tab's select is where that shows up, since manual is now always the opener.
+  it('preselects the team a caller passes as the initial one', async () => {
+    mount(baseDetail, 2)
+    await screen.findByRole('dialog')
+    expect(screen.getByRole('combobox', { name: 'Team' })).toHaveTextContent('Lakeside')
+  })
+
   it('asks for two letters before it searches', async () => {
     const f = wl(() => ({ json: [zoe] }))
-    mount(baseDetail)
-    await screen.findByRole('dialog')
+    await mountOnSearch(baseDetail)
     expect(screen.getByText('Type at least two letters.')).toBeInTheDocument()
     await userEvent.setup().type(searchField(), 'm')
     await new Promise(resolve => setTimeout(resolve, 400))
@@ -73,8 +87,8 @@ describe('AddKidDialog', () => {
 
   it('leaves out whoever is already on the roster', async () => {
     wl(() => ({ json: [zoe, mia] }))
-    mount(baseDetail)
-    await userEvent.setup().type(await screen.findByLabelText('Search'), 'ridgeline')
+    await mountOnSearch(baseDetail)
+    await userEvent.setup().type(searchField(), 'ridgeline')
     expect(await screen.findByText('Zoe Martin')).toBeInTheDocument()
     // Mia Diaz is already on the roster under u5.
     expect(screen.queryByText('Mia Diaz')).not.toBeInTheDocument()
@@ -82,9 +96,9 @@ describe('AddKidDialog', () => {
 
   it('posts the picked candidates plus teamId when a team is chosen', async () => {
     const f = wl(() => ({ json: [zoe] }))
-    mount(baseDetail)
+    await mountOnSearch(baseDetail)
     const user = userEvent.setup()
-    await user.type(await screen.findByLabelText('Search'), 'martin')
+    await user.type(searchField(), 'martin')
     await user.click(await screen.findByLabelText('Select Zoe Martin'))
     await user.click(screen.getByRole('combobox', { name: 'Team' }))
     await user.click(await screen.findByRole('option', { name: 'Lakeside' }))
@@ -96,9 +110,9 @@ describe('AddKidDialog', () => {
 
   it('omits teamId from the post when the team stays unassigned', async () => {
     const f = wl(() => ({ json: [zoe] }))
-    mount(baseDetail)
+    await mountOnSearch(baseDetail)
     const user = userEvent.setup()
-    await user.type(await screen.findByLabelText('Search'), 'martin')
+    await user.type(searchField(), 'martin')
     await user.click(await screen.findByLabelText('Select Zoe Martin'))
     await user.click(screen.getByRole('button', { name: 'Add 1 competitor' }))
     await vi.waitFor(() => expect(f.calls.some(c => c.url.endsWith('/athletes') && c.init?.method === 'POST')).toBe(true))
@@ -109,9 +123,9 @@ describe('AddKidDialog', () => {
   // A pick is a decision about a person, not about the query that found them.
   it('keeps a pick made under an earlier query', async () => {
     const f = wl(url => (url.endsWith('q=martin') ? { json: [zoe] } : { json: [kai] }))
-    mount(baseDetail)
+    await mountOnSearch(baseDetail)
     const user = userEvent.setup()
-    const field = await screen.findByLabelText('Search')
+    const field = searchField()
     await user.type(field, 'martin')
     await user.click(await screen.findByLabelText('Select Zoe Martin'))
     await user.clear(field)
@@ -125,15 +139,15 @@ describe('AddKidDialog', () => {
 
   it('says so when the search finds nobody', async () => {
     wl(() => ({ json: [] }))
-    mount(baseDetail)
-    await userEvent.setup().type(await screen.findByLabelText('Search'), 'martin')
+    await mountOnSearch(baseDetail)
+    await userEvent.setup().type(searchField(), 'martin')
     expect(await screen.findByText('No competitors match that name.')).toBeInTheDocument()
   })
 
   it('reports a 503 from the search', async () => {
     wl(() => ({ status: 503, json: { error: { code: 'wl_not_configured', message: 'WellnessLiving credentials are not set' } } }))
-    mount(baseDetail)
-    await userEvent.setup().type(await screen.findByLabelText('Search'), 'martin')
+    await mountOnSearch(baseDetail)
+    await userEvent.setup().type(searchField(), 'martin')
     const alert = await screen.findByRole('alert')
     expect(alert.querySelector('[data-slot="alert-title"]')).toHaveTextContent('WellnessLiving did not answer')
     expect(alert.querySelector('[data-slot="alert-description"]')).toHaveTextContent('credentials are not set')
@@ -143,8 +157,8 @@ describe('AddKidDialog', () => {
   it('virtualizes the results once they pass fifty rows', async () => {
     const many = Array.from({ length: 60 }, (_, i) => cand({ wlUid: `w${i}`, firstName: `First${i}`, lastName: `Last${i}`, erp: 5 }))
     wl(() => ({ json: many }))
-    mount({ ...baseDetail, athletes: [] })
-    await userEvent.setup().type(await screen.findByLabelText('Search'), 'last')
+    await mountOnSearch({ ...baseDetail, athletes: [] })
+    await userEvent.setup().type(searchField(), 'last')
     await screen.findByText('First0 Last0')
     const rows = screen.getAllByRole('checkbox').filter(cb => cb.getAttribute('aria-label')?.startsWith('Select'))
     expect(rows.length).toBeLessThan(60)

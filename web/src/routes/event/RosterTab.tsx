@@ -21,6 +21,9 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [faults, setFaults] = useState<Set<number>>(new Set())
   const [addOpen, setAddOpen] = useState(false)
+  // Spec B. Which team the Add competitor dialog opens on: a column's own control passes
+  // its team, the toolbar's passes Unassigned.
+  const [addTeamId, setAddTeamId] = useState<number | null>(null)
   const [pasteOpen, setPasteOpen] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
   const [removing, setRemoving] = useState<AthleteRow[]>([])
@@ -263,7 +266,7 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
                 is reported by the dialog itself rather than by a missing button. */}
             <Button size="sm" variant="secondary" onClick={() => setSyncOpen(true)}>Sync from WellnessLiving</Button>
             <Button size="sm" variant="secondary" onClick={() => setPasteOpen(true)}>Paste roster</Button>
-            <Button size="sm" onClick={() => setAddOpen(true)}>Add competitor</Button>
+            <Button size="sm" onClick={() => { setAddTeamId(null); setAddOpen(true) }}>Add competitor</Button>
           </span>
         </div>
       )}
@@ -296,7 +299,7 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
           <AlertDescription>{matchNotice.text}</AlertDescription>
         </Alert>
       )}
-      <AddKidDialog detail={detail} open={addOpen} onOpenChange={setAddOpen} />
+      <AddKidDialog detail={detail} open={addOpen} onOpenChange={setAddOpen} initialTeamId={addTeamId} />
       <PasteRosterDialog detail={detail} open={pasteOpen} onOpenChange={setPasteOpen} />
       <SyncRosterDialog detail={detail} open={syncOpen} onOpenChange={setSyncOpen} onReport={setReport} />
       <LinkCandidateDialog
@@ -338,7 +341,7 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
       <div className="grid items-start gap-6 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))]">
         {groups.map(g => (
           <RosterGroup
-            onAdd={() => setAddOpen(true)}
+            onAdd={() => { setAddTeamId(g.teamId); setAddOpen(true) }}
             key={g.key}
             title={g.title}
             color={g.color}

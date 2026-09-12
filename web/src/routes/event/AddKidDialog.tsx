@@ -41,16 +41,19 @@ interface FormState {
 }
 const emptyForm: FormState = { firstName: '', lastName: '', age: '', weightLbs: '', belt: null, gender: null, teamId: null }
 
-export function AddKidDialog({ detail, open, onOpenChange }: {
-  detail: EventDetail; open: boolean; onOpenChange: (o: boolean) => void
+export function AddKidDialog({ detail, open, onOpenChange, initialTeamId }: {
+  detail: EventDetail
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  /** Spec B. The team a caller already knows, such as the column a competitor is added from. */
+  initialTeamId: number | null
 }) {
   const eventId = detail.event.id
   const teamItems = [{ value: null as number | null, label: 'Unassigned' }, ...detail.teams.map(t => ({ value: t.id as number | null, label: t.name }))]
 
-  // A pool the last sync found is the only evidence this screen holds that WellnessLiving
-  // answers for this gym at all, so it decides which tab opens. The other tab is one press
-  // away either way, and the search reports a 503 itself.
-  const [tab, setTab] = useState<'wl' | 'manual'>(detail.candidateCount > 0 ? 'wl' : 'manual')
+  // Spec B. A quick add is a manual add: the WellnessLiving search is one press away
+  // either way, and a lookup that hits the network is never the default gesture.
+  const [tab, setTab] = useState<'wl' | 'manual'>('manual')
   const [f, setF] = useState(emptyForm)
   const addManual = useAdminMutation(eventId, (manual: ManualKid) => adminApi(`/api/events/${eventId}/athletes`, { method: 'POST', body: { manual } }))
 
@@ -64,18 +67,19 @@ export function AddKidDialog({ detail, open, onOpenChange }: {
     adminApi(`/api/events/${eventId}/athletes`, { method: 'POST', body: v.teamId === null ? { candidates: v.candidates } : { candidates: v.candidates, teamId: v.teamId } }))
 
   // Every open starts a fresh session for both tabs: the manual form clears and the search
-  // opens empty rather than on whoever the last visit was looking for.
+  // opens empty rather than on whoever the last visit was looking for. Both tabs' team
+  // selects start on the caller's team, so switching tabs mid-add does not lose it.
   useEffect(() => {
     if (!open) return
-    setTab(detail.candidateCount > 0 ? 'wl' : 'manual')
-    setF(emptyForm)
+    setTab('manual')
+    setF({ ...emptyForm, teamId: initialTeamId })
     addManual.reset()
     search.setQ('')
-    setTeamId(null)
+    setTeamId(initialTeamId)
     setPicked(new Map())
     setResultWindow([0, RESULT_DEFAULT_ROWS])
     addCandidates.reset()
-  }, [open, eventId])
+  }, [open, eventId, initialTeamId])
 
   const onRoster = useMemo(() => new Set(detail.athletes.map(a => a.wlUid).filter((uid): uid is string => uid !== null)), [detail.athletes])
   // The route orders by how well the name matches, which is the order to keep.

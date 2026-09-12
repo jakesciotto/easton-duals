@@ -532,6 +532,26 @@ describe('RosterTab', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Add competitor' }))
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('age must be between 3 and 17')
   })
+
+  // Spec B.
+  it('preselects Unassigned when the toolbar opens the dialog', async () => {
+    fakeFetch(() => ({ json: [] }))
+    mount()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Add competitor' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('combobox', { name: 'Team' })).toHaveTextContent('Unassigned')
+  })
+
+  // Spec B. Fernwood carries nobody yet, so its own "Add a competitor" control is the
+  // empty state's, not the toolbar's.
+  it('preselects a column team when that column opens the dialog', async () => {
+    fakeFetch(() => ({ json: [] }))
+    mount({ ...detail, teams: [...detail.teams, { id: 3, eventId: 7, name: 'Fernwood', color: 'teal', position: 2 }] })
+    const fernwood = screen.getByRole('region', { name: 'Fernwood' })
+    await userEvent.setup().click(within(fernwood).getByRole('button', { name: 'Add a competitor' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('combobox', { name: 'Team' })).toHaveTextContent('Fernwood')
+  })
 })
 
 /**
