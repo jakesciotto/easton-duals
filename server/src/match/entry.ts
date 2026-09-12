@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import type { DbLike } from '../db/client.js'
 import { events, rulesets, mats, matches, matchEvents, type MatchRow } from '../db/schema.js'
 import { loadMatch, recompute, sidesOf, MatchStateError } from './events.js'
-import { advanceMat } from './mats.js'
+import { advanceMat, releaseIdleMats } from './mats.js'
 import { assertDependentsPending, fillDependents } from './fill.js'
 import { resolvePair } from './pairs.js'
 import { CERTIFIED_MESSAGE } from '../audit/certify.js'
@@ -109,6 +109,7 @@ export async function enterResult(db: DbLike, matchId: number, input: EntryInput
       // up advances under the same actor.
       if (mat && mat.currentMatchId === matchId) await advanceMat(tx, mat.id, 'desk')
     }
+    await releaseIdleMats(tx, updated.eventId, 'desk')
     return { duplicate: false, match: await loadMatch(tx, matchId), wasDone, before: match }
   })
 }

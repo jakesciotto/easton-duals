@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { z } from 'zod'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type { Env } from '../context.js'
 import { events, mats, matches, athletes, type MatchRow } from '../db/schema.js'
 import { validate } from '../lib/validate.js'
@@ -10,7 +10,7 @@ import { checkLimit, recordFailure } from '../auth/dbRateLimit.js'
 import { pinMatches } from '../auth/pin.js'
 import { signToken, tokenExpiry } from '../auth/tokens.js'
 import { appendMatchEvent, endMatch, extendClock, undoLastMatchEvent, loadMatch, latestEndedAt, bumpVersion, MatchStateError, SeqConflict } from '../match/events.js'
-import { advanceMat, reopenMatch, skipMatch } from '../match/mats.js'
+import { advanceMat, releaseIdleMats, reopenMatch, skipMatch } from '../match/mats.js'
 import { expireOverdue } from '../match/lazyExpiry.js'
 import { toMatchView, buildSnapshot, nameFormFor } from '../live/snapshot.js'
 import { bindMat, heartbeatMat, unbindMat } from '../live/bound.js'
@@ -35,7 +35,10 @@ async function actorFor(c: Context<Env>): Promise<AuditActor> {
 async function matchView(c: Context<Env>, match: MatchRow) {
   const db = c.get('ctx').db
   const kids = await db.select().from(athletes).where(eq(athletes.eventId, match.eventId)).all()
-  return toMatchView(match, new Map(kids.map(a => [a.id, a])), await latestEndedAt(db, match.id), nameFormFor(c.get('auth')))
+  const feeds = [match.feedAMatchId, match.feedBMatchId].filter((id): id is number => id !== null)
+  const feeders = feeds.length === 0 ? [] : await db.select({ id: matches.id, number: matches.number }).from(matches).where(inArray(matches.id, feeds)).all()
+  const numberOf = (matchId: number) => feeders.find(f => f.id === matchId)?.number ?? null
+  return toMatchView(match, new Map(kids.map(a => [a.id, a])), await latestEndedAt(db, match.id), nameFormFor(c.get('auth')), numberOf)
 }
 
 // Every caller bumps the version inside its own write transaction, so this only reads.
@@ -230,6 +233,9 @@ scoringRoutes.post('/matches/:matchId/end', requireMatOrAdmin(matIdFromMatch), v
         })
       }
       if (ended.match.matId !== null) await advanceMat(tx, ended.match.matId, actor)
+      // The kids of this match are free again and its winner may have filled a bracket
+      // side, so a mat that had nothing runnable a moment ago can start something now.
+      await releaseIdleMats(tx, ended.match.eventId, actor)
       await bumpVersion(tx, ended.match.eventId)
       return ended
     })

@@ -12,6 +12,20 @@ async function loadMat(db: DbLike, matId: number): Promise<MatRow> {
   return row
 }
 
+/**
+ * The kids on a mat right now. A match with one of them cannot start, because a kid
+ * cannot be in two places at once, and a division puts a kid in several unfought matches
+ * on purpose.
+ */
+async function liveAthleteIds(db: DbLike, eventId: number): Promise<Set<number>> {
+  const rows = await db.select({ a: matches.athleteAId, b: matches.athleteBId }).from(matches)
+    .where(and(eq(matches.eventId, eventId), eq(matches.status, 'live'))).all()
+  return new Set(rows.flatMap(m => [m.a, m.b]).filter((id): id is number => id !== null))
+}
+
+const runnable = (m: MatchRow, live: Set<number>) =>
+  m.athleteAId !== null && m.athleteBId !== null && !live.has(m.athleteAId) && !live.has(m.athleteBId)
+
 async function hasScoringEvents(db: DbLike, matchId: number): Promise<boolean> {
   return await db.select({ id: matchEvents.id }).from(matchEvents)
     .where(and(eq(matchEvents.matchId, matchId), ne(matchEvents.type, 'admin'), ne(matchEvents.type, 'end'))).get() !== undefined
@@ -82,9 +96,14 @@ export async function advanceMat(db: DbLike, matId: number, actor: AuditActor): 
       return null
     }
     if (current && current.status === 'live') return current
-    const next = await tx.select().from(matches)
+    // A blocked match keeps its slot: the mat takes the first one behind it that can
+    // actually be fought, and the blocked one runs when its feeder fills it or the kid
+    // holding it up finishes elsewhere.
+    const queue = await tx.select().from(matches)
       .where(and(eq(matches.matId, matId), eq(matches.status, 'pending')))
-      .orderBy(asc(matches.orderIndex)).get()
+      .orderBy(asc(matches.orderIndex), asc(matches.id)).all()
+    const live = await liveAthleteIds(tx, mat.eventId)
+    const next = queue.find(m => runnable(m, live))
     if (!next) {
       await tx.update(mats).set({ currentMatchId: null }).where(eq(mats.id, matId)).run()
       return null
@@ -152,6 +171,7 @@ export async function skipMatch(db: DbLike, matchId: number, id?: string): Promi
       // mat it advances on the way out is attributed to the same actor as the skip itself.
       if (mat.currentMatchId === match.id) await advanceMat(tx, mat.id, 'admin')
     }
+    await releaseIdleMats(tx, match.eventId, 'admin')
     return { duplicate: false, match: await loadMatch(tx, match.id) }
   })
 }

@@ -204,7 +204,12 @@ export interface TeamView { id: number; name: string; color: TeamColor; position
  */
 export interface LeaderboardRow { teamId: number; rank: number; wins: number; points: number }
 export interface RulesetView { id: number; name: string; defaultLengthSec: number; actions: RulesetAction[]; terminals: RulesetTerminal[] }
-export interface MatView { id: number; number: number; current: MatchView | null; onDeck: MatchView[]; bound: boolean }
+/**
+ * `blocked` is why an idle mat with a queue is not showing anything: the first match in
+ * its queue is waiting on a feeder, or one of its kids is on another mat. Null when the
+ * mat has a match, has no queue, or the next match is simply waiting to be called.
+ */
+export interface MatView { id: number; number: number; current: MatchView | null; onDeck: MatchView[]; bound: boolean; blocked: string | null }
 
 // Null unless both halves are filled: a name with no number, or a number with no name,
 // gives a volunteer nothing to act on, so the line is not printed at all.

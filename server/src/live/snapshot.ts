@@ -98,6 +98,20 @@ export function toMatchView(
   }
 }
 
+/**
+ * Why the mat at the head of this queue is not running yet, or null when it is only
+ * waiting to be called. An empty side comes first: a kid can be both waiting on a feeder
+ * and busy elsewhere, and the feeder is the one that has to happen first.
+ */
+function blockedReason(next: MatchView | undefined, liveOn: Map<number, number>): string | null {
+  if (!next) return null
+  const empty = [next.a, next.b].find(side => side.athleteId === null)
+  if (empty) return empty.feed ? `Waiting on M${empty.feed.matchNumber}` : null
+  const busy = [next.a, next.b].find(side => side.athleteId !== null && liveOn.has(side.athleteId))
+  const matNumber = busy?.athleteId === undefined || busy.athleteId === null ? undefined : liveOn.get(busy.athleteId)
+  return busy && matNumber !== undefined ? `${busy.name} is live on mat ${matNumber}` : null
+}
+
 export async function buildSnapshot(db: DbLike, eventId: number, opts: SnapshotOptions): Promise<Snapshot> {
   const ev = await db.select().from(events).where(eq(events.id, eventId)).get()
   if (!ev) throw new MatchStateError('event not found')
@@ -131,10 +145,19 @@ export async function buildSnapshot(db: DbLike, eventId: number, opts: SnapshotO
     id: t.id, name: t.name, color: t.color as TeamColor, position: t.position,
     wins: tally.get(t.id)?.wins ?? 0, points: tally.get(t.id)?.points ?? 0,
   }))
+  // Which mat each kid on a mat right now is on, so an idle mat can say who it is waiting
+  // for by name rather than only that something is in the way.
+  const matNumberById = new Map(matRows.map(m => [m.id, m.number]))
+  const liveOn = new Map<number, number>()
+  for (const v of views) {
+    const matNumber = v.matId === null ? undefined : matNumberById.get(v.matId)
+    if (v.status !== 'live' || matNumber === undefined) continue
+    for (const side of [v.a, v.b]) if (side.athleteId !== null) liveOn.set(side.athleteId, matNumber)
+  }
   const matViews: MatView[] = matRows.map(mat => {
     const current = mat.currentMatchId !== null ? views.find(v => v.id === mat.currentMatchId) ?? null : null
     const onDeck = views.filter(v => v.matId === mat.id && v.status === 'pending' && v.id !== current?.id).slice(0, ON_DECK_DEPTH)
-    return { id: mat.id, number: mat.number, current, onDeck, bound: mat.bound }
+    return { id: mat.id, number: mat.number, current, onDeck, bound: mat.bound, blocked: current ? null : blockedReason(onDeck[0], liveOn) }
   })
   return {
     version: ev.version,

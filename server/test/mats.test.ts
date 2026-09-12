@@ -4,7 +4,8 @@ import { freshDb, seedEvent } from './fixtures.js'
 import { startEvent, advanceMat, reopenMatch, skipMatch } from '../src/match/mats.js'
 import { appendMatchEvent, endMatch, loadMatch, loadEvents, MatchStateError } from '../src/match/events.js'
 import { enterResult } from '../src/match/entry.js'
-import { events, mats, matches, auditLog } from '../src/db/schema.js'
+import { athletes, events, mats, matches, auditLog } from '../src/db/schema.js'
+import { createMatch } from '../src/match/create.js'
 
 describe('startEvent', () => {
   it('marks the event live and loads the first match on every mat', async () => {
@@ -161,5 +162,73 @@ describe('skipMatch', () => {
     await appendMatchEvent(db, { id: 'e1', matchId: s.matchIds[0], type: 'score', athleteId: s.a1, actionKey: 'takedown', lastSeq: 0 })
     await expect(skipMatch(db, s.matchIds[0])).rejects.toThrow('match has events; undo them before skipping. End it from the Live tab, then edit the result.')
     await db.update(matches).set({ status: 'pending' }).where(eq(matches.id, s.matchIds[1])).run()
+  })
+})
+
+describe('a mat only starts a match it can run', () => {
+  const made = (r: Awaited<ReturnType<typeof createMatch>>) => {
+    if (!r.ok) throw new Error(r.message)
+    return r.match
+  }
+
+  it('leaves a match waiting on a feeder in its slot and starts the one behind it', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 1, matches: 0, live: true, thirdTeam: true })
+    const spare = await db.insert(athletes).values({
+      eventId: s.eventId, teamId: s.teamC, firstName: 'Ines', lastName: 'Baptista', source: 'manual',
+    }).returning().get()
+    const feeder = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, matId: null, source: 'designed' }))
+    const waiting = made(await createMatch(db, {
+      eventId: s.eventId, athleteAId: null, athleteBId: s.b2,
+      feedA: { matchId: feeder.id, take: 'winner' }, matId: s.matIds[0], source: 'generated',
+    }))
+    const behind = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a2, athleteBId: spare.id, matId: s.matIds[0], source: 'designed' }))
+    expect((await loadMatch(db, waiting.id)).status).toBe('pending')
+    expect((await loadMatch(db, behind.id)).status).toBe('live')
+    expect((await db.select().from(mats).where(eq(mats.id, s.matIds[0])).get())?.currentMatchId).toBe(behind.id)
+    expect(waiting.orderIndex).toBeLessThan(behind.orderIndex)
+  })
+
+  it('holds a match whose kid is live on another mat, and starts it when they finish', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 2, matches: 0, live: true })
+    const first = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, matId: s.matIds[0], source: 'designed' }))
+    const second = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b2, matId: s.matIds[1], source: 'designed' }))
+    expect((await loadMatch(db, first.id)).status).toBe('live')
+    expect((await loadMatch(db, second.id)).status).toBe('pending')
+    expect((await db.select().from(mats).where(eq(mats.id, s.matIds[1])).get())?.currentMatchId).toBeNull()
+
+    await enterResult(db, first.id, { entryId: 'entry-0101', pointsA: 2, pointsB: 0, winnerAthleteId: s.a1, winType: 'points' })
+    expect((await loadMatch(db, second.id)).status).toBe('live')
+    expect((await db.select().from(mats).where(eq(mats.id, s.matIds[1])).get())?.currentMatchId).toBe(second.id)
+  })
+
+  it('starts the bracket match on its own mat as soon as the feeder fills it', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 1, matches: 0, live: true })
+    const feeder = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, matId: s.matIds[0], source: 'designed' }))
+    const waiting = made(await createMatch(db, {
+      eventId: s.eventId, athleteAId: null, athleteBId: s.b2,
+      feedA: { matchId: feeder.id, take: 'winner' }, matId: s.matIds[0], source: 'generated',
+    }))
+    expect((await loadMatch(db, feeder.id)).status).toBe('live')
+    await enterResult(db, feeder.id, { entryId: 'entry-0102', pointsA: 2, pointsB: 0, winnerAthleteId: s.a1, winType: 'points' })
+    const filled = await loadMatch(db, waiting.id)
+    expect([filled.athleteAId, filled.status]).toEqual([s.a1, 'live'])
+    expect((await db.select().from(mats).where(eq(mats.id, s.matIds[0])).get())?.currentMatchId).toBe(waiting.id)
+  })
+
+  it('gives every idle mat another look when a skip frees the kids of a live match', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 2, matches: 0, live: true, thirdTeam: true })
+    const spare = await db.insert(athletes).values({
+      eventId: s.eventId, teamId: s.teamC, firstName: 'Ines', lastName: 'Baptista', source: 'manual',
+    }).returning().get()
+    const first = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, matId: s.matIds[0], source: 'designed' }))
+    made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a2, athleteBId: spare.id, matId: s.matIds[0], source: 'designed' }))
+    const second = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b2, matId: s.matIds[1], source: 'designed' }))
+    expect((await loadMatch(db, second.id)).status).toBe('pending')
+    await skipMatch(db, first.id)
+    expect((await loadMatch(db, second.id)).status).toBe('live')
   })
 })

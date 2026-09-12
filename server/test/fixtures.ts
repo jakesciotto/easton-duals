@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { createDb, initDb, migrateDb, type Db } from '../src/db/client.js'
 import { events, teams, athletes, rulesets, mats, matches } from '../src/db/schema.js'
+import { createDivision } from '../src/formats/divisions.js'
 import { DEFAULT_ACTIONS, DEFAULT_TERMINALS, DEFAULT_LENGTH_SEC, type EventMode } from '../src/shared/types.js'
 
 export interface Seeded {
@@ -14,6 +15,10 @@ export interface Seeded {
   // Only when the caller asks for it. The two-team default is what twenty other test
   // files read, so a third team is opt in.
   teamC?: number
+  // Only with `divisions`: a fifth kid, on the third team, so a division of four spans
+  // three teams the way a real one does.
+  c1?: number
+  divisionId?: number
   rulesetId: number
   matIds: number[]
   a1: number
@@ -43,8 +48,10 @@ export async function freshDb(): Promise<Db> {
 // Two teams, two kids each, one default ruleset, `matCount` mats, up to two matches
 // (a1 vs b1 on mat 1, a2 vs b2 on mat 2 or mat 1). `live` marks the event live and
 // loads the first match on each mat without going through match/mats.ts. `thirdTeam`
-// adds an empty third team for the tests that need more than a duel.
-export async function seedEvent(db: Db, opts: { matCount?: number; live?: boolean; matches?: number; mode?: EventMode; thirdTeam?: boolean } = {}): Promise<Seeded> {
+// adds an empty third team for the tests that need more than a duel. `divisions` adds a
+// fifth kid on that third team and one single elimination of four across all three,
+// generated through the real path, which is what every division surface is built against.
+export async function seedEvent(db: Db, opts: { matCount?: number; live?: boolean; matches?: number; mode?: EventMode; thirdTeam?: boolean; divisions?: boolean } = {}): Promise<Seeded> {
   const matCount = opts.matCount ?? 2
   const ev = await db.insert(events).values({
     name: 'Fall Duels', date: '2026-10-03', matCount, matCode: '0420',
@@ -54,7 +61,7 @@ export async function seedEvent(db: Db, opts: { matCount?: number; live?: boolea
     { eventId: ev.id, name: 'Ridgeline', color: 'red', position: 0 },
     { eventId: ev.id, name: 'Lakeside', color: 'blue', position: 1 },
   ]).returning().all()
-  const tc = opts.thirdTeam
+  const tc = opts.thirdTeam || opts.divisions
     ? await db.insert(teams).values({ eventId: ev.id, name: 'Hillcrest', color: 'green', position: 2 }).returning().get()
     : null
   const kids = await db.insert(athletes).values([
@@ -63,6 +70,11 @@ export async function seedEvent(db: Db, opts: { matCount?: number; live?: boolea
     { eventId: ev.id, teamId: tb.id, firstName: 'Olivia', lastName: 'Kim', age: 8, weightLbs: 60, belt: 'grey-white', gender: 'F', source: 'manual', erp: 5.8 },
     { eventId: ev.id, teamId: tb.id, firstName: 'Noah', lastName: 'Tran', age: 10, weightLbs: 72, belt: 'yellow', gender: 'M', source: 'manual', erp: null },
   ]).returning().all()
+  const c1 = opts.divisions && tc
+    ? await db.insert(athletes).values({
+      eventId: ev.id, teamId: tc.id, firstName: 'Ines', lastName: 'Baptista', age: 9, weightLbs: 66, belt: 'yellow-white', gender: 'F', source: 'manual', erp: 7.3,
+    }).returning().get()
+    : null
   const rs = await db.insert(rulesets).values({
     eventId: ev.id, name: 'Default', defaultLengthSec: DEFAULT_LENGTH_SEC, actions: DEFAULT_ACTIONS, terminals: DEFAULT_TERMINALS,
   }).returning().get()
@@ -81,8 +93,14 @@ export async function seedEvent(db: Db, opts: { matCount?: number; live?: boolea
       await db.update(mats).set({ currentMatchId: first.id }).where(eq(mats.id, mat.id)).run()
     }
   }
+  const division = c1
+    ? await createDivision(db, ev.id, {
+      name: 'Novice', format: 'single_elim', styles: 'gi', athleteIds: [kids[0].id, kids[2].id, kids[1].id, c1.id],
+    })
+    : null
   return {
-    eventId: ev.id, teamA: ta.id, teamB: tb.id, teamC: tc?.id, rulesetId: rs.id, matIds: matRows.map(m => m.id),
+    eventId: ev.id, teamA: ta.id, teamB: tb.id, teamC: tc?.id, c1: c1?.id, divisionId: division?.division.id,
+    rulesetId: rs.id, matIds: matRows.map(m => m.id),
     a1: kids[0].id, a2: kids[1].id, b1: kids[2].id, b2: kids[3].id, matchIds: matchRows.map(m => m.id),
   }
 }

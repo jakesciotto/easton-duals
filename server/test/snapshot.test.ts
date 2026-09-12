@@ -6,6 +6,7 @@ import { rankTeams } from '../src/shared/leaderboard.js'
 import { appendMatchEvent, endMatch, bumpVersion } from '../src/match/events.js'
 import { advanceMat, reopenMatch } from '../src/match/mats.js'
 import { mats, matches } from '../src/db/schema.js'
+import { createMatch } from '../src/match/create.js'
 import { ON_DECK_DEPTH } from '../src/shared/types.js'
 
 const opts = { names: 'full' as const, nowMs: Date.parse('2026-08-27T18:00:00.000Z') }
@@ -137,6 +138,52 @@ describe('buildSnapshot', () => {
     const rematched = (await buildSnapshot(db, s.eventId, opts)).matches.find(m => m.id === first)
     expect(rematched?.endedAt).toBe(T(120))
     expect(rematched?.result).toEqual({ winnerAthleteId: s.b1, winType: 'decision' })
+  })
+})
+
+describe('a bracket match in the snapshot', () => {
+  const made = (r: Awaited<ReturnType<typeof createMatch>>) => {
+    if (!r.ok) throw new Error(r.message)
+    return r.match
+  }
+
+  it('prints the feed label as the side name and carries the number, style, division and round', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 1, matches: 0, live: true, divisions: true })
+    const snap = await buildSnapshot(db, s.eventId, opts)
+    const bracket = snap.matches.filter(m => m.divisionId === s.divisionId)
+    expect(bracket.map(m => [m.number, m.style, m.round])).toEqual([[1, 'gi', 1], [2, 'gi', 1], [3, 'gi', 2]])
+    const final = bracket[2]
+    expect(final.a).toMatchObject({ athleteId: null, name: 'Winner of M1', teamId: null, feed: { matchId: bracket[0].id, matchNumber: 1, take: 'winner' } })
+    expect(final.b).toMatchObject({ athleteId: null, name: 'Winner of M2' })
+    expect(bracket[0].a).toMatchObject({ name: 'Mateo Rivera', feed: null })
+  })
+
+  it('says an idle mat is waiting on the feeder of the match at the head of its queue', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 1, matches: 0, live: true })
+    const feeder = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, matId: null, source: 'designed' }))
+    made(await createMatch(db, {
+      eventId: s.eventId, athleteAId: null, athleteBId: s.b2,
+      feedA: { matchId: feeder.id, take: 'winner' }, matId: s.matIds[0], source: 'generated',
+    }))
+    const snap = await buildSnapshot(db, s.eventId, opts)
+    expect(snap.mats[0]).toMatchObject({ current: null, blocked: `Waiting on M${feeder.number}` })
+  })
+
+  it('names the kid holding an idle mat up and the mat they are on', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 2, matches: 0, live: true })
+    made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, matId: s.matIds[0], source: 'designed' }))
+    made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b2, matId: s.matIds[1], source: 'designed' }))
+    const snap = await buildSnapshot(db, s.eventId, opts)
+    expect(snap.mats.map(m => m.blocked)).toEqual([null, 'Mateo Rivera is live on mat 1'])
+  })
+
+  it('says nothing about a mat that is running or has an empty queue', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { live: true })
+    expect((await buildSnapshot(db, s.eventId, opts)).mats.map(m => m.blocked)).toEqual([null, null])
   })
 })
 
