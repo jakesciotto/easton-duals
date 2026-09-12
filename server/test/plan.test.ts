@@ -285,3 +285,39 @@ describe('planSchedule: performance', () => {
     expect(elapsed).toBeLessThan(200)
   })
 })
+
+describe('planSchedule: edges', () => {
+  it('plans nothing when nothing is pending', () => {
+    const result = plan([], { mats: [{ id: 10, number: 1 }, { id: 20, number: 2 }] })
+    expect(result).toEqual({
+      order: [], waves: 0, minutes: 0, warnings: [], gaps: [],
+      perMat: [{ matId: 10, number: 1, count: 0 }, { matId: 20, number: 2, count: 0 }],
+    })
+  })
+
+  it('places an all-nogi list in priority order with no gap', () => {
+    const result = plan([
+      pm({ id: 1, number: 1, style: 'nogi', age: 12, athleteIds: [1, 2] }),
+      pm({ id: 2, number: 2, style: 'nogi', age: 9, athleteIds: [3, 4] }),
+    ])
+    expect(matchIds(result)).toEqual([2, 1])
+    expect(result.gaps).toEqual([])
+    expect(result.waves).toBe(2)
+  })
+
+  it('leaves the idle lanes of a short final wave without a gap', () => {
+    const mats = [1, 2, 3].map(n => ({ id: n, number: n }))
+    const pending = Array.from({ length: 4 }, (_, i) => pm({ id: i + 1, number: i + 1, athleteIds: [i * 2 + 1, i * 2 + 2] }))
+    const result = plan(pending, { mats })
+    expect(result.waves).toBe(2)
+    expect(result.gaps).toEqual([])
+    expect(result.perMat.map(m => m.count)).toEqual([2, 1, 1])
+    expect(result.order.map(o => o.orderIndex)).toEqual([1, 2, 3, 4])
+  })
+
+  it('throws instead of looping when a feed can never clear', () => {
+    expect(() => plan([
+      pm({ id: 1, number: 1, athleteIds: [null, null], feeds: [1] }),
+    ])).toThrow('schedule cannot place M1')
+  })
+})

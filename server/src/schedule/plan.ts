@@ -110,6 +110,7 @@ export function planSchedule(input: PlanInput, names: (athleteId: number) => str
   let nextOrderIndex = input.firstOrderIndex
   let remaining = priority.length
   let wave = 0
+  let emptyWaves = 0
 
   while (remaining > 0) {
     let waveHasMatch = false
@@ -150,7 +151,15 @@ export function planSchedule(input: PlanInput, names: (athleteId: number) => str
       waveHasMatch = true
       waveMax = Math.max(waveMax, chosen.lengthSec)
     }
-    if (waveHasMatch) waveMaxLength.push(waveMax)
+    if (waveHasMatch) {
+      waveMaxLength.push(waveMax)
+      emptyWaves = 0
+    } else if (++emptyWaves > 1) {
+      // A feeder placed at wave w frees its dependent at w + 2, so a placeable set never
+      // idles two waves running. A second empty wave means a feed that can never clear.
+      const stuck = priority.find(m => !placed.has(m.id))
+      throw new Error(`schedule cannot place M${stuck?.number}`)
+    }
     wave++
   }
 
