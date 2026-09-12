@@ -29,6 +29,20 @@ export async function resolvePair(db: DbLike, eventId: number, aId: number, bId:
 }
 
 /**
+ * The kids a format chose, validated but not reordered: a message when one of them is off
+ * the event or a kid is drawn against themself, null when the sides are sound. Unlike
+ * resolvePair this takes a same-team pair, because a bracket slot can hold one and the
+ * division warns about it rather than refusing to generate.
+ */
+export async function checkSides(db: DbLike, eventId: number, ids: number[]): Promise<string | null> {
+  if (new Set(ids).size !== ids.length) return 'a kid cannot fight themself'
+  if (ids.length === 0) return null
+  const rows = await db.select({ id: athletes.id }).from(athletes)
+    .where(and(eq(athletes.eventId, eventId), inArray(athletes.id, ids))).all()
+  return rows.length === ids.length ? null : 'both athletes must be on this event'
+}
+
+/**
  * The first of these kids who already has an unfought match on this event, or null. A
  * second unfought match for one kid is a mistake wherever the server is the one choosing
  * the pair, and a kid on a mat cannot be in two places at once.

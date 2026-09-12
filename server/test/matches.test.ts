@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { createTestApp, call } from './helpers.js'
-import { seedEvent } from './fixtures.js'
+import { freshDb, seedEvent } from './fixtures.js'
 import { athletes, mats, matches, proposals } from '../src/db/schema.js'
+import { createMatch } from '../src/match/create.js'
 
 describe('match routes', () => {
   it('creates by hand with team order fixed, patches, deletes, reorders', async () => {
@@ -150,5 +151,65 @@ describe('match routes', () => {
     expect(created.status).toBe(201)
     expect(created.body.removedProposals).toBe(0)
     expect(await db.select().from(proposals).where(eq(proposals.id, untouched.id)).get()).toBeDefined()
+  })
+})
+
+describe('createMatch', () => {
+  const made = (r: Awaited<ReturnType<typeof createMatch>>) => {
+    if (!r.ok) throw new Error(r.message)
+    return r.match
+  }
+
+  it('numbers the matches of each event from one', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matches: 0 })
+    const other = await seedEvent(db, { matches: 0 })
+    const numbers: number[] = []
+    for (const [a, b] of [[s.a1, s.b1], [s.a2, s.b2], [s.a1, s.b2]]) {
+      numbers.push(made(await createMatch(db, { eventId: s.eventId, athleteAId: a, athleteBId: b, source: 'designed' })).number)
+    }
+    expect(numbers).toEqual([1, 2, 3])
+    const first = made(await createMatch(db, { eventId: other.eventId, athleteAId: other.a1, athleteBId: other.b1, source: 'designed' }))
+    expect(first.number).toBe(1)
+  })
+
+  it('takes a bracket side with no kid, carrying the style, the round and the feed', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matches: 0 })
+    const feeder = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, style: 'nogi', source: 'generated' }))
+    const bracket = made(await createMatch(db, {
+      eventId: s.eventId, athleteAId: null, athleteBId: s.a2,
+      feedA: { matchId: feeder.id, take: 'winner' },
+      style: 'nogi', round: 2, why: '47 to 53 boys, final', matId: null, source: 'generated',
+    }))
+    expect(bracket).toMatchObject({
+      number: 2, athleteAId: null, athleteBId: s.a2, feedAMatchId: feeder.id, feedATake: 'winner',
+      feedBMatchId: null, style: 'nogi', round: 2, why: '47 to 53 boys, final', source: 'generated', matId: null,
+    })
+  })
+
+  it('refuses a feed to another event and a side with neither a kid nor a feed', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matches: 0 })
+    const other = await seedEvent(db, { matches: 0 })
+    const foreign = made(await createMatch(db, { eventId: other.eventId, athleteAId: other.a1, athleteBId: other.b1, source: 'designed' }))
+    expect(await createMatch(db, {
+      eventId: s.eventId, athleteAId: null, athleteBId: s.a2,
+      feedA: { matchId: foreign.id, take: 'winner' }, source: 'generated',
+    })).toEqual({ ok: false, code: 'validation', message: 'a feed must name a match on this event' })
+    expect(await createMatch(db, { eventId: s.eventId, athleteAId: null, athleteBId: s.a2, source: 'generated' }))
+      .toEqual({ ok: false, code: 'validation', message: 'a side needs a kid or a feed' })
+  })
+
+  it('leaves a generated pair as the format put it, same team included', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matches: 0 })
+    const generated = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a2, athleteBId: s.a1, source: 'generated' }))
+    expect(generated).toMatchObject({ athleteAId: s.a2, athleteBId: s.a1 })
+    expect(await createMatch(db, { eventId: s.eventId, athleteAId: s.a2, athleteBId: s.a1, source: 'designed' }))
+      .toEqual({ ok: false, code: 'validation', message: 'athletes must be on different teams' })
+    // A pair a person picked still reads in team order whichever way round it arrived.
+    expect(made(await createMatch(db, { eventId: s.eventId, athleteAId: s.b1, athleteBId: s.a1, source: 'designed' })))
+      .toMatchObject({ athleteAId: s.a1, athleteBId: s.b1 })
   })
 })
