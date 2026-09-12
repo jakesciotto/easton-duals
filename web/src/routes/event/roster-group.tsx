@@ -20,8 +20,8 @@ import { ROSTER_COLS, RosterRow } from './roster-row'
 const SUBHEAD_STICKY = 'sticky top-[var(--app-header-h,57px)] z-1'
 
 export function RosterGroup({
-  title, color, teamId, kids, selected, faults, inMatch, suggestions, dragging, over,
-  onSelect, onPatch, onRemove, onLink, onConfirm, onDismiss, onProfile, onDragStart, onAdd,
+  title, color, teamId, kids, selected, faults, inMatch, pendingOrLive, suggestions, dragging, over,
+  onSelect, onPatch, onRemove, onUnassign, onLink, onConfirm, onDismiss, onProfile, onDragStart, onAdd,
 }: {
   title: string
   color: string | null
@@ -30,6 +30,8 @@ export function RosterGroup({
   selected: Set<number>
   faults: Set<number>
   inMatch: Set<number>
+  /** Spec C. Narrower than `inMatch`: only a match still pending or live blocks the move. */
+  pendingOrLive: Set<number>
   /** The pool read by uid, so a row can name the candidate its suggestion points at. */
   suggestions: Map<string, RosterCandidate>
   dragging: boolean
@@ -37,6 +39,8 @@ export function RosterGroup({
   onSelect: (id: number, v: boolean, range: boolean) => void
   onPatch: (id: number, body: Partial<AthleteRow>) => void
   onRemove: (kid: AthleteRow) => void
+  /** Spec C. A team column's row control moves the kid to Unassigned rather than deleting them. */
+  onUnassign: (kid: AthleteRow) => void
   onLink: (kid: AthleteRow) => void
   onConfirm: (kid: AthleteRow, wlUid: string) => void
   onDismiss: (kid: AthleteRow, wlUid: string) => void
@@ -91,11 +95,13 @@ export function RosterGroup({
                   selected={selected.has(k.id)}
                   fault={faults.has(k.id)}
                   inMatch={inMatch.has(k.id)}
+                  busy={pendingOrLive.has(k.id)}
                   suggestion={k.suggestedWlUid === null ? undefined : suggestions.get(k.suggestedWlUid)}
                   wlRecord={k.wlUid === null ? undefined : suggestions.get(k.wlUid)}
                   onSelect={(v, range) => onSelect(k.id, v, range)}
                   onPatch={body => onPatch(k.id, body)}
                   onRemove={() => onRemove(k)}
+                  onUnassign={() => onUnassign(k)}
                   onLink={() => onLink(k)}
                   onConfirm={wlUid => onConfirm(k, wlUid)}
                   onDismiss={wlUid => onDismiss(k, wlUid)}

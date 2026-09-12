@@ -166,9 +166,10 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
     [detail.matches],
   )
   // inMatch above spans every status, which is right for a delete the server refuses for
-  // good even once a match is done. Create match asks a narrower question: a kid whose
-  // only match is done is free to be paired again, a rematch being a warning rather than
-  // a refusal, so this set is scoped to the two statuses nobody has settled yet.
+  // good even once a match is done. Create match and Move to Unassigned (spec C) both ask
+  // a narrower question instead: a kid whose only match is done is free to be paired or
+  // moved again, so this one set, shared by both, is scoped to the two statuses nobody has
+  // settled yet.
   const unfought = useMemo(
     () => new Set(detail.matches.filter(m => m.status === 'pending' || m.status === 'live').flatMap(m => [m.athleteAId, m.athleteBId])),
     [detail.matches],
@@ -350,12 +351,14 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
             selected={selected}
             faults={faults}
             inMatch={inMatch}
+            pendingOrLive={unfought}
             suggestions={suggestions}
             dragging={drag.dragging}
             over={drag.over === dropZoneValue(g.teamId)}
             onSelect={onSelect}
             onPatch={onPatch}
             onRemove={kid => setRemoving([kid])}
+            onUnassign={kid => moveTo([kid.id], null)}
             onLink={kid => { clearMessages(); setLinking(kid) }}
             onConfirm={(kid, wlUid) => { clearMessages(); confirm.mutate({ id: kid.id, wlUid }) }}
             onDismiss={(kid, wlUid) => { clearMessages(); dismiss.mutate({ id: kid.id, wlUid }) }}

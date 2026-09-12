@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { IdCardIcon, XIcon } from 'lucide-react'
+import { IdCardIcon, UserMinusIcon, XIcon } from 'lucide-react'
 import type { AthleteRow, RosterCandidate } from '@/lib/types'
 import { athleteName, beltLabel, genderLabel } from '@/lib/format'
 import { Button } from '@/components/ui/button'
@@ -131,12 +131,14 @@ export function wlMismatchTitle(kid: AthleteRow, record: RosterCandidate): strin
   return diffs.length === 0 ? null : `WellnessLiving: ${diffs.join(', ')}`
 }
 
-export function RosterRow({ kid, selected, fault, inMatch, suggestion, wlRecord, onSelect, onPatch, onRemove, onLink, onConfirm, onDismiss, onProfile, onDragStart }: {
+export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlRecord, onSelect, onPatch, onRemove, onUnassign, onLink, onConfirm, onDismiss, onProfile, onDragStart }: {
   kid: AthleteRow
   selected: boolean
   fault: boolean
   /** The server refuses a delete for anyone sitting in a match, so the row refuses first. */
   inMatch: boolean
+  /** Spec C. A kid the desk has already paired refuses Move to Unassigned too. */
+  busy: boolean
   /**
    * The candidate `suggestedWlUid` names, once the pool has been read. The row can act on
    * the stored uid without it, so the controls stand from the first render and only the
@@ -148,6 +150,8 @@ export function RosterRow({ kid, selected, fault, inMatch, suggestion, wlRecord,
   onSelect: (v: boolean, range: boolean) => void
   onPatch: (body: Partial<AthleteRow>) => void
   onRemove: () => void
+  /** Spec C. A team column's row control moves the kid to Unassigned rather than deleting them. */
+  onUnassign: () => void
   onLink: () => void
   onConfirm: (wlUid: string) => void
   onDismiss: (wlUid: string) => void
@@ -163,6 +167,7 @@ export function RosterRow({ kid, selected, fault, inMatch, suggestion, wlRecord,
   const range = useRef(false)
   const state = fault ? 'fault' : kid.age === null || kid.weightLbs === null ? 'attend' : 'ok'
   const mismatch = kid.wlUid !== null && wlRecord !== undefined ? wlMismatchTitle(kid, wlRecord) : null
+  const inTeam = kid.teamId !== null
   // The refusal is printed on the row's own meta line, because a disabled control
   // takes no pointer events and so can never show a title.
   const meta = [
@@ -247,16 +252,32 @@ export function RosterRow({ kid, selected, fault, inMatch, suggestion, wlRecord,
       >
         <IdCardIcon />
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={inMatch ? `Remove ${name}, already in a match` : `Remove ${name}`}
-        disabled={inMatch}
-        onClick={onRemove}
-        className="text-gray-9 hover:text-fault group-hover/row:text-fault group-focus-within/row:text-fault"
-      >
-        <XIcon />
-      </Button>
+      {inTeam
+        ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Move ${name} to Unassigned`}
+            title={busy ? `${name} is in a match.` : undefined}
+            disabled={busy}
+            onClick={onUnassign}
+            className="text-gray-9 group-hover/row:text-gray-11 group-focus-within/row:text-gray-11"
+          >
+            <UserMinusIcon />
+          </Button>
+        )
+        : (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={inMatch ? `Remove ${name}, already in a match` : `Remove ${name}`}
+            disabled={inMatch}
+            onClick={onRemove}
+            className="text-gray-9 hover:text-fault group-hover/row:text-fault group-focus-within/row:text-fault"
+          >
+            <XIcon />
+          </Button>
+        )}
       {suggested !== null && (
         <span className="col-span-full flex items-center gap-2 font-sans">
           <Button variant="ghost" size="sm" aria-label={`Confirm ${name}`} onClick={() => onConfirm(suggested)}>Confirm</Button>

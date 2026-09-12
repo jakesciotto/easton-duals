@@ -554,6 +554,60 @@ describe('RosterTab', () => {
   })
 })
 
+/** Spec C. A team column's row control moves a kid to Unassigned instead of deleting them. */
+describe('RosterTab, moving a team kid to Unassigned', () => {
+  // Mateo and Olivia are each other's opponents, both on team columns, so the disabled
+  // case exercises the same rule the Unassigned column's own inMatch refusal does not.
+  const placedInTeam: EventDetail = {
+    ...detail,
+    matches: [{
+      id: 1, eventId: 7, matId: null, orderIndex: 0, rulesetId: 1, lengthSec: 300,
+      athleteAId: 100, athleteBId: 200, status: 'pending', winnerAthleteId: null, winType: null,
+      pointsA: 0, pointsB: 0, clockElapsedMs: 0, clockStartedAt: null,
+      pendingTerminalAthleteId: null, pendingTerminalKey: null, lastSeq: 0, why: null, source: 'designed',
+    }],
+  }
+
+  it('posts the assign body with teamId null and never opens the delete confirm', async () => {
+    const f = fakeFetch(() => ({ json: [] }))
+    mount()
+    const teamA = screen.getByRole('region', { name: 'Ridgeline' })
+    await userEvent.setup().click(within(teamA).getByRole('button', { name: 'Move Mateo Kid to Unassigned' }))
+    await vi.waitFor(() => expect(f.calls.some(c => c.url === '/api/events/7/athletes/assign')).toBe(true))
+    const i = f.calls.findIndex(c => c.url === '/api/events/7/athletes/assign')
+    expect(f.body(i)).toEqual({ ids: [100], teamId: null })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('keeps Remove with its confirm in the Unassigned column', async () => {
+    fakeFetch(() => ({ json: [] }))
+    mount()
+    const pool = screen.getByRole('region', { name: 'Unassigned' })
+    expect(pool.querySelector('[aria-label="Move Noah Kid to Unassigned"]')).not.toBeInTheDocument()
+    await userEvent.setup().click(within(pool).getByRole('button', { name: 'Remove Noah Kid' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Remove Noah Kid?')).toBeInTheDocument()
+  })
+
+  it('disables Move to Unassigned for a kid in a pending or live match, with a title', () => {
+    fakeFetch(() => ({ json: [] }))
+    mount(placedInTeam)
+    const teamA = screen.getByRole('region', { name: 'Ridgeline' })
+    const btn = within(teamA).getByRole('button', { name: 'Move Mateo Kid to Unassigned' })
+    expect(btn).toBeDisabled()
+    expect(btn).toHaveAttribute('title', 'Mateo Kid is in a match.')
+  })
+
+  // The refusal is scoped to a match still in progress; the existing inMatch set the
+  // Unassigned column's Remove reads does not draw that line, so this checks C's own does.
+  it('does not disable Move to Unassigned once the match is done', () => {
+    fakeFetch(() => ({ json: [] }))
+    mount({ ...placedInTeam, matches: [{ ...placedInTeam.matches[0], status: 'done' }] })
+    const teamA = screen.getByRole('region', { name: 'Ridgeline' })
+    expect(within(teamA).getByRole('button', { name: 'Move Mateo Kid to Unassigned' })).toBeEnabled()
+  })
+})
+
 /**
  * The selection bar's Create match button: exactly two picks on different teams, neither
  * already in an unfought match. Reuses the same create route the Add match dialog posts
