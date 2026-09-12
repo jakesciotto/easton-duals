@@ -943,10 +943,12 @@ describe('RosterTab, the WellnessLiving link', () => {
       expect(within(teamB).queryByText(/Looks like/)).not.toBeInTheDocument()
     })
 
-    // A roster with no suggestion on it has nothing to look up.
-    it('does not read the pool when no row is waiting', () => {
+    // Ruling 2026-09-12: the pool is read whenever a row is linked or waiting on a
+    // suggestion; with neither, nothing on the roster could use it. `pooled` itself
+    // already carries a linked Mateo, so the nothing-to-look-up case is the plain detail.
+    it('does not read the pool when no row is linked and none is waiting', () => {
       const f = fakeFetch(() => ({ json: [] }))
-      mount(pooled)
+      mount(detail)
       expect(f.calls.some(c => c.url === '/api/events/7/candidates')).toBe(false)
     })
   })
@@ -1102,6 +1104,15 @@ describe('RosterTab, the WellnessLiving mismatch dot', () => {
     const teamA = screen.getByRole('region', { name: 'Ridgeline' })
     const dot = within(teamA).getByTitle('WellnessLiving: 9y')
     expect(dot).toHaveAttribute('aria-label', 'WellnessLiving: 9y')
+  })
+
+  // Ruling 2026-09-12: a wlUid alone is reason enough to read the pool, so the dot works
+  // on a roster where every row is already linked and nothing anywhere is waiting.
+  it('reads the pool and shows the dot for a linked row even with no suggestion anywhere', async () => {
+    withPool()
+    mount({ ...detail, athletes: [kid(100, 1, 'Mateo', { wlUid: 'w1', wlLocation: 'Boulder' })] })
+    const teamA = screen.getByRole('region', { name: 'Ridgeline' })
+    expect(await within(teamA).findByTitle('WellnessLiving: 9y')).toBeInTheDocument()
   })
 
   it('shows no dot once the linked row matches the pool', async () => {

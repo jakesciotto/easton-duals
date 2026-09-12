@@ -51,13 +51,15 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
     adminApi<{ warnings?: string[] }>(`/api/events/${eventId}/matches`, { method: 'POST', body: v }), { proposals: true })
 
   // A suggestion is stored as a uid, and the name behind it lives in the pool the sync
-  // cached. The key is the uids themselves, so a sync that replaces the pool reads the new
-  // one and a confirm that leaves the rest standing does not refetch.
-  const suggestedKey = detail.athletes.map(a => a.suggestedWlUid).filter(u => u !== null).join(',')
+  // cached; a linked row's own WellnessLiving dot (spec A) reads the same pool by its own
+  // wlUid. The key is every uid either one cares about, so a sync that replaces the pool
+  // reads the new one, a confirm that leaves the rest standing does not refetch, and a
+  // roster with neither a linked nor a waiting row makes no request at all.
+  const poolKey = detail.athletes.flatMap(a => [a.suggestedWlUid, a.wlUid]).filter(u => u !== null).join(',')
   const [suggestions, setSuggestions] = useState<Map<string, RosterCandidate>>(new Map())
   const [poolError, setPoolError] = useState<string | null>(null)
   useEffect(() => {
-    if (suggestedKey === '') return
+    if (poolKey === '') return
     let ignore = false
     adminApi<RosterCandidate[]>(`/api/events/${eventId}/candidates`)
       .then(rows => {
@@ -67,7 +69,7 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
       })
       .catch(e => { if (!ignore) setPoolError(e instanceof ApiError ? e.message : 'Could not reach the server') })
     return () => { ignore = true }
-  }, [eventId, suggestedKey])
+  }, [eventId, poolKey])
 
   const byTeam = (teamId: number | null) => detail.athletes.filter(a => a.teamId === teamId).sort((x, y) => x.lastName.localeCompare(y.lastName) || x.firstName.localeCompare(y.firstName))
   // One column per team, in the order the event holds them, and the pool last: an event
