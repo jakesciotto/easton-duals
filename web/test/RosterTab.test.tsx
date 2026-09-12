@@ -1115,6 +1115,21 @@ describe('RosterTab, the WellnessLiving mismatch dot', () => {
     expect(await within(teamA).findByTitle('WellnessLiving: 9y')).toBeInTheDocument()
   })
 
+  // A field the pool record lacks is skipped: only fields the record carries can disagree.
+  it('skips the fields the pool record lacks and names only the ones that differ', async () => {
+    fakeFetch(url => (url === '/api/events/7/candidates'
+      ? { json: [{ ...POOL[0], age: null, weightLbs: null, belt: 'white' }, POOL[1]] }
+      : { json: [] }))
+    mount(withMateo())
+    await waitForPool()
+    const teamA = screen.getByRole('region', { name: 'Ridgeline' })
+    const dot = within(teamA).getByTitle(/^WellnessLiving: /)
+    const title = dot.getAttribute('title') ?? ''
+    expect(title).toMatch(/white/i)
+    expect(title).not.toMatch(/\dy/)
+    expect(title).not.toMatch(/ lb/)
+  })
+
   it('shows no dot once the linked row matches the pool', async () => {
     withPool()
     mount(withMateo({ age: 9 }))
