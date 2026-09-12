@@ -18,6 +18,18 @@ export class MatchStateError extends Error {
   }
 }
 
+/**
+ * A write the server refuses because the body does not describe something it can do, as
+ * opposed to something the event's state forbids. app.ts answers 422 validation, which is
+ * what the zod validator answers for a body it can reject at the edge.
+ */
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ValidationError'
+  }
+}
+
 export class DecisionRequired extends Error {
   constructor() {
     super('decision required')
