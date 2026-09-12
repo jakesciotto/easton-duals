@@ -33,10 +33,12 @@ const colorsOf = (teams: TeamDraft[], except = -1) => teams.filter((_, i) => i !
  * `aria-disabled` and refused with the reason named, because a swatch that silently does
  * nothing teaches nothing.
  */
-function ColourGrid({ value, taken, label, onChange }: {
+function ColourGrid({ value, taken, label, quiet = false, onChange }: {
   value: TeamColor
   taken: TeamColor[]
   label: string
+  /** A refusal is still named; the standing note under the chosen colour is not printed. */
+  quiet?: boolean
   onChange: (c: TeamColor) => void
 }) {
   const [refused, setRefused] = useState<TeamColor | null>(null)
@@ -53,7 +55,7 @@ function ColourGrid({ value, taken, label, onChange }: {
     const level = verdicts.get(c)?.level ?? 'ok'
     return !anyLegal && level === 'block' ? 'warn' : level
   }
-  const shown = refused !== null && levelOf(refused) === 'block' ? refused : levelOf(value) !== 'ok' ? value : null
+  const shown = refused !== null && levelOf(refused) === 'block' ? refused : !quiet && levelOf(value) !== 'ok' ? value : null
 
   return (
     <div className="grid gap-2">
@@ -184,7 +186,7 @@ export function TeamList({ teams, locked = false, pending = false, error = null,
               />
             </div>
             <ColourGrid
-              value={draft.color} taken={colorsOf(teams)} label="New team colour"
+              value={draft.color} taken={colorsOf(teams)} label="New team colour" quiet={locked}
               onChange={color => setDraft({ ...draft, color })}
             />
             <div className="flex items-center gap-2">

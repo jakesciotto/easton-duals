@@ -107,6 +107,16 @@ describe('TeamList', () => {
 
   // After creation the rows are rows on the server: they are added and removed, never
   // retyped in place, so the list shows what is there rather than a form over it.
+  // In the event settings the teams already exist, and a standing note under the draft's
+  // colour reads as a warning about the team that was just added. A refusal is still named.
+  it('adds a team in the locked list without a note under its colour', async () => {
+    mount([draft('Ridgeline', 'red', 1), draft('Lakeside', 'blue', 2), draft('Fernwood', 'green', 3)], { locked: true })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Add a team' }))
+    const fresh = grid('New team colour')
+    expect(fresh.parentElement!.querySelector('p')).toBeNull()
+  })
+
   it('locks the rows it did not create, keeping Remove alive', () => {
     mount([draft('Ridgeline', 'red', 1), draft('Lakeside', 'blue', 2), draft('Fernwood', 'teal', 3)], { locked: true })
     expect(screen.queryByLabelText('Team 1 name')).not.toBeInTheDocument()
