@@ -48,6 +48,14 @@ function mount(detail: EventDetail, over: { onClose?: () => void; onContinue?: (
 }
 
 describe('SetupRosterStep', () => {
+  // The event detail query holds every arriving snapshot while a dialog is open, and this
+  // step is a dialog whose content IS the live state (the count after a paste, the drafts
+  // after a confirm). It opts out of the hold by name, like the scorer's sheet.
+  it('lets the event detail poll through while it is open', () => {
+    mount(detailWith(ROSTER))
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-poll-through')
+  })
+
   it('counts the roster and shows the first three, with the rest named as a place to go', async () => {
     mount(detailWith(ROSTER))
     await screen.findByText('Who is competing?')

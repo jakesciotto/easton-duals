@@ -64,7 +64,7 @@ export function SetupRosterStep({ detail, open, onClose, onContinue }: {
   return (
     <>
       <Dialog open={open && sub === null} onOpenChange={o => { if (!o) onClose() }}>
-        <DialogContent className={dialogSurface(576)}>
+        <DialogContent className={dialogSurface(576)} data-poll-through>
           <DialogHeader>
             <div className="grid gap-1">
               <DialogTitle>Who is competing?</DialogTitle>

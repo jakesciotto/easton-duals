@@ -38,7 +38,7 @@ export function SetupMatchesStep({ detail, open, onClose }: {
       {/* Kept mounted only while the step itself is open, so standing down for the
           panel's own confirm does not unmount the panel that opened it. A step nobody
           opened is not in the DOM at all. */}
-      <DialogContent className={dialogSurface(640)} keepMounted={open}>
+      <DialogContent className={dialogSurface(640)} keepMounted={open} data-poll-through>
         <DialogHeader>
           <div className="grid gap-1">
             <DialogTitle>Assign the matches</DialogTitle>

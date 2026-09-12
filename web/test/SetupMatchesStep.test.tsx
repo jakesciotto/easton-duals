@@ -74,6 +74,14 @@ const posted = (f: { calls: { url: string; init?: RequestInit }[] }, url: string
   f.calls.filter(c => c.url === url && c.init?.method === 'POST').length
 
 describe('SetupMatchesStep', () => {
+  // The event detail query holds every arriving snapshot while a dialog is open, and this
+  // step is a dialog whose content IS the live state (the count after a paste, the drafts
+  // after a confirm). It opts out of the hold by name, like the scorer's sheet.
+  it('lets the event detail poll through while it is open', () => {
+    mount(detailWith([]))
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-poll-through')
+  })
+
   it('states what the proposer has to work with, and marks itself step three', async () => {
     mount(detailWith([]))
     await screen.findByText('Assign the matches')
