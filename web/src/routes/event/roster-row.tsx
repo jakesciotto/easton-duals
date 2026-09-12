@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { IdCardIcon, UserMinusIcon, XIcon } from 'lucide-react'
 import type { AthleteRow, RosterCandidate } from '@/lib/types'
 import { athleteName, beltLabel, genderLabel } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Chip } from '@/components/ui/chip'
 import { FieldRow } from '@/components/ui/field-set'
 import { cn } from '@/lib/utils'
 
@@ -169,16 +170,18 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
   const mismatch = kid.wlUid !== null && wlRecord !== undefined ? wlMismatchTitle(kid, wlRecord) : null
   const inTeam = kid.teamId !== null
   // The refusal is printed on the row's own meta line, because a disabled control
-  // takes no pointer events and so can never show a title.
-  const meta = [
+  // takes no pointer events and so can never show a title. Spec D: the ERP figure is a
+  // chip rather than text, so it is a segment of its own instead of a joined string.
+  const metaParts: ReactNode[] = [
     beltLabel(kid.belt),
     genderLabel(kid.gender),
-    kid.erp === null ? 'unrated' : `ERP ${kid.erp.toFixed(1)}`,
+    kid.erp === null ? null : <Chip key="erp" value={kid.erp.toFixed(1)} size="t1" />,
     inMatch ? 'In a match' : null,
     missing ? NOT_IN_WL : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+    suggested !== null && suggestion !== undefined
+      ? <span key="suggestion" className="text-gray-11">{looksLikeLine(suggestion)}</span>
+      : null,
+  ].filter((part): part is NonNullable<typeof part> => part !== null)
 
   return (
     <FieldRow
@@ -222,10 +225,12 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
           )}
         </span>
         <span className="block truncate t2 font-normal! leading-4! text-gray-10">
-          {meta}
-          {suggested !== null && suggestion !== undefined && (
-            <span className="text-gray-11">{meta === '' ? '' : ' · '}{looksLikeLine(suggestion)}</span>
-          )}
+          {metaParts.map((part, i) => (
+            <Fragment key={i}>
+              {i > 0 && ' · '}
+              {part}
+            </Fragment>
+          ))}
         </span>
       </span>
       <EditableCell

@@ -104,7 +104,28 @@ describe('RosterTab', () => {
     expect(row.className).toContain('grid-cols-[var(--col-select)_var(--col-state)_minmax(0,1fr)_var(--col-num-s)_var(--col-num-m)_56px_var(--col-act)_var(--col-act)]')
     expect(row.className).toContain('h-14')
     expect(within(row).getByText('Zoe Kid')).toHaveAttribute('title', 'Zoe Kid')
-    expect(within(row).getByText('Grey · M · ERP 5.2')).toBeInTheDocument()
+    // The figure is now a chip, a child element rather than meta-line text, so this
+    // reads the row's full text rather than one node's own.
+    expect(row).toHaveTextContent('Grey · M · 5.2')
+  })
+
+  // Spec D.
+  it('shows the ERP as a chip carrying only the figure, not the word', () => {
+    fakeFetch(() => ({ json: [] }))
+    mount()
+    const pool = screen.getByRole('region', { name: 'Unassigned' })
+    const row = rowOf(pool, 'Zoe Kid')
+    expect(within(row).getByText('5.2').closest('[data-slot="chip"]')).toBeInTheDocument()
+    expect(within(row).queryByText(/ERP/)).not.toBeInTheDocument()
+  })
+
+  it('shows no chip and no unrated word for an unrated row', () => {
+    fakeFetch(() => ({ json: [] }))
+    mount()
+    const pool = screen.getByRole('region', { name: 'Unassigned' })
+    const row = rowOf(pool, 'Noah Kid')
+    expect(row.querySelector('[data-slot="chip"]')).not.toBeInTheDocument()
+    expect(within(row).queryByText(/unrated/i)).not.toBeInTheDocument()
   })
 
   // An event holds two to eight teams, so the column count is a wrap rather than a
@@ -405,7 +426,7 @@ describe('RosterTab', () => {
     mount(placed)
     const pool = screen.getByRole('region', { name: 'Unassigned' })
     expect(within(pool).getByRole('button', { name: 'Remove Noah Kid, already in a match' })).toBeDisabled()
-    expect(within(pool).getByText('Grey · M · unrated · In a match')).toBeInTheDocument()
+    expect(within(pool).getByText('Grey · M · In a match')).toBeInTheDocument()
     expect(within(pool).getByRole('button', { name: 'Remove Zoe Kid' })).toBeEnabled()
   })
 
