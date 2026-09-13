@@ -226,6 +226,89 @@ async function deleteArm(admin) {
   assert(withPin.status === 204, 'the right PIN deletes a live event')
 }
 
+// The paste and the bracket. One body makes a plain pair and a single elimination of
+// four, one press lays the whole day out over the mats, and the final fills itself from
+// the two semifinals rather than being typed in. Once it has run, the result it came from
+// is no longer anybody's to change.
+async function formatArm(admin) {
+  const created = await j('POST', '/api/events', {
+    name: 'E2E Formats', date: '2026-10-08', matCount: 2,
+    teams: [{ name: 'Ridge', color: 'red' }, { name: 'Lake', color: 'blue' }, { name: 'Hill', color: 'green' }],
+  }, admin)
+  assert(created.status === 201, 'format event created')
+  const eventId = created.body.event.id
+  const [ridge, lake, hill] = created.body.teams
+
+  const kids = {}
+  for (const [last, teamId] of [['Gamma', ridge.id], ['Zeta', ridge.id], ['Delta', lake.id], ['Eta', lake.id], ['Epsilon', hill.id], ['Theta', hill.id]]) {
+    const r = await j('POST', `/api/events/${eventId}/athletes`, { manual: { firstName: 'Draw', lastName: last, age: 9, weightLbs: 64, belt: 'grey', gender: 'M', teamId } }, admin)
+    assert(r.status === 201, `format athlete ${last}`)
+    kids[last] = r.body.find(a => a.lastName === last)?.id
+    assert(typeof kids[last] === 'number', `format athlete id for ${last}`)
+  }
+
+  const bulk = await j('POST', `/api/events/${eventId}/matches/bulk`, {
+    matches: [{ athleteAId: kids.Gamma, athleteBId: kids.Delta, style: 'gi' }],
+    divisions: [{ name: '60 to 68 boys', format: 'single_elim', styles: 'gi', athleteIds: [kids.Zeta, kids.Eta, kids.Epsilon, kids.Theta] }],
+  }, admin)
+  assert(bulk.status === 201, 'bulk paste accepted')
+  assert(bulk.body.matches.length === 1, 'the pasted pair made one match')
+  assert(bulk.body.divisions.length === 1, 'the pasted division was created')
+  assert(bulk.body.warnings.length === 0, 'the paste warns about nothing')
+
+  const rowsOf = async () => (await j('GET', `/api/events/${eventId}`, undefined, admin)).body.matches
+  const numbered = (rows, n) => rows.find(m => m.number === n)
+  let rows = await rowsOf()
+  assert(rows.length === 4, 'a pair and a bracket of four make four matches')
+  assert(rows.filter(m => m.divisionId !== null).length === 3, 'three of them belong to the division')
+
+  const planned = await j('POST', `/api/events/${eventId}/schedule`, { apply: true }, admin)
+  assert(planned.status === 200 && planned.body.applied === true, 'the order was applied')
+  assert(planned.body.order.length === 4, 'the plan places every match')
+  rows = await rowsOf()
+  assert(rows.every(m => m.matId !== null), 'every pending match has a mat')
+  assert(rows.map(m => m.orderIndex).sort((a, b) => a - b).join() === '0,1,2,3', 'every pending match has an order')
+
+  assert((await j('PATCH', `/api/events/${eventId}`, { status: 'live' }, admin)).status === 200, 'format event live')
+  const enter = (match, winnerAthleteId, entryId) => j('POST', `/api/matches/${match.id}/entry`, {
+    entryId, pointsA: 0, pointsB: 0, winnerAthleteId, winType: 'submission',
+  }, admin)
+
+  // The plain pair first, so the mat it is holding is free for the bracket behind it.
+  const pair = numbered(rows, 1)
+  assert((await enter(pair, pair.athleteAId, 'e2e-fmt-pair')).status === 200, 'the pasted pair took a desk result')
+
+  for (const n of [2, 3]) {
+    const semi = numbered(await rowsOf(), n)
+    assert(semi.athleteAId !== null && semi.athleteBId !== null, `semifinal M${n} has both kids`)
+    assert((await enter(semi, semi.athleteAId, `e2e-fmt-semi-${n}`)).status === 200, `semifinal M${n} ended at the desk`)
+  }
+
+  rows = await rowsOf()
+  const final = numbered(rows, 4)
+  assert(final.athleteAId === numbered(rows, 2).winnerAthleteId, 'the final took the first semifinal winner')
+  assert(final.athleteBId === numbered(rows, 3).winnerAthleteId, 'the final took the second semifinal winner')
+  const snap = (await pollSnapshot(eventId)).snapshot
+  const onMat = snap.mats.find(m => m.current?.id === final.id)
+  assert(onMat !== undefined, 'the final went live on a mat by itself')
+  assert(final.status === 'live', 'the final is live')
+
+  assert((await enter(final, final.athleteAId, 'e2e-fmt-final')).status === 200, 'the final ended at the desk')
+
+  const semi = numbered(await rowsOf(), 2)
+  const other = semi.winnerAthleteId === semi.athleteAId ? semi.athleteBId : semi.athleteAId
+  const late = await j('POST', `/api/matches/${semi.id}/entry`, {
+    entryId: 'e2e-fmt-fix', pointsA: 0, pointsB: 2, winnerAthleteId: other, winType: 'points', reason: 'the desk read the wrong colour',
+  }, admin)
+  assert(late.status === 409, 'a feeder whose winner already fought on refuses the correction')
+  assert(late.body.error.code === 'match_state', 'the refusal names the state')
+  assert(late.body.error.message === `M${final.number} already ran on this result`, 'the refusal names the match that ran')
+  assert(numbered(await rowsOf(), 2).winnerAthleteId === semi.winnerAthleteId, 'the refused correction changed nothing')
+
+  const removed = await j('DELETE', `/api/events/${eventId}`, { pin: '123456' }, admin)
+  assert(removed.status === 204, 'the format event deletes with the PIN')
+}
+
 try {
   await waitForHealth()
   const admin = (await j('POST', '/api/auth/admin', { pin: '123456' })).body.token
@@ -266,6 +349,7 @@ try {
   await entryArm(admin)
   await certifyArm(admin)
   await deleteArm(admin)
+  await formatArm(admin)
   console.log('e2e ok')
 } finally {
   server.kill()
