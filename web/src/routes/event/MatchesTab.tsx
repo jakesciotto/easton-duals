@@ -19,6 +19,7 @@ import { MatchHistorySheet } from './MatchHistorySheet'
 import { matchHistorySource, type HistorySource } from './match-history'
 import { ResultDialog } from './ResultDialog'
 import { AddMatchDialog } from './AddMatchDialog'
+import { DivisionsPanel } from './DivisionsPanel'
 import { ProposalsPanel } from './ProposalsPanel'
 import {
   endedLabel, liveReason, matchLabel, matchLines, readyNote, skipNote, type MatchLine,
@@ -605,6 +606,10 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
           Live tab's panel overflow and the Entry tab's ledger. */}
       <ResultDialog detail={detail} match={editing} open={editing !== null} onOpenChange={o => { if (!o) setEditing(null) }} />
       <MatchHistorySheet source={history} open={history !== null} onOpenChange={o => { if (!o) setHistory(null) }} />
+
+      {/* Spec 9: the divisions sit above the drafts, and the drafts above the running
+          order, because each one is what puts rows into the next. */}
+      <DivisionsPanel detail={detail} certified={certified} />
 
       {/* Spec 6: the drafts sit above the running order, because confirming one is what
           puts a row into it. */}

@@ -152,7 +152,7 @@ describe('PasteMatchesDialog', () => {
   })
 
   it('reports a refused write without throwing the paste away', async () => {
-    mount(url => (url.endsWith('/matches/bulk') ? { status: 409, json: { error: 'match_state', message: 'this event is certified' } } : { json: {} }))
+    mount(url => (url.endsWith('/matches/bulk') ? { status: 409, json: { error: { code: 'match_state', message: 'this event is certified' } } } : { json: {} }))
     await screen.findByRole('dialog')
     await type('Mateo Rivera vs Olivia Kim')
     await userEvent.setup().click(button())
