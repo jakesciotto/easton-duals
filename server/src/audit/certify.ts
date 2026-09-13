@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import type { DbLike } from '../db/client.js'
-import { events, matches, mats, athletes, teams, rulesets } from '../db/schema.js'
+import { events, matches, mats, athletes, teams, rulesets, divisions } from '../db/schema.js'
 import { MatchStateError } from '../match/events.js'
 
 // The one sentence every locked write answers with. The web client matches on it, so it
@@ -19,7 +19,7 @@ export async function assertNotCertified(db: DbLike, eventId: number): Promise<v
   if (ev?.status === 'certified') throw new MatchStateError(CERTIFIED_MESSAGE)
 }
 
-export type CertifyScope = 'match' | 'mat' | 'athlete' | 'team' | 'ruleset'
+export type CertifyScope = 'match' | 'mat' | 'athlete' | 'team' | 'ruleset' | 'division'
 
 // Most write routes are addressed by something under the event rather than by the event,
 // so the guard resolves upwards first.
@@ -28,6 +28,7 @@ export async function eventIdOf(db: DbLike, scope: CertifyScope, id: number): Pr
     : scope === 'mat' ? await db.select({ eventId: mats.eventId }).from(mats).where(eq(mats.id, id)).get()
     : scope === 'athlete' ? await db.select({ eventId: athletes.eventId }).from(athletes).where(eq(athletes.id, id)).get()
     : scope === 'team' ? await db.select({ eventId: teams.eventId }).from(teams).where(eq(teams.id, id)).get()
+    : scope === 'division' ? await db.select({ eventId: divisions.eventId }).from(divisions).where(eq(divisions.id, id)).get()
     : await db.select({ eventId: rulesets.eventId }).from(rulesets).where(eq(rulesets.id, id)).get()
   return row?.eventId ?? null
 }

@@ -4,16 +4,18 @@ import { createTestApp, call, matToken, TEST_PIN } from './helpers.js'
 import { seedEvent, type Seeded } from './fixtures.js'
 import type { Db } from '../src/db/client.js'
 import { auditLog, events, proposals } from '../src/db/schema.js'
+import { createDivision } from '../src/formats/divisions.js'
 import { CERTIFIED_MESSAGE } from '../src/audit/certify.js'
 
 type App = Awaited<ReturnType<typeof createTestApp>>['app']
 
-// The proposal routes are addressed by a draft rather than by the event, so the locked
-// event has to hold one for the refusal to be the thing under test.
-type Certified = Seeded & { proposalId: number }
+// The proposal and division routes are addressed by a draft or a division rather than by
+// the event, so the locked event has to hold one of each for the refusal to be the thing
+// under test.
+type Certified = Seeded & { proposalId: number; divisionId: number }
 
-// One certified event with a settled match and one draft, which is the state the pilot
-// ends the afternoon in.
+// One certified event with a settled match, one draft and one division, which is the state
+// the pilot ends the afternoon in.
 async function certified(): Promise<{ app: App; db: Db; adminToken: string; s: Certified }> {
   const { app, db, adminToken } = await createTestApp()
   const seeded = await seedEvent(db, { matCount: 1, live: true })
@@ -22,11 +24,14 @@ async function certified(): Promise<{ app: App; db: Db; adminToken: string; s: C
     eventId: seeded.eventId, athleteAId: seeded.a1, athleteBId: seeded.b1,
     cost: 0, why: 'same class, same age', createdAt: '2026-10-03T15:30:00.000Z',
   }).returning().get()
+  const { division } = await createDivision(db, seeded.eventId, {
+    name: 'Novice', format: 'round_robin', styles: 'gi', athleteIds: [seeded.a1, seeded.b1],
+  })
   await call(app, 'PATCH', `/api/events/${seeded.eventId}`, { status: 'done' }, adminToken)
   const r = await call(app, 'POST', `/api/events/${seeded.eventId}/certify`, { pin: TEST_PIN }, adminToken)
   expect(r.status).toBe(200)
   expect(r.body.event.status).toBe('certified')
-  return { app, db, adminToken, s: { ...seeded, proposalId: draft.id } }
+  return { app, db, adminToken, s: { ...seeded, proposalId: draft.id, divisionId: division.id } }
 }
 
 // message overrides the certification refusal text this write expects. Delete says
@@ -86,11 +91,15 @@ const WRITES: Write[] = [
   { name: 'match patch', method: 'PATCH', path: s => `/api/matches/${s.matchIds[1]}`, body: () => ({ lengthSec: 240 }) },
   { name: 'match delete', method: 'DELETE', path: s => `/api/matches/${s.matchIds[1]}` },
   { name: 'match reorder', method: 'POST', path: s => `/api/events/${s.eventId}/matches/reorder`, body: s => ({ ids: [...s.matchIds].reverse() }) },
+  { name: 'division create', method: 'POST', path: s => `/api/events/${s.eventId}/divisions`, body: s => ({ name: 'Advanced', format: 'round_robin', styles: 'gi', athleteIds: [s.a2, s.b2] }) },
+  { name: 'division patch', method: 'PATCH', path: s => `/api/divisions/${s.divisionId}`, body: () => ({ name: 'Renamed' }) },
+  { name: 'division seed', method: 'POST', path: s => `/api/divisions/${s.divisionId}/seed` },
+  { name: 'division delete', method: 'DELETE', path: s => `/api/divisions/${s.divisionId}` },
 ]
 
 // Ids that cannot collide with a path segment of their own, so a concrete url matches one
 // route pattern and no other.
-const SHAPE = { eventId: 1, teamA: 2, teamB: 3, rulesetId: 4, matIds: [5, 6], a1: 7, a2: 8, b1: 9, b2: 10, matchIds: [11, 12], proposalId: 13 } as Certified
+const SHAPE = { eventId: 1, teamA: 2, teamB: 3, rulesetId: 4, matIds: [5, 6], a1: 7, a2: 8, b1: 9, b2: 10, matchIds: [11, 12], proposalId: 13, divisionId: 14 } as Certified
 
 function nonGetRoutes(app: App): string[] {
   const seen = new Set<string>()
@@ -147,7 +156,10 @@ describe('certification locks the event', () => {
   it('reopens the record and the running order, and still refuses a new result', async () => {
     const { app, adminToken, s } = await certified()
     await call(app, 'POST', `/api/events/${s.eventId}/uncertify`, { pin: TEST_PIN, reason: 'mat 1 winner was wrong' }, adminToken)
-    const reordered = await call(app, 'POST', `/api/events/${s.eventId}/matches/reorder`, { ids: [...s.matchIds].reverse() }, adminToken)
+    // Every match of the event, the division's included: the running order is the whole
+    // list or it is refused.
+    const ids = (await call(app, 'GET', `/api/events/${s.eventId}`, undefined, adminToken)).body.matches.map((m: { id: number }) => m.id)
+    const reordered = await call(app, 'POST', `/api/events/${s.eventId}/matches/reorder`, { ids: [...ids].reverse() }, adminToken)
     expect(reordered.status).toBe(200)
     expect((await call(app, 'PATCH', `/api/athletes/${s.a1}`, { weightLbs: 64 }, adminToken)).status).toBe(200)
     const fixed = await call(app, 'POST', `/api/matches/${s.matchIds[0]}/entry`, {
