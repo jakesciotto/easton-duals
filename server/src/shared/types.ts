@@ -130,6 +130,7 @@ export interface Proposal {
   eventId: number
   cost: number
   why: string
+  style: Style
   a: ProposalSide
   b: ProposalSide
 }

@@ -56,6 +56,25 @@ describe('proposing', () => {
     expect((await call(app, 'POST', '/api/events/9999/proposals', undefined, adminToken)).status).toBe(404)
     expect((await call(app, 'GET', '/api/events/9999/proposals', undefined, adminToken)).status).toBe(404)
   })
+
+  it('proposes gi when the request has no body', async () => {
+    const { app, adminToken, s } = await pool(THREE)
+    const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
+    expect(made.status).toBe(200)
+    expect(made.body.length).toBeGreaterThan(0)
+    expect(made.body.every((p: any) => p.style === 'gi')).toBe(true)
+  })
+
+  it("proposes the style the body asks for, and leaves the other style's drafts alone", async () => {
+    const { app, adminToken, s } = await pool(THREE)
+    const gi = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
+    const nogi = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, { style: 'nogi' }, adminToken)
+    expect(nogi.status).toBe(200)
+    expect(nogi.body.every((p: any) => p.style === 'nogi')).toBe(true)
+    const all = await call(app, 'GET', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
+    expect(all.body.filter((p: any) => p.style === 'gi')).toHaveLength(gi.body.length)
+    expect(all.body.filter((p: any) => p.style === 'nogi')).toHaveLength(nogi.body.length)
+  })
 })
 
 describe('confirming', () => {
@@ -173,6 +192,22 @@ describe('confirming', () => {
     expect(await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()).toEqual([])
     expect((await call(app, 'POST', `/api/events/${s.eventId}/proposals/confirm-all`, undefined, adminToken)).body).toEqual({ created: 0, skipped: 0 })
     expect((await call(app, 'POST', '/api/events/9999/proposals/confirm-all', undefined, adminToken)).status).toBe(404)
+  })
+
+  it("confirm and confirm-all both create the draft's own style", async () => {
+    const { app, db, adminToken, s } = await pool(THREE)
+    const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, { style: 'nogi' }, adminToken)
+    expect(made.body).toHaveLength(2)
+
+    const confirmed = await call(app, 'POST', `/api/proposals/${made.body[0].id}/confirm`, undefined, adminToken)
+    expect(confirmed.status).toBe(201)
+    expect(confirmed.body.match.style).toBe('nogi')
+
+    const all = await call(app, 'POST', `/api/events/${s.eventId}/proposals/confirm-all`, undefined, adminToken)
+    expect(all.body).toEqual({ created: 1, skipped: 0 })
+    const rows = await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()
+    expect(rows).toHaveLength(2)
+    expect(rows.every(m => m.style === 'nogi')).toBe(true)
   })
 })
 

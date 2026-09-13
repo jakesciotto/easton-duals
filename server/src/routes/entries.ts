@@ -28,6 +28,7 @@ const createSchema = entrySchema.extend({
   athleteAId: z.number().int(),
   athleteBId: z.number().int(),
   rulesetId: z.number().int().optional(),
+  style: z.enum(['gi', 'nogi']).optional(),
 })
 
 const reasonOf = (body: { reason?: string }) => body.reason ? { reason: body.reason } : {}

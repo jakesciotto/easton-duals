@@ -1,12 +1,11 @@
 import { and, asc, eq, inArray, or } from 'drizzle-orm'
 import type { DbLike } from '../db/client.js'
-import { events, teams, athletes, matches, proposals, type AthleteRow, type ProposalRow } from '../db/schema.js'
+import { events, teams, athletes, divisionMembers, divisions, matches, proposals, type AthleteRow, type ProposalRow } from '../db/schema.js'
 import { MatchStateError } from '../match/events.js'
 import { recordAudit } from '../audit/log.js'
-import { isUnfought } from '../match/pairs.js'
 import { beltDistance } from './cost.js'
 import { classGap, weightClass } from '../shared/weight-class.js'
-import type { Proposal, ProposalSide } from '../shared/types.js'
+import type { Proposal, ProposalSide, Style } from '../shared/types.js'
 
 // Weight class first, then age: a class is worth five years of age, and belt and rating
 // only settle ties between pairs the first two already agree on.
@@ -62,10 +61,11 @@ export function pairWhy(a: PairSide, b: PairSide): string {
  * What a person is told about a pair they picked themselves. The server never refuses on
  * these: the organizer knows something the roster does not, and the warning is there so
  * the choice is deliberate rather than accidental. `exceptMatchId` is the match being
- * edited, which would otherwise report itself as the earlier meeting.
+ * edited, which would otherwise report itself as the earlier meeting. `style` scopes
+ * "Already met" to that style: a gi rematch says nothing about a nogi pair.
  */
 export async function pairWarnings(
-  db: DbLike, eventId: number, aId: number, bId: number, opts: { exceptMatchId?: number } = {},
+  db: DbLike, eventId: number, aId: number, bId: number, opts: { exceptMatchId?: number; style: Style },
 ): Promise<string[]> {
   const rows = await db.select().from(athletes)
     .where(and(eq(athletes.eventId, eventId), inArray(athletes.id, [aId, bId]))).all()
@@ -79,6 +79,7 @@ export async function pairWarnings(
   if (years !== null && years > WARN_AGE_GAP) out.push(`${years} years apart`)
   const met = await db.select({ id: matches.id }).from(matches).where(and(
     eq(matches.eventId, eventId),
+    eq(matches.style, opts.style),
     or(
       and(eq(matches.athleteAId, aId), eq(matches.athleteBId, bId)),
       and(eq(matches.athleteAId, bId), eq(matches.athleteBId, aId)),
@@ -108,7 +109,7 @@ function serialize(row: ProposalRow, byId: Map<number, AthleteRow>): Proposal | 
   // A kid taken off their team after the draft was made leaves a row nothing can confirm.
   // It is left in the table for the next propose to replace rather than written to here.
   if (!a || !b || a.teamId === null || b.teamId === null) return null
-  return { id: row.id, eventId: row.eventId, cost: row.cost, why: row.why, a: proposalSide(a), b: proposalSide(b) }
+  return { id: row.id, eventId: row.eventId, cost: row.cost, why: row.why, style: row.style, a: proposalSide(a), b: proposalSide(b) }
 }
 
 async function athletesById(db: DbLike, eventId: number): Promise<Map<number, AthleteRow>> {
@@ -134,29 +135,37 @@ const pairKey = (a: number, b: number) => a < b ? `${a}:${b}` : `${b}:${a}`
 const genderKey = (g: string) => g.trim().toLowerCase().charAt(0)
 
 /**
- * Every cross-team pair the event could still run, closest first, taken greedily so each
- * kid appears once. Deterministic: the sort falls through to the athlete ids, so the same
- * roster proposes the same rows every time.
+ * Every cross-team pair the event could still run for this style, closest first, taken
+ * greedily so each kid appears once. Deterministic: the sort falls through to the athlete
+ * ids, so the same roster proposes the same rows every time.
  *
- * One transaction: the event's drafts are replaced whole, because a proposal only means
- * anything against the pool as it stands now.
+ * One transaction: the event's drafts of this style are replaced whole, because a
+ * proposal only means anything against the pool as it stands now. A draft of the other
+ * style is a separate set and is left alone.
  */
-export async function proposeMatches(db: DbLike, eventId: number): Promise<Proposal[]> {
+export async function proposeMatches(db: DbLike, eventId: number, style: Style): Promise<Proposal[]> {
   return db.transaction(async tx => {
     const ev = await tx.select().from(events).where(eq(events.id, eventId)).get()
     if (!ev) throw new MatchStateError('event not found')
     const teamRows = await tx.select().from(teams).where(eq(teams.eventId, eventId)).orderBy(asc(teams.position)).all()
     const positionOf = new Map(teamRows.map(t => [t.id, t.position]))
     const roster = await tx.select().from(athletes).where(eq(athletes.eventId, eventId)).all()
-    const matchRows = await tx.select({ a: matches.athleteAId, b: matches.athleteBId, status: matches.status })
+    const matchRows = await tx.select({ a: matches.athleteAId, b: matches.athleteBId, style: matches.style })
       .from(matches).where(eq(matches.eventId, eventId)).all()
-    // A kid with an unfought match is spoken for. One whose matches have all settled is
-    // free again, but never against the same opponent twice.
-    const busy = new Set(matchRows.filter(m => isUnfought(m.status)).flatMap(m => [m.a, m.b]))
-    const met = new Set(matchRows.flatMap(m => m.a === null || m.b === null ? [] : [pairKey(m.a, m.b)]))
+    const divisionRows = await tx.select({ athleteId: divisionMembers.athleteId }).from(divisionMembers)
+      .innerJoin(divisions, eq(divisionMembers.divisionId, divisions.id))
+      .where(eq(divisions.eventId, eventId)).all()
+    const inDivision = new Set(divisionRows.map(r => r.athleteId))
+    // A kid with a match of this style already has one, whatever its status: the proposer
+    // never offers a second one in the same style, and a division kid is never offered at
+    // all. "Already met" is the same rule read as a pair, kept for the loop below.
+    const sameStyle = matchRows.filter(m => m.style === style)
+    const busy = new Set(sameStyle.flatMap(m => [m.a, m.b]).filter((id): id is number => id !== null))
+    const met = new Set(sameStyle.flatMap(m => m.a === null || m.b === null ? [] : [pairKey(m.a, m.b)]))
 
     const free = roster.filter(k =>
-      k.teamId !== null && positionOf.has(k.teamId) && k.age !== null && k.weightLbs !== null && !busy.has(k.id))
+      k.teamId !== null && positionOf.has(k.teamId) && k.age !== null && k.weightLbs !== null
+      && !busy.has(k.id) && !inDivision.has(k.id))
     const lighterOf = (x: AthleteRow, y: AthleteRow) => Math.min(weightClass(x.weightLbs!).index, weightClass(y.weightLbs!).index)
 
     type Candidate = { a: AthleteRow; b: AthleteRow; cost: number; why: string; lighter: number }
@@ -184,10 +193,10 @@ export async function proposeMatches(db: DbLike, eventId: number): Promise<Propo
       chosen.push(c)
     }
 
-    await tx.delete(proposals).where(eq(proposals.eventId, eventId)).run()
+    await tx.delete(proposals).where(and(eq(proposals.eventId, eventId), eq(proposals.style, style))).run()
     const at = new Date().toISOString()
     const inserted = chosen.length === 0 ? [] : await tx.insert(proposals).values(chosen.map(c => ({
-      eventId, athleteAId: c.a.id, athleteBId: c.b.id, cost: c.cost, why: c.why, createdAt: at,
+      eventId, athleteAId: c.a.id, athleteBId: c.b.id, cost: c.cost, why: c.why, style, createdAt: at,
     }))).returning().all()
     await recordAudit(tx, {
       eventId, actor: 'admin', action: 'propose',

@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { freshDb, seedEvent } from './fixtures.js'
 import type { Db } from '../src/db/client.js'
-import { athletes, auditLog, events, matches, proposals } from '../src/db/schema.js'
-import { proposeMatches, pairCost, pairWhy } from '../src/matchmaker/propose.js'
+import { athletes, auditLog, divisionMembers, divisions, events, matches, proposals } from '../src/db/schema.js'
+import { proposeMatches, pairCost, pairWarnings, pairWhy } from '../src/matchmaker/propose.js'
 
 interface Kid {
   name: string
@@ -71,6 +71,22 @@ describe('pairWhy', () => {
   })
 })
 
+describe('pairWarnings', () => {
+  it('reports Already met only against a match of the same style', async () => {
+    const db = await freshDb()
+    const { s, id } = await pool(db, [
+      { name: 'Ines', team: 'A' },
+      { name: 'Bruno', team: 'B' },
+    ])
+    await db.insert(matches).values({
+      eventId: s.eventId, number: 1, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300, status: 'done',
+      athleteAId: id('Ines'), athleteBId: id('Bruno'), style: 'gi',
+    }).run()
+    expect(await pairWarnings(db, s.eventId, id('Ines'), id('Bruno'), { style: 'gi' })).toEqual(['Already met'])
+    expect(await pairWarnings(db, s.eventId, id('Ines'), id('Bruno'), { style: 'nogi' })).toEqual([])
+  })
+})
+
 describe('proposeMatches', () => {
   it('pairs across three teams, closest first, with the lower team first in the row', async () => {
     const db = await freshDb()
@@ -80,10 +96,11 @@ describe('proposeMatches', () => {
       { name: 'Kai', team: 'C', lbs: 75 },
       { name: 'Nadia', team: 'A', lbs: 78, age: 9 },
     ])
-    const out = await proposeMatches(db, s.eventId)
+    const out = await proposeMatches(db, s.eventId, 'gi')
     expect(out.map(p => [p.a.firstName, p.b.firstName])).toEqual([['Ines', 'Bruno'], ['Nadia', 'Kai']])
     expect(out.map(p => p.cost)).toEqual([0, 2])
     expect(out.map(p => p.why)).toEqual(['same class, same age', 'same class, 1 year apart'])
+    expect(out.every(p => p.style === 'gi')).toBe(true)
     expect(out[0].a).toEqual({
       athleteId: id('Ines'), firstName: 'Ines', lastName: 'Vantel', teamId: s.teamA,
       age: 8, weightLbs: 62, weightClass: '62 to 70 lbs', belt: 'grey', erp: null,
@@ -99,7 +116,7 @@ describe('proposeMatches', () => {
       { name: 'Sable', team: 'A', lbs: 50 },
       { name: 'Uma', team: 'B', lbs: 50 },
     ])
-    expect((await proposeMatches(db, s.eventId)).map(p => [p.a.firstName, p.b.firstName]))
+    expect((await proposeMatches(db, s.eventId, 'gi')).map(p => [p.a.firstName, p.b.firstName]))
       .toEqual([['Sable', 'Uma'], ['Tomas', 'Vik']])
 
     const db2 = await freshDb()
@@ -108,7 +125,7 @@ describe('proposeMatches', () => {
       { name: 'Priya', team: 'A' },
       { name: 'Rafa', team: 'B' },
     ])
-    expect((await proposeMatches(db2, two.s.eventId)).map(p => [p.a.firstName, p.b.firstName])).toEqual([['Omar', 'Rafa']])
+    expect((await proposeMatches(db2, two.s.eventId, 'gi')).map(p => [p.a.firstName, p.b.firstName])).toEqual([['Omar', 'Rafa']])
   })
 
   it('excludes a pair more than two classes apart and keeps one exactly two apart', async () => {
@@ -117,14 +134,14 @@ describe('proposeMatches', () => {
       { name: 'Wren', team: 'A', lbs: 39 },
       { name: 'Xan', team: 'B', lbs: 62 },
     ])
-    expect(await proposeMatches(db, s.eventId)).toEqual([])
+    expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
 
     const db2 = await freshDb()
     const near = await pool(db2, [
       { name: 'Wren', team: 'A', lbs: 39 },
       { name: 'Xan', team: 'B', lbs: 50 },
     ])
-    expect((await proposeMatches(db2, near.s.eventId)).map(p => p.why)).toEqual(['2 classes apart, same age'])
+    expect((await proposeMatches(db2, near.s.eventId, 'gi')).map(p => p.why)).toEqual(['2 classes apart, same age'])
   })
 
   it('keeps the same-gender veto', async () => {
@@ -135,10 +152,10 @@ describe('proposeMatches', () => {
       { name: 'Wilma', team: 'C', gender: 'f' },
     ])
     await db.update(events).set({ sameGender: true }).where(eq(events.id, s.eventId)).run()
-    expect((await proposeMatches(db, s.eventId)).map(p => [p.a.firstName, p.b.firstName])).toEqual([['Yara', 'Wilma']])
+    expect((await proposeMatches(db, s.eventId, 'gi')).map(p => [p.a.firstName, p.b.firstName])).toEqual([['Yara', 'Wilma']])
   })
 
-  it('skips a kid who is live on a mat, and frees them when the match is done', async () => {
+  it('skips a kid who is live on a mat, and keeps skipping once the match is done', async () => {
     const db = await freshDb()
     const { s, id } = await pool(db, [
       { name: 'Ines', team: 'A' },
@@ -147,15 +164,17 @@ describe('proposeMatches', () => {
     ])
     const match = await db.insert(matches).values({
       eventId: s.eventId, number: 1, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300, status: 'live',
-      athleteAId: id('Ines'), athleteBId: id('Kai'),
+      athleteAId: id('Ines'), athleteBId: id('Kai'), style: 'gi',
     }).returning().get()
-    expect(await proposeMatches(db, s.eventId)).toEqual([])
+    expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
 
+    // A gi match in any status, done included, keeps its kids out of gi: only Bruno is
+    // left over, and nobody is free to pair with him.
     await db.update(matches).set({ status: 'done' }).where(eq(matches.id, match.id)).run()
-    expect((await proposeMatches(db, s.eventId)).map(p => [p.a.firstName, p.b.firstName])).toEqual([['Ines', 'Bruno']])
+    expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
   })
 
-  it('skips a kid with a pending match and frees one whose match is done', async () => {
+  it('skips a kid with a pending match of the style, done or not', async () => {
     const db = await freshDb()
     const { s, id } = await pool(db, [
       { name: 'Ines', team: 'A' },
@@ -164,16 +183,34 @@ describe('proposeMatches', () => {
     ])
     const match = await db.insert(matches).values({
       eventId: s.eventId, number: 1, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300,
-      athleteAId: id('Ines'), athleteBId: id('Kai'),
+      athleteAId: id('Ines'), athleteBId: id('Kai'), style: 'gi',
     }).returning().get()
-    expect(await proposeMatches(db, s.eventId)).toEqual([])
+    expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
 
     await db.update(matches).set({ status: 'done' }).where(eq(matches.id, match.id)).run()
-    // Ines and Kai are free again, but they have met, so the only pair left is Bruno's.
-    expect((await proposeMatches(db, s.eventId)).map(p => [p.a.firstName, p.b.firstName])).toEqual([['Ines', 'Bruno']])
+    expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
   })
 
-  it('never pairs two kids who already met in this event', async () => {
+  it('is proposed for nogi but not for gi once a gi match is done', async () => {
+    const db = await freshDb()
+    const { s, id } = await pool(db, [
+      { name: 'Ines', team: 'A' },
+      { name: 'Bruno', team: 'B' },
+      { name: 'Kai', team: 'C' },
+    ])
+    await db.insert(matches).values({
+      eventId: s.eventId, number: 1, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300, status: 'done',
+      athleteAId: id('Ines'), athleteBId: id('Kai'), style: 'gi',
+    }).run()
+    // Ines and Kai already hold a gi match, so gi has only Bruno left over.
+    expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
+    // Nogi has not been touched, so all three are free for it.
+    const nogi = await proposeMatches(db, s.eventId, 'nogi')
+    expect(nogi.map(p => [p.a.firstName, p.b.firstName])).toEqual([['Ines', 'Bruno']])
+    expect(nogi.every(p => p.style === 'nogi')).toBe(true)
+  })
+
+  it('still proposes a gi pair for nogi, since Already met is per style', async () => {
     const db = await freshDb()
     const { s, id } = await pool(db, [
       { name: 'Ines', team: 'A' },
@@ -181,9 +218,37 @@ describe('proposeMatches', () => {
     ])
     await db.insert(matches).values({
       eventId: s.eventId, number: 1, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300, status: 'done',
-      athleteAId: id('Bruno'), athleteBId: id('Ines'),
+      athleteAId: id('Ines'), athleteBId: id('Bruno'), style: 'gi',
     }).run()
-    expect(await proposeMatches(db, s.eventId)).toEqual([])
+    expect((await proposeMatches(db, s.eventId, 'nogi')).map(p => [p.a.firstName, p.b.firstName])).toEqual([['Ines', 'Bruno']])
+  })
+
+  it('never proposes a kid who is in a division', async () => {
+    const db = await freshDb()
+    const { s, id } = await pool(db, [
+      { name: 'Ines', team: 'A' },
+      { name: 'Bruno', team: 'B' },
+      { name: 'Kai', team: 'C' },
+    ])
+    const division = await db.insert(divisions).values({
+      eventId: s.eventId, name: 'Novice', format: 'round_robin', styles: 'gi', position: 0, createdAt: '2026-09-12T00:00:00.000Z',
+    }).returning().get()
+    await db.insert(divisionMembers).values({ divisionId: division.id, athleteId: id('Ines'), seed: 1 }).run()
+    // Ines is spoken for by the division, so Bruno pairs with Kai instead of her.
+    expect((await proposeMatches(db, s.eventId, 'gi')).map(p => [p.a.firstName, p.b.firstName])).toEqual([['Bruno', 'Kai']])
+  })
+
+  it('never pairs two kids who already met in this event, for that style', async () => {
+    const db = await freshDb()
+    const { s, id } = await pool(db, [
+      { name: 'Ines', team: 'A' },
+      { name: 'Bruno', team: 'B' },
+    ])
+    await db.insert(matches).values({
+      eventId: s.eventId, number: 1, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300, status: 'done',
+      athleteAId: id('Bruno'), athleteBId: id('Ines'), style: 'gi',
+    }).run()
+    expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
   })
 
   it('leaves out a kid with no team, no age, or no weight', async () => {
@@ -195,19 +260,19 @@ describe('proposeMatches', () => {
       { name: 'Nadia', team: 'B' },
     ])
     await db.update(athletes).set({ teamId: null }).where(eq(athletes.id, id('Nadia'))).run()
-    expect(await proposeMatches(db, s.eventId)).toEqual([])
+    expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
   })
 
-  it('replaces the drafts, leaves the matches alone, and audits once a run', async () => {
+  it('replaces the drafts of this style, leaves the matches alone, and audits once a run', async () => {
     const db = await freshDb()
     const { s, id } = await pool(db, [
       { name: 'Ines', team: 'A' },
       { name: 'Bruno', team: 'B' },
       { name: 'Kai', team: 'C' },
     ])
-    const first = await proposeMatches(db, s.eventId)
+    const first = await proposeMatches(db, s.eventId, 'gi')
     expect(first).toHaveLength(1)
-    const second = await proposeMatches(db, s.eventId)
+    const second = await proposeMatches(db, s.eventId, 'gi')
     expect(second.map(p => [p.a.athleteId, p.b.athleteId])).toEqual(first.map(p => [p.a.athleteId, p.b.athleteId]))
     expect(second[0].id).not.toBe(first[0].id)
     expect(await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()).toHaveLength(1)
@@ -219,5 +284,24 @@ describe('proposeMatches', () => {
     // Nothing the proposer does touches the running order.
     expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toEqual([])
     expect(id('Ines')).toBeGreaterThan(0)
+  })
+
+  it('leaves a draft of the other style alone when proposing again', async () => {
+    const db = await freshDb()
+    const { s } = await pool(db, [
+      { name: 'Ines', team: 'A' },
+      { name: 'Bruno', team: 'B' },
+      { name: 'Kai', team: 'C' },
+      { name: 'Nadia', team: 'B' },
+    ])
+    const nogi = await proposeMatches(db, s.eventId, 'nogi')
+    expect(nogi).toHaveLength(2)
+    const gi = await proposeMatches(db, s.eventId, 'gi')
+    expect(gi).toHaveLength(2)
+    // Proposing gi again replaces only the gi drafts; the nogi set from above still stands.
+    await proposeMatches(db, s.eventId, 'gi')
+    const rows = await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()
+    expect(rows.filter(r => r.style === 'nogi').map(r => r.id)).toEqual(nogi.map(p => p.id))
+    expect(rows.filter(r => r.style === 'gi')).toHaveLength(2)
   })
 })

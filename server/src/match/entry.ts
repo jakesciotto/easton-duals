@@ -6,7 +6,7 @@ import { advanceMat, releaseIdleMats } from './mats.js'
 import { assertDependentsPending, fillDependents } from './fill.js'
 import { resolvePair } from './pairs.js'
 import { CERTIFIED_MESSAGE } from '../audit/certify.js'
-import type { WinType } from '../shared/types.js'
+import type { Style, WinType } from '../shared/types.js'
 
 export interface EntryInput {
   entryId: string
@@ -24,6 +24,7 @@ export interface CreateEntryInput extends EntryInput {
   athleteAId: number
   athleteBId: number
   rulesetId?: number
+  style?: Style
 }
 
 // `created` is set only by createEntry, and says whether the pair had no open match and
@@ -119,7 +120,11 @@ export async function enterResult(db: DbLike, matchId: number, input: EntryInput
 // designed pair, and the desk is the fallback when a tablet fails. Preferring the match a
 // mat is currently showing means that entry ends the match on that mat rather than a
 // duplicate, and the mat then advances.
-async function findOpenMatch(db: DbLike, eventId: number, pair: { a: number; b: number }): Promise<MatchRow | undefined> {
+//
+// A pair can hold an open match in each style at once. The requested style narrows the
+// pool first, so a desk entry for a pair with both a gi and a nogi match open lands on
+// the one asked for rather than whichever sorts first.
+async function findOpenMatch(db: DbLike, eventId: number, pair: { a: number; b: number }, style: Style): Promise<MatchRow | undefined> {
   const open = await db.select().from(matches)
     .where(and(
       eq(matches.eventId, eventId), inArray(matches.status, ['pending', 'live']),
@@ -127,9 +132,11 @@ async function findOpenMatch(db: DbLike, eventId: number, pair: { a: number; b: 
     ))
     .orderBy(asc(matches.orderIndex)).all()
   if (open.length === 0) return undefined
+  const ofStyle = open.filter(m => m.style === style)
+  const pool = ofStyle.length > 0 ? ofStyle : open
   const matRows = await db.select({ currentMatchId: mats.currentMatchId }).from(mats).where(eq(mats.eventId, eventId)).all()
   const onMat = new Set(matRows.map(m => m.currentMatchId).filter((id): id is number => id !== null))
-  return open.find(m => onMat.has(m.id)) ?? open.find(m => m.status === 'live') ?? open[0]
+  return pool.find(m => onMat.has(m.id)) ?? pool.find(m => m.status === 'live') ?? pool[0]
 }
 
 export async function createEntry(db: DbLike, eventId: number, input: CreateEntryInput): Promise<EntryResult> {
@@ -140,7 +147,8 @@ export async function createEntry(db: DbLike, eventId: number, input: CreateEntr
     await assertEventOpen(tx, eventId, false)
     const pair = await resolvePair(tx, eventId, input.athleteAId, input.athleteBId)
     if (typeof pair === 'string') throw new MatchStateError(pair)
-    const existing = await findOpenMatch(tx, eventId, pair)
+    const style = input.style ?? 'gi'
+    const existing = await findOpenMatch(tx, eventId, pair, style)
     let matchId: number
     if (existing) {
       matchId = existing.id
@@ -156,6 +164,7 @@ export async function createEntry(db: DbLike, eventId: number, input: CreateEntr
       matchId = (await tx.insert(matches).values({
         eventId, athleteAId: pair.a, athleteBId: pair.b, rulesetId: ruleset.id, lengthSec: ruleset.defaultLengthSec,
         matId: null, number: (max?.number ?? 0) + 1, orderIndex: (max?.order ?? -1) + 1, why: 'entered by hand',
+        style,
       }).returning().get()).id
     }
     return { ...await enterResult(tx, matchId, input), created: existing === undefined }

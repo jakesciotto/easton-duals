@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import type { Context } from 'hono'
 import { z } from 'zod'
 import { and, asc, eq, inArray, ne, or } from 'drizzle-orm'
 import type { Env } from '../context.js'
@@ -10,11 +11,29 @@ import { assertNotCertified } from '../audit/certify.js'
 import { createMatch } from '../match/create.js'
 import { busyAthlete, resolvePair } from '../match/pairs.js'
 import { loadProposal, loadProposals, pairCost, pairWarnings, pairWhy, proposeMatches } from '../matchmaker/propose.js'
+import type { Style } from '../shared/types.js'
 
 const swapSchema = z.object({
   athleteAId: z.number().int().optional(),
   athleteBId: z.number().int().optional(),
 }).refine(b => b.athleteAId !== undefined || b.athleteBId !== undefined, { message: 'name the kid to swap in' })
+
+const proposeSchema = z.object({ style: z.enum(['gi', 'nogi']).default('gi') })
+
+// Older clients, and every real caller today, send no body at all: the Gi | Nogi segment
+// only reaches the route once the console picks it up. A body is read only when it says
+// it is JSON and actually holds something, so an absent body never touches c.req.json().
+async function proposeStyle(c: Context<Env>): Promise<{ style: Style } | Response> {
+  const type = c.req.header('content-type') ?? ''
+  const raw = type.includes('application/json') ? (await c.req.text()).trim() : ''
+  let body: unknown = {}
+  if (raw !== '') {
+    try { body = JSON.parse(raw) } catch { return errorJson(c, 422, 'validation', 'body: invalid JSON') }
+  }
+  const parsed = proposeSchema.safeParse(body)
+  if (!parsed.success) return errorJson(c, 422, 'validation', parsed.error.issues.map(i => `${i.path.join('.') || 'body'}: ${i.message}`).join('; '))
+  return parsed.data
+}
 
 const eventExists = async (db: DbLike, eventId: number) =>
   Boolean(await db.select({ id: events.id }).from(events).where(eq(events.id, eventId)).get())
@@ -36,7 +55,7 @@ const firstRuleset = (db: DbLike, eventId: number) =>
 const confirm = (db: DbLike, row: ProposalRow, rulesetId: number) =>
   createMatch(
     db,
-    { eventId: row.eventId, athleteAId: row.athleteAId, athleteBId: row.athleteBId, rulesetId, source: 'proposed' },
+    { eventId: row.eventId, athleteAId: row.athleteAId, athleteBId: row.athleteBId, style: row.style, rulesetId, source: 'proposed' },
     {
       guard: async tx => {
         const busy = await busyAthlete(tx, row.eventId, [row.athleteAId, row.athleteBId])
@@ -55,7 +74,9 @@ proposalRoutes.post('/events/:eventId/proposals', requireAdmin, async c => {
   const { db } = c.get('ctx')
   const eventId = Number(c.req.param('eventId'))
   await assertNotCertified(db, eventId)
-  return c.json(await proposeMatches(db, eventId))
+  const body = await proposeStyle(c)
+  if (body instanceof Response) return body
+  return c.json(await proposeMatches(db, eventId, body.style))
 })
 
 proposalRoutes.get('/events/:eventId/proposals', requireAdmin, async c => {
@@ -133,7 +154,7 @@ proposalRoutes.patch('/proposals/:proposalId', requireAdmin, validate('json', sw
   return c.json({
     proposal: await loadProposal(db, row.id),
     removed,
-    warnings: await pairWarnings(db, row.eventId, pair.a, pair.b),
+    warnings: await pairWarnings(db, row.eventId, pair.a, pair.b, { style: row.style }),
   })
 })
 

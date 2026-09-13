@@ -31,7 +31,7 @@ const patchSchema = createSchema.partial()
 const matchWarnings = async (db: DbLike, m: MatchRow) =>
   m.athleteAId === null || m.athleteBId === null
     ? []
-    : pairWarnings(db, m.eventId, m.athleteAId, m.athleteBId, { exceptMatchId: m.id })
+    : pairWarnings(db, m.eventId, m.athleteAId, m.athleteBId, { exceptMatchId: m.id, style: m.style })
 
 export const matchRoutes = new Hono<Env>()
 

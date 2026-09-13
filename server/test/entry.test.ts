@@ -113,6 +113,29 @@ describe('createEntry', () => {
     expect(replay.match.id).toBe(first.match.id)
     expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toHaveLength(1)
   })
+
+  it('creates a nogi match when the entry asks for one', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matches: 0 })
+    const r = await createEntry(db, s.eventId, { entryId: 'entry-0001', athleteAId: s.a1, athleteBId: s.b1, pointsA: 2, pointsB: 0, winnerAthleteId: s.a1, winType: 'points', style: 'nogi' })
+    expect(r.match.style).toBe('nogi')
+  })
+
+  it('lands a desk entry on the requested style when the pair has both open', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matches: 0 })
+    const gi = await db.insert(matches).values({
+      eventId: s.eventId, matId: null, number: 5, orderIndex: 5, rulesetId: s.rulesetId, lengthSec: 300,
+      athleteAId: s.a1, athleteBId: s.b1, style: 'gi',
+    }).returning().get()
+    const nogi = await db.insert(matches).values({
+      eventId: s.eventId, matId: null, number: 6, orderIndex: 6, rulesetId: s.rulesetId, lengthSec: 300,
+      athleteAId: s.a1, athleteBId: s.b1, style: 'nogi',
+    }).returning().get()
+    const r = await createEntry(db, s.eventId, { entryId: 'entry-0001', athleteAId: s.a1, athleteBId: s.b1, pointsA: 2, pointsB: 0, winnerAthleteId: s.a1, winType: 'points', style: 'nogi' })
+    expect(r.match.id).toBe(nogi.id)
+    expect((await loadMatch(db, gi.id)).status).toBe('pending')
+  })
 })
 
 describe('entry routes', () => {
