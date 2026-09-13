@@ -23,6 +23,7 @@ const createSchema = z.object({
   rulesetId: z.number().int().optional(),
   lengthSec: z.number().int().min(30).max(1800).optional(),
   matId: z.number().int().nullable().optional(),
+  style: z.enum(['gi', 'nogi']).optional(),
 })
 const patchSchema = createSchema.partial()
 
@@ -101,6 +102,7 @@ matchRoutes.patch('/matches/:matchId', requireAdmin, validate('json', patchSchem
     update.rulesetId = body.rulesetId
   }
   if (body.lengthSec !== undefined) update.lengthSec = body.lengthSec
+  if (body.style !== undefined) update.style = body.style
   if (body.matId !== undefined) {
     if (body.matId !== null && !await db.select({ id: mats.id }).from(mats).where(and(eq(mats.id, body.matId), eq(mats.eventId, existing.eventId))).get()) return errorJson(c, 422, 'validation', 'mat is not on this event')
     update.matId = body.matId

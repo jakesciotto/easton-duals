@@ -213,3 +213,22 @@ describe('createMatch', () => {
       .toMatchObject({ athleteAId: s.a1, athleteBId: s.b1 })
   })
 })
+
+describe('the style of a hand-designed match', () => {
+  it('defaults to gi, takes nogi on create, changes on patch, and warns per style', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    const gi = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: s.a1, athleteBId: s.b1 }, adminToken)
+    expect(gi.status).toBe(201)
+    expect(gi.body).toMatchObject({ style: 'gi', warnings: [] })
+    const nogi = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: s.a1, athleteBId: s.b1, style: 'nogi' }, adminToken)
+    expect(nogi.status).toBe(201)
+    expect(nogi.body).toMatchObject({ style: 'nogi', warnings: [] })
+    const again = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: s.a1, athleteBId: s.b1, style: 'nogi' }, adminToken)
+    expect(again.body.warnings).toEqual(['Already met'])
+    const patched = await call(app, 'PATCH', `/api/matches/${again.body.id}`, { style: 'gi' }, adminToken)
+    expect(patched.status).toBe(200)
+    expect(patched.body).toMatchObject({ style: 'gi', warnings: ['Already met'] })
+    expect((await db.select().from(matches).where(eq(matches.id, again.body.id)).get())?.style).toBe('gi')
+  })
+})
