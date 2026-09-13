@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { TEAM_COLORS, type EventContact, type TeamColor, type WinType } from '@shared/types'
+import { TEAM_COLORS, type DivisionFormat, type DivisionStyles, type EventContact, type Style, type TeamColor, type WinType } from '@shared/types'
 
 export function beltLabel(belt: string | null): string {
   if (!belt) return 'No belt'
@@ -56,4 +56,20 @@ export function timeOfDay(iso: string | null | undefined): string | null {
   if (Number.isNaN(at.getTime())) return null
   const hour = at.getHours() % 12 || 12
   return `${hour}:${String(at.getMinutes()).padStart(2, '0')} ${at.getHours() < 12 ? 'am' : 'pm'}`
+}
+
+/** The word for a style in a sentence, and the tag a chip prints beside a match number. */
+export function styleLabel(style: Style): string {
+  return style === 'gi' ? 'Gi' : 'Nogi'
+}
+export function styleTag(style: Style): string {
+  return style === 'gi' ? 'GI' : 'NOGI'
+}
+
+/** What a division runs, and how it is drawn. Spec 9's words, verbatim. */
+export function stylesLabel(styles: DivisionStyles): string {
+  return styles === 'both' ? 'Gi and nogi' : styleLabel(styles)
+}
+export function formatLabel(format: DivisionFormat): string {
+  return format === 'round_robin' ? 'Round robin' : format === 'single_elim' ? 'Single elimination' : 'Double elimination'
 }
