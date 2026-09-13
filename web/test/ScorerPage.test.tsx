@@ -2,11 +2,12 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, act, within, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import type { MatchSide, MatchView } from '@shared/types'
 import { routes } from '@/router'
 import { SHORTEST_VIEWPORT } from '@/routes/scorer/budget'
 import { CLOCK_RUNNING, CLOCK_UNSTARTED, PENDING, TIME_UP, scorerRefusals } from '@/routes/scorer/refusals'
 import { EVENT_FINISHED } from '@/routes/scorer/actions'
-import { CenterColumn } from '@/routes/scorer/CenterColumn'
+import { CenterColumn, nextNote } from '@/routes/scorer/CenterColumn'
 import { ConfirmSheet } from '@/routes/scorer/ConfirmSheet'
 import type { Sheet as SheetState } from '@/routes/scorer/useScorer'
 import { getMatBinding, setMatBinding } from '@/lib/auth'
@@ -356,6 +357,23 @@ describe('ScorerPage', () => {
     expect(referenceRegion().contains(screen.getByRole('button', { name: /Minus.*Mateo Rivera/ }))).toBe(false)
   })
 
+  // Spec 10: the head names the mat, the match, the style and the length, and the scorer
+  // stops printing the order index, which a reorder moves under the tablet.
+  it('heads the column with the mat, the match, the style and the length', () => {
+    const match = sampleMatch({ id: 10, number: 12, style: 'nogi', orderIndex: 3 })
+    const mat = { id: 1, number: 2, current: match, onDeck: [], bound: true, blocked: null }
+    const refusals = { clock: null, addTime: null, undo: null, minusA: null, minusB: null }
+    render(
+      <CenterColumn
+        mat={mat} match={match} next={null} serverNow={sampleSnapshot().now}
+        lastSuccessAt={Date.now()} pollIntervalMs={1000} expired={false}
+        lastAction={null} refusals={refusals} error={null} contact={null}
+        onClock={() => {}} onAddTime={() => {}} onUndo={() => {}} onMinus={() => {}} onEnd={() => {}}
+      />,
+    )
+    expect(screen.getByText('MAT 2 · M12 · NOGI · 5:00')).toBeInTheDocument()
+  })
+
   // 7.6's staleness notice takes the head's identity slot rather than adding a row under
   // the clock: a row added to the head is a row taken straight out of the guarantee above,
   // and at the shortest layout viewport there are three pixels to give.
@@ -366,7 +384,7 @@ describe('ScorerPage', () => {
     const mat = { id: 1, number: 1, current: match, onDeck: [], bound: true, blocked: null }
     const refusals = { clock: null, addTime: null, undo: null, minusA: null, minusB: null }
     const props = {
-      mat, match, serverNow: sampleSnapshot().now, pollIntervalMs: 1000, expired: true,
+      mat, match, next: null, serverNow: sampleSnapshot().now, pollIntervalMs: 1000, expired: true,
       lastAction: null, refusals, error: null, contact: null,
       onClock: () => {}, onAddTime: () => {}, onUndo: () => {}, onMinus: () => {}, onEnd: () => {},
     }
@@ -638,6 +656,7 @@ describe('ScorerPage', () => {
         <CenterColumn
           mat={{ id: 1, number: 1, current: match, onDeck: [], bound: true, blocked: null }}
           match={match}
+          next={null}
           serverNow={sampleSnapshot().now}
           lastSuccessAt={Date.now()}
           pollIntervalMs={1000}
@@ -785,6 +804,42 @@ describe('ScorerPage', () => {
 // changed-score path is driven here directly rather than through a poll. useScorer's own
 // suite proves that the second confirm() sends nothing; what is proved here is that the
 // operator is not handed a way to press through it without reading it.
+// Spec 10. Advance skips a match it cannot run, so a tablet looking at a pair that is not
+// about to be called is owed the reason rather than left to wonder why nothing happens.
+describe('nextNote', () => {
+  const side = (athleteId: number | null, name: string, feed: MatchSide['feed'] = null): MatchSide =>
+    ({ athleteId, name, teamId: athleteId === null ? null : 1, belt: null, weightLbs: null, score: 0, feed })
+  const withNext = (next: MatchView, id = 1, number = 1) =>
+    ({ id, number, current: sampleMatch(), onDeck: [next], bound: true, blocked: null })
+
+  it('names the pair when the mat can simply call it', () => {
+    const next = sampleMatch({ id: 20, a: side(100, 'Mateo R.'), b: side(200, 'Olivia K.') })
+    expect(nextNote(withNext(next), [])).toBe('Next: Mateo R. vs Olivia K.')
+  })
+
+  it('names the feeder a side is still waiting on', () => {
+    const next = sampleMatch({
+      id: 20,
+      a: side(100, 'Mateo R.'),
+      b: side(null, 'Winner of M7', { matchId: 7, matchNumber: 7, take: 'winner' }),
+    })
+    expect(nextNote(withNext(next), [])).toBe('Next: waiting on M7')
+  })
+
+  it('names the mat a competitor is already on', () => {
+    const next = sampleMatch({ id: 20, a: side(100, 'Mateo R.'), b: side(200, 'Olivia K.') })
+    const elsewhere = {
+      id: 3, number: 3, bound: true, blocked: null, onDeck: [],
+      current: sampleMatch({ id: 30, a: side(200, 'Olivia K.'), b: side(300, 'Kai E.') }),
+    }
+    expect(nextNote(withNext(next), [elsewhere])).toBe('Next: Olivia K. is live on mat 3')
+  })
+
+  it('says nothing with nothing on deck', () => {
+    expect(nextNote({ id: 1, number: 1, current: sampleMatch(), onDeck: [], bound: true, blocked: null }, [])).toBeNull()
+  })
+})
+
 describe('ConfirmSheet', () => {
   const teams = sampleSnapshot().teams
   const tie = { winner: null, winType: null, scores: { a: 0, b: 0 } }

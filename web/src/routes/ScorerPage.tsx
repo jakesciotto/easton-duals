@@ -13,7 +13,7 @@ import { playExpired, unlockAudio } from '@/lib/sounds'
 import { buttonVariants } from '@/components/ui/button'
 import { Connecting } from '@/components/Connecting'
 import { ScoreSide } from './scorer/ScoreSide'
-import { CenterColumn } from './scorer/CenterColumn'
+import { CenterColumn, nextNote } from './scorer/CenterColumn'
 import { ConfirmSheet } from './scorer/ConfirmSheet'
 import { useScorer } from './scorer/useScorer'
 import { EVENT_FINISHED } from './scorer/actions'
@@ -195,6 +195,7 @@ function Scorer({ binding }: { binding: MatBinding }) {
           <CenterColumn
             mat={s.mat}
             match={m}
+            next={nextNote(s.mat, snapshot?.mats ?? [])}
             serverNow={snapshot?.now ?? null}
             lastSuccessAt={lastSuccessAt}
             pollIntervalMs={pollIntervalForSnapshot(snapshot)}

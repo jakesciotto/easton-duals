@@ -1,6 +1,7 @@
 import type { MatchView, MatView } from '@shared/types'
 import { formatClock } from '@shared/clock'
 import { Clock } from '@/components/Clock'
+import { styleTag } from '@/lib/format'
 import { useClock } from '@/lib/useClock'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -50,6 +51,28 @@ function MinusButton({ name, athleteId, points, refusal, onMinus }: {
   )
 }
 
+/**
+ * Spec 10's next line. Advance skips a match it cannot run, so a tablet looking at a pair
+ * that is not about to be called is owed the reason: a side still waiting on its feeder,
+ * or a competitor who is live on another mat. The reason continues the sentence "Next:"
+ * started, so the server's own word is lowercased and a child's name never is.
+ */
+export function nextNote(mat: MatView, mats: MatView[]): string | null {
+  const next = mat.onDeck[0]
+  if (!next) return null
+
+  const waiting = [next.a, next.b].find(side => side.athleteId === null && side.feed !== null)
+  if (waiting?.feed) return `Next: waiting on M${waiting.feed.matchNumber}`
+
+  for (const side of [next.a, next.b]) {
+    if (side.athleteId === null) continue
+    const elsewhere = mats.find(m => m.id !== mat.id && m.current !== null
+      && (m.current.a.athleteId === side.athleteId || m.current.b.athleteId === side.athleteId))
+    if (elsewhere) return `Next: ${side.name} is live on mat ${elsewhere.number}`
+  }
+  return `Next: ${next.a.name} vs ${next.b.name}`
+}
+
 function LastAction({ action }: { action: LocalAction | null }) {
   if (!action) return <p className="t2 text-gray-10">No action recorded on this tablet yet.</p>
   if (action.kind === 'clock') {
@@ -69,8 +92,10 @@ function LastAction({ action }: { action: LocalAction | null }) {
   )
 }
 
-export function CenterColumn({ mat, match, serverNow, lastSuccessAt, pollIntervalMs, expired, lastAction, refusals, error, contact, onClock, onAddTime, onUndo, onMinus, onEnd }: {
+export function CenterColumn({ mat, match, next, serverNow, lastSuccessAt, pollIntervalMs, expired, lastAction, refusals, error, contact, onClock, onAddTime, onUndo, onMinus, onEnd }: {
   mat: MatView
+  /** What the mat will call after this one, or why it will not. See nextNote above. */
+  next: string | null
   match: MatchView
   serverNow: string | null
   lastSuccessAt: number | null
@@ -88,7 +113,6 @@ export function CenterColumn({ mat, match, serverNow, lastSuccessAt, pollInterva
   onEnd: () => void
 }) {
   const running = match.clock.startedAt !== null
-  const onDeck = mat.onDeck[0]
   // 1024 x 768 is the iPad's SCREEN. The column gets that minus the browser's chrome, and
   // at the bottom of that range the declared boxes do not all fit (budget.ts). What the
   // height decides is only whether the secondary minus row rides in the commit stack or in
@@ -151,7 +175,7 @@ export function CenterColumn({ mat, match, serverNow, lastSuccessAt, pollInterva
         {!stale && (
           <div className="flex w-full items-center justify-center overflow-hidden" style={{ height: HEAD_LINE }}>
             <span className="max-w-full truncate fig t1 text-gray-10">
-              MAT {mat.number} · MATCH {match.orderIndex + 1} · {formatClock(match.clock.lengthMs)}
+              MAT {mat.number} · M{match.number} · {styleTag(match.style)} · {formatClock(match.clock.lengthMs)}
             </span>
           </div>
         )}
@@ -187,8 +211,8 @@ export function CenterColumn({ mat, match, serverNow, lastSuccessAt, pollInterva
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          {!expired && !error && onDeck && (
-            <p className="truncate text-center t2 text-gray-10">Next: {onDeck.a.name} vs {onDeck.b.name}</p>
+          {!expired && !error && next !== null && (
+            <p className="truncate text-center t2 text-gray-10">{next}</p>
           )}
           {/* 6.16: a persistent last action line that the scorer and the coach beside them can
               reconcile against the referee's signal without touching anything. It is reference,
