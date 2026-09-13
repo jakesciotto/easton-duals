@@ -1,5 +1,7 @@
-// Standalone until Task R repoints it at the shared type of the same name.
-export type Style = 'gi' | 'nogi'
+import type { Style } from '../shared/types.js'
+
+// Re-exported so a caller reading a PendingMatch has the type of its style field to hand.
+export type { Style }
 
 export interface PendingMatch {
   id: number

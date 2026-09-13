@@ -92,6 +92,7 @@ const WRITES: Write[] = [
   { name: 'match delete', method: 'DELETE', path: s => `/api/matches/${s.matchIds[1]}` },
   { name: 'match reorder', method: 'POST', path: s => `/api/events/${s.eventId}/matches/reorder`, body: s => ({ ids: [...s.matchIds].reverse() }) },
   { name: 'matches bulk', method: 'POST', path: s => `/api/events/${s.eventId}/matches/bulk`, body: s => ({ matches: [{ athleteAId: s.a2, athleteBId: s.b2 }], divisions: [] }) },
+  { name: 'schedule', method: 'POST', path: s => `/api/events/${s.eventId}/schedule`, body: () => ({ apply: false }) },
   { name: 'division create', method: 'POST', path: s => `/api/events/${s.eventId}/divisions`, body: s => ({ name: 'Advanced', format: 'round_robin', styles: 'gi', athleteIds: [s.a2, s.b2] }) },
   { name: 'division patch', method: 'PATCH', path: s => `/api/divisions/${s.divisionId}`, body: () => ({ name: 'Renamed' }) },
   { name: 'division seed', method: 'POST', path: s => `/api/divisions/${s.divisionId}/seed` },

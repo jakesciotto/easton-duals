@@ -12,6 +12,7 @@ import { scoringRoutes } from './routes/scoring.js'
 import { entryRoutes } from './routes/entries.js'
 import { matchRoutes } from './routes/matches.js'
 import { divisionRoutes } from './routes/divisions.js'
+import { scheduleRoutes } from './routes/schedule.js'
 import { proposalRoutes } from './routes/proposals.js'
 import { rosterRoutes } from './routes/roster.js'
 
@@ -42,6 +43,7 @@ export function createApp(ctx: AppContext) {
   app.route('/api', entryRoutes)
   app.route('/api', matchRoutes)
   app.route('/api', divisionRoutes)
+  app.route('/api', scheduleRoutes)
   app.route('/api', proposalRoutes)
   app.route('/api', rosterRoutes)
   app.onError((err, c) => {
