@@ -42,7 +42,7 @@ async function mount() {
 
 const expiredMatch = () => sampleMatch({ clock: { elapsedMs: 300_000, startedAt: null, lengthMs: 300_000 } })
 const onOneMat = (match: ReturnType<typeof sampleMatch>) =>
-  sampleSnapshot({ mats: [{ id: 1, number: 1, current: match, onDeck: [], bound: true }], matches: [match] })
+  sampleSnapshot({ mats: [{ id: 1, number: 1, current: match, onDeck: [], bound: true, blocked: null }], matches: [match] })
 
 // jsdom computes no layout, so what can be proved here is STRUCTURE: which elements sit
 // inside the one region that is allowed to scroll. The budget suite proves the arithmetic.
@@ -150,7 +150,7 @@ describe('ScorerPage', () => {
   // "waiting for the organizer" for both. On a mat with nothing left the organizer is not
   // coming, and a volunteer stood there all afternoon waiting for them.
   it('says the mat is complete when nothing is left on it, and waits only when a match is queued', async () => {
-    const feed = snapshotFeed(sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true }], matches: [] }))
+    const feed = snapshotFeed(sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true, blocked: null }], matches: [] }))
     fakeFetch(url => feed.handle(url) ?? { json: {} })
     await mount()
     expect(await screen.findByText('Mat 1 complete')).toBeInTheDocument()
@@ -159,7 +159,7 @@ describe('ScorerPage', () => {
 
   it('keeps the waiting copy for a mat that still has a match queued', async () => {
     const queued = sampleMatch({ id: 11, status: 'pending' })
-    const feed = snapshotFeed(sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [queued], bound: true }], matches: [queued] }))
+    const feed = snapshotFeed(sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [queued], bound: true, blocked: null }], matches: [queued] }))
     fakeFetch(url => feed.handle(url) ?? { json: {} })
     await mount()
     expect(await screen.findByText(/No match on this mat. Waiting for the organizer./)).toBeInTheDocument()
@@ -363,7 +363,7 @@ describe('ScorerPage', () => {
     vi.stubGlobal('innerWidth', 1024)
     vi.stubGlobal('innerHeight', SHORTEST_VIEWPORT)
     const match = expiredMatch()
-    const mat = { id: 1, number: 1, current: match, onDeck: [], bound: true }
+    const mat = { id: 1, number: 1, current: match, onDeck: [], bound: true, blocked: null }
     const refusals = { clock: null, addTime: null, undo: null, minusA: null, minusB: null }
     const props = {
       mat, match, serverNow: sampleSnapshot().now, pollIntervalMs: 1000, expired: true,
@@ -636,7 +636,7 @@ describe('ScorerPage', () => {
     function paint(match: ReturnType<typeof sampleMatch>, expired: boolean) {
       render(
         <CenterColumn
-          mat={{ id: 1, number: 1, current: match, onDeck: [], bound: true }}
+          mat={{ id: 1, number: 1, current: match, onDeck: [], bound: true, blocked: null }}
           match={match}
           serverNow={sampleSnapshot().now}
           lastSuccessAt={Date.now()}
@@ -790,11 +790,11 @@ describe('ConfirmSheet', () => {
   const tie = { winner: null, winType: null, scores: { a: 0, b: 0 } }
   const decided = { winner: 200, winType: 'points' as const, scores: { a: 0, b: 3 } }
 
-  function renderSheet(sheet: SheetState, over: Partial<{ match: ReturnType<typeof sampleMatch>; error: string | null; onPick: (id: number) => void; onConfirm: () => void }> = {}) {
+  function renderSheet(sheet: SheetState, over: Partial<{ match: ReturnType<typeof sampleMatch>; error: string | null; onPick: (id: number | null) => void; onConfirm: () => void }> = {}) {
     const props = {
       match: sampleMatch({ b: { ...sampleMatch().b, score: 3 } }),
       error: null as string | null,
-      onPick: () => {},
+      onPick: (() => {}) as (athleteId: number | null) => void,
       onConfirm: () => {},
       ...over,
     }
@@ -811,7 +811,7 @@ describe('ConfirmSheet', () => {
     const onConfirm = vi.fn()
     renderSheet(
       { reason: 'end', shown: decided, changed: { was: tie, now: decided }, winner: null, winType: null },
-      { onPick: id => picks.push(id), onConfirm, error: 'The score changed. Read the new result, then record it.' },
+      { onPick: id => { if (id !== null) picks.push(id) }, onConfirm, error: 'The score changed. Read the new result, then record it.' },
     )
     const sheet = await screen.findByRole('dialog')
     expect(within(sheet).getByRole('alert')).toHaveTextContent('It now says Olivia Kim on points, 0 to 3')
@@ -835,7 +835,7 @@ describe('ConfirmSheet', () => {
     const picks: number[] = []
     renderSheet(
       { reason: 'end', shown: tie, changed: { was: decided, now: tie }, winner: null, winType: null },
-      { onPick: id => picks.push(id) },
+      { onPick: id => { if (id !== null) picks.push(id) } },
     )
     const sheet = await screen.findByRole('dialog')
     expect(within(sheet).getByRole('alert')).toHaveTextContent('It now says a tie, 0 to 0')

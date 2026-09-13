@@ -28,7 +28,7 @@ function pair(id: number, aName: string, bName: string, over: Partial<MatchView>
 }
 
 function mat(id: number, over: Partial<MatView> = {}): MatView {
-  return { id, number: id, current: null, onDeck: [], bound: false, ...over }
+  return { id, number: id, current: null, onDeck: [], bound: false, blocked: null, ...over }
 }
 
 function event(status: EventStatus, mode: EventMode, matCount = 1): Snapshot['event'] {
@@ -43,7 +43,7 @@ function atMode(snapshot: Snapshot, mode: EventMode): Snapshot {
 
 function liveBoard(count: number, over: Partial<Snapshot> = {}): Snapshot {
   const mats = Array.from({ length: count }, (_, i) =>
-    mat(i + 1, { current: pair(100 + i, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), bound: true }))
+    mat(i + 1, { current: pair(100 + i, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), bound: true, blocked: null }))
   return atMode(sampleSnapshot({ mats, matches: mats.map(m => m.current!), ...over }), 'live')
 }
 
@@ -98,7 +98,7 @@ describe('Board compositions', () => {
   it('carries the clock and four upcoming pairs at one mat', () => {
     const queue = [11, 12, 13, 14, 15].map(id => pair(id, `Kai${id} Nakamura`, `Rosa${id} Oliveira`, { status: 'pending' }))
     const snapshot = sampleSnapshot({
-      mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), onDeck: queue, bound: true })],
+      mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), onDeck: queue, bound: true, blocked: null })],
       matches: [],
     })
     const { container } = render(<Board snapshot={snapshot} connected />)
@@ -113,8 +113,8 @@ describe('Board compositions', () => {
   it('carries the clock and one upcoming pair per mat at two mats', () => {
     const snapshot = liveBoard(2, {
       mats: [
-        mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), onDeck: [pair(20, 'Ana Bravo', 'Nina Costa', { status: 'pending' })], bound: true }),
-        mat(2, { current: pair(11, 'Jayden Rocha', 'Ben Oliveira', { clock: PAUSED }), onDeck: [pair(21, 'Ivy Santos', 'Zoe Marino', { status: 'pending' })], bound: true }),
+        mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), onDeck: [pair(20, 'Ana Bravo', 'Nina Costa', { status: 'pending' })], bound: true, blocked: null }),
+        mat(2, { current: pair(11, 'Jayden Rocha', 'Ben Oliveira', { clock: PAUSED }), onDeck: [pair(21, 'Ivy Santos', 'Zoe Marino', { status: 'pending' })], bound: true, blocked: null }),
       ],
     })
     const { container } = render(<Board snapshot={snapshot} connected />)
@@ -192,7 +192,7 @@ describe('Board compositions', () => {
     window.history.replaceState({}, '', '/board/1?far=1.2')
     const queue = [11, 12, 13, 14, 15].map(id => pair(id, `Kai${id} Nakamura`, `Rosa${id} Oliveira`, { status: 'pending' }))
     const snapshot = sampleSnapshot({
-      mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), onDeck: queue, bound: true })],
+      mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), onDeck: queue, bound: true, blocked: null })],
       matches: [],
     })
     const { container } = render(<Board snapshot={snapshot} connected />)
@@ -241,7 +241,7 @@ describe('Board compositions', () => {
     })
     const snapshot = atMode(sampleSnapshot({
       mats: [
-        mat(1, { current: live, bound: true }),
+        mat(1, { current: live, bound: true, blocked: null }),
         mat(2, { onDeck: [next] }),
         mat(3, {}),
       ],
@@ -262,7 +262,7 @@ describe('Board compositions', () => {
     })
     const live = pair(2, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING })
     const snapshot = sampleSnapshot({
-      mats: [mat(1, { current: live, bound: true })],
+      mats: [mat(1, { current: live, bound: true, blocked: null })],
       matches: [done, live],
     })
 
@@ -283,7 +283,7 @@ describe('Board compositions', () => {
       pair(m * 10 + i, `Kai${m}${i} Nakamura`, `Rosa${m}${i} Oliveira`, { status: 'pending' }))
     const snapshot = sampleSnapshot({
       event: event('setup', 'live', 2),
-      mats: [mat(1, { onDeck: queue(1), bound: true }), mat(2, { onDeck: queue(2), bound: true })],
+      mats: [mat(1, { onDeck: queue(1), bound: true, blocked: null }), mat(2, { onDeck: queue(2), bound: true, blocked: null })],
       matches: [],
     })
     const { container } = render(<Board snapshot={snapshot} connected />)
@@ -303,7 +303,7 @@ describe('Board compositions', () => {
   it('says a mat is not drawn yet rather than heading an empty column', () => {
     const snapshot = sampleSnapshot({
       event: event('setup', 'live'),
-      mats: [mat(1, { onDeck: [], bound: true })],
+      mats: [mat(1, { onDeck: [], bound: true, blocked: null })],
       matches: [],
     })
     const { container } = render(<Board snapshot={snapshot} connected />)
@@ -370,7 +370,7 @@ describe('Board compositions', () => {
     const queue = [1, 2].map(i => pair(i, `Kai${i} Nakamura`, `Rosa${i} Oliveira`, { status: 'pending' }))
     const snapshot = sampleSnapshot({
       event: event('setup', 'live', 1),
-      mats: [mat(1, { onDeck: queue, bound: true })],
+      mats: [mat(1, { onDeck: queue, bound: true, blocked: null })],
       matches: queue,
     })
     render(<Board snapshot={snapshot} connected />)
@@ -432,8 +432,8 @@ describe('Board compositions', () => {
   it('flies the live cue only while that mat is running', () => {
     const snapshot = sampleSnapshot({
       mats: [
-        mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), bound: true }),
-        mat(2, { current: pair(11, 'Ava Park', 'Nina Costa', { clock: PAUSED }), bound: true }),
+        mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), bound: true, blocked: null }),
+        mat(2, { current: pair(11, 'Ava Park', 'Nina Costa', { clock: PAUSED }), bound: true, blocked: null }),
         mat(3, { current: null }),
       ],
       matches: [],
@@ -610,7 +610,7 @@ describe('the leaderboard hero', () => {
     const teams = scores.map(([wins, points], i) => ({
       id: i + 1, name: NAMES[i], color: TEAM_COLOR_KEYS[i], position: i, wins, points,
     }))
-    return atMode(sampleSnapshot({ teams, mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), bound: true })], matches: [], ...over }), 'live')
+    return atMode(sampleSnapshot({ teams, mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), bound: true, blocked: null })], matches: [], ...over }), 'live')
   }
 
   function rows(container: HTMLElement): HTMLElement[] {
@@ -680,7 +680,7 @@ describe('the leaderboard hero', () => {
     const scores: [number, number][] = [[9, 51], [8, 47], [7, 44], [6, 38], [5, 33], [4, 26], [3, 19], [2, 14]]
     const queue = [pair(20, 'Ana Bravo', 'Nina Costa', { status: 'pending' })]
     const { container } = render(<Board snapshot={standings(scores, {
-      mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), onDeck: queue, bound: true })],
+      mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), onDeck: queue, bound: true, blocked: null })],
     })} connected />)
 
     expect(rows(container)).toHaveLength(8)
@@ -727,8 +727,8 @@ describe('Board freshness', () => {
     }
     const board = (one: keyof typeof clocks, two: keyof typeof clocks) => sampleSnapshot({
       mats: [
-        mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: clocks[one] }), bound: true }),
-        mat(2, { current: pair(11, 'Ava Park', 'Nina Costa', { clock: clocks[two] }), bound: true }),
+        mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: clocks[one] }), bound: true, blocked: null }),
+        mat(2, { current: pair(11, 'Ava Park', 'Nina Costa', { clock: clocks[two] }), bound: true, blocked: null }),
       ],
       matches: [],
     })
@@ -791,7 +791,7 @@ describe('Board calibration', () => {
       const teams = Array.from({ length: count }, (_, i) => ({
         id: i + 1, name: `Team ${i + 1}`, color: TEAM_COLOR_KEYS[i], position: i, wins: 0, points: 0,
       }))
-      return atMode(sampleSnapshot({ teams, mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira'), bound: true })], matches: [] }), 'live')
+      return atMode(sampleSnapshot({ teams, mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira'), bound: true, blocked: null })], matches: [] }), 'live')
     }
     const far = (count: number, query: string) => {
       window.history.replaceState({}, '', `/board/1${query}`)
@@ -813,7 +813,7 @@ describe('Board figure change', () => {
   function scored(score: number): Snapshot {
     const base = pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING })
     const match = { ...base, a: { ...base.a, score } }
-    return sampleSnapshot({ mats: [mat(1, { current: match, bound: true })], matches: [match] })
+    return sampleSnapshot({ mats: [mat(1, { current: match, bound: true, blocked: null })], matches: [match] })
   }
 
   it('crossfades the whole numeral, keeping the old one mounted to fade out', () => {
@@ -939,8 +939,8 @@ describe('Board result tones', () => {
    */
   const holding = (winnerAthleteId: number) => {
     const finished = ended(winnerAthleteId)
-    const before = atMode(sampleSnapshot({ mats: [mat(1, { current: level, bound: true })], matches: [level] }), 'live')
-    const after = atMode(sampleSnapshot({ mats: [mat(1, { current: finished, bound: true })], matches: [finished] }), 'live')
+    const before = atMode(sampleSnapshot({ mats: [mat(1, { current: level, bound: true, blocked: null })], matches: [level] }), 'live')
+    const after = atMode(sampleSnapshot({ mats: [mat(1, { current: finished, bound: true, blocked: null })], matches: [finished] }), 'live')
     const view = render(<Board snapshot={before} connected />)
     view.rerender(<Board snapshot={after} connected />)
     return { ...view, after }
@@ -988,7 +988,7 @@ describe('Board result tones', () => {
     const live = pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING })
     const scored = { ...live, a: { ...live.a, score: 2 }, b: { ...live.b, score: 6 } }
     render(<Board snapshot={atMode(sampleSnapshot({
-      mats: [mat(1, { current: scored, bound: true })],
+      mats: [mat(1, { current: scored, bound: true, blocked: null })],
       matches: [scored],
     }), 'live')} connected />)
     const r = row('Mat 1')
@@ -1041,8 +1041,8 @@ describe('Board result settling', () => {
     vi.useFakeTimers()
     const live = pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING })
     const finished = { ...live, status: 'done' as const, clock: PAUSED, result: { winnerAthleteId: 100, winType: 'submission' as const } }
-    const before = sampleSnapshot({ mats: [mat(1, { current: live, bound: true })], matches: [live] })
-    const after = sampleSnapshot({ mats: [mat(1, { current: null, bound: true })], matches: [finished] })
+    const before = sampleSnapshot({ mats: [mat(1, { current: live, bound: true, blocked: null })], matches: [live] })
+    const after = sampleSnapshot({ mats: [mat(1, { current: null, bound: true, blocked: null })], matches: [finished] })
 
     const { rerender } = render(<Board snapshot={before} connected />)
     rerender(<Board snapshot={after} connected />)

@@ -10,7 +10,7 @@ import { useSnapshot } from '@/lib/useSnapshot'
 import { newEventId } from '@/lib/ids'
 import type { AthleteRow, EventDetail, MatchRow, TeamRow } from '@/lib/types'
 import { athleteName, beltLabel, winTypeLabel } from '@/lib/format'
-import { matchViewOf } from '@/lib/matchView'
+import { feedLabel, feedOf, matchViewOf } from '@/lib/matchView'
 import { matchLines } from './matches-view'
 import { cn } from '@/lib/utils'
 import { defaultOutcome } from './entry-defaults'
@@ -462,7 +462,7 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     setWinTypeChecked(true)
     setF({
       v: DRAFT_VERSION,
-      aId: String(m.athleteAId), bId: String(m.athleteBId),
+      aId: m.athleteAId === null ? '' : String(m.athleteAId), bId: m.athleteBId === null ? '' : String(m.athleteBId),
       pointsA: String(m.pointsA), pointsB: String(m.pointsB),
       winner: m.winnerAthleteId === m.athleteAId ? 'a' : 'b', winType: m.winType ?? 'points',
       touched: true, editingId: m.id, entryId: newEventId(), reason: '',
@@ -484,7 +484,7 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     setPairPrompt(null)
     setFailure(null)
     setDupe(null)
-    setF({ ...fresh(), aId: String(m.athleteAId), bId: String(m.athleteBId) })
+    setF({ ...fresh(), aId: m.athleteAId === null ? '' : String(m.athleteAId), bId: m.athleteBId === null ? '' : String(m.athleteBId) })
     lastAttempt.current = null
     focusPoints()
   }
@@ -517,11 +517,20 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
   const pending = useMemo(() => matchLines(detail, stream).filter(l => l.status === 'pending'), [detail, stream])
   const shownPending = pending.slice(0, PENDING_CAP)
   const pendingRest = pending.length - shownPending.length
-  const name = (id: number) => { const k = byId.get(id); return k ? athleteName(k) : 'Unknown' }
+  const name = (id: number | null) => { const k = id === null ? undefined : byId.get(id); return k ? athleteName(k) : 'Unknown' }
+  // A bracket side with nobody in it yet names the match it waits on, so a pending pair
+  // the desk cannot type a result for still says why.
+  const numberOf = (matchId: number) => detail.matches.find(x => x.id === matchId)?.number ?? null
+  const sideName = (row: MatchRow, side: 'a' | 'b') => {
+    if ((side === 'a' ? row.athleteAId : row.athleteBId) !== null) return name(side === 'a' ? row.athleteAId : row.athleteBId)
+    const feed = feedOf(row, side, numberOf)
+    return feed === null ? 'Unknown' : feedLabel(feed.take, feed.matchNumber)
+  }
+  const bothFilled = (row: MatchRow) => row.athleteAId !== null && row.athleteBId !== null
   const matNumberOf = (m: MatchRow) => detail.mats.find(mat => mat.id === m.matId)?.number ?? null
   // Read off the competitor rather than off the column, because the plate is a colour and
   // a wrong one is worse than none: nothing guarantees athlete A is on the first team.
-  const teamOfAthlete = (id: number) => teamOf(byId.get(id))
+  const teamOfAthlete = (id: number | null) => teamOf(id === null ? undefined : byId.get(id))
   const startError = start.error
   // 6.9: a finished event stops taking results, so the form and every path back into it
   // go rather than sit there disabled. Nothing left on the screen says it can be scored.
@@ -699,12 +708,15 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
                       <span className="sr-only">Match </span>
                       <span className="fig">{line.position}</span>
                     </span>
-                    <span className="min-w-0 flex-1 truncate t3">{name(line.row.athleteAId)} vs {name(line.row.athleteBId)}</span>
+                    <span className="min-w-0 flex-1 truncate t3">{sideName(line.row, 'a')} vs {sideName(line.row, 'b')}</span>
                     <span className="shrink-0 t2 text-gray-10">
                       {line.matNumber === null ? 'No mat' : <>Mat <span className="fig">{line.matNumber}</span></>}
                     </span>
                     {line.row.why && <span className="t2 text-gray-10">{line.row.why}</span>}
-                    <Button size="sm" variant="secondary" onClick={() => use(line.row)}>Use</Button>
+                    {/* Spec 9: a bracket match takes a desk result once both sides are
+                        filled, so a pair that is still waiting on a feeder offers nothing
+                        to type against. */}
+                    <Button size="sm" variant="secondary" disabled={!bothFilled(line.row)} onClick={() => use(line.row)}>Use</Button>
                   </ListRow>
                 ))}
               </List>

@@ -1,3 +1,4 @@
+import { matchAthleteIds } from './matchView'
 import type { MatchRow } from './types'
 
 // The server allows a competitor to sit in two pending matches at once (uneven rosters
@@ -9,14 +10,12 @@ export function isDoubleBooked(athleteId: number, matches: MatchRow[], excludeMa
 export function doubleBookedMatchIds(matches: MatchRow[]): Set<number> {
   const pending = matches.filter(m => m.status === 'pending')
   const counts = new Map<number, number>()
-  const bump = (id: number) => counts.set(id, (counts.get(id) ?? 0) + 1)
   for (const m of pending) {
-    bump(m.athleteAId)
-    bump(m.athleteBId)
+    for (const id of matchAthleteIds(m)) counts.set(id, (counts.get(id) ?? 0) + 1)
   }
   const ids = new Set<number>()
   for (const m of pending) {
-    if ((counts.get(m.athleteAId) ?? 0) > 1 || (counts.get(m.athleteBId) ?? 0) > 1) ids.add(m.id)
+    if (matchAthleteIds(m).some(id => (counts.get(id) ?? 0) > 1)) ids.add(m.id)
   }
   return ids
 }

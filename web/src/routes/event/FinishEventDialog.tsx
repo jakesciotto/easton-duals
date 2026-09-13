@@ -38,13 +38,13 @@ export function runningMats(detail: EventDetail, snapshot: Snapshot | null = nul
       .sort((x, y) => x.number - y.number)
   }
   const byId = new Map(detail.athletes.map(a => [a.id, a]))
-  const name = (id: number) => { const k = byId.get(id); return k ? athleteName(k) : 'Unknown' }
+  const sideName = (id: number | null) => { const k = id === null ? undefined : byId.get(id); return k ? athleteName(k) : 'Unknown' }
   const matchOf = (id: number | null): MatchRow | undefined =>
     id === null ? undefined : detail.matches.find(m => m.id === id)
   return detail.mats
     .map(mat => ({ mat, match: matchOf(mat.currentMatchId) }))
     .filter((row): row is { mat: typeof row.mat; match: MatchRow } => row.match !== undefined && row.match.status !== 'done')
-    .map(({ mat, match }) => ({ number: mat.number, pair: `${name(match.athleteAId)} vs ${match.athleteBId ? name(match.athleteBId) : 'Unknown'}` }))
+    .map(({ mat, match }) => ({ number: mat.number, pair: `${sideName(match.athleteAId)} vs ${sideName(match.athleteBId)}` }))
     .sort((x, y) => x.number - y.number)
 }
 

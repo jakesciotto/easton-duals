@@ -44,9 +44,10 @@ export function snapshotFeed(initial: Snapshot): SnapshotFeed {
 
 export function sampleMatch(over: Partial<MatchView> = {}): MatchView {
   return {
-    id: 10, orderIndex: 0, matId: 1, status: 'live', rulesetId: 1, lengthSec: 300, why: null, source: 'designed',
-    a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: 'grey', weightLbs: 62, score: 0 },
-    b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: 'grey-white', weightLbs: 60, score: 0 },
+    id: 10, number: 1, orderIndex: 0, matId: 1, status: 'live', rulesetId: 1, lengthSec: 300, why: null, source: 'designed',
+    style: 'gi', divisionId: null, round: null,
+    a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: 'grey', weightLbs: 62, score: 0, feed: null },
+    b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: 'grey-white', weightLbs: 60, score: 0, feed: null },
     clock: { elapsedMs: 0, startedAt: null, lengthMs: 300_000 },
     result: null, pendingTerminal: null, endedAt: null, lastSeq: 0, ...over,
   }
@@ -67,7 +68,7 @@ export function sampleSnapshot(over: Partial<Snapshot> = {}): Snapshot {
     rulesets: [{ id: 1, name: 'Default', defaultLengthSec: 300,
       actions: [{ key: 'takedown', label: 'Takedown', points: 2 }, { key: 'mount', label: 'Mount', points: 4 }, { key: 'penalty', label: 'Penalty', points: -1 }],
       terminals: [{ key: 'submission', label: 'Submission', winType: 'submission' }, { key: 'pin', label: 'Pin', winType: 'submission' }] }],
-    mats: [{ id: 1, number: 1, current: match, onDeck: [], bound: false }],
+    mats: [{ id: 1, number: 1, current: match, onDeck: [], bound: false, blocked: null }],
     matches: [match],
     leaderboard: [],
     ...over,

@@ -177,7 +177,7 @@ describe('NewEventDialog', () => {
   // The created event is what the caller navigates to, so the id it carries is the whole
   // handoff into the roster step.
   it('hands the created event to the caller so the roster step can open on it', async () => {
-    const created = { event: { id: 9 }, teams: [], athletes: [], rulesets: [], mats: [], matches: [], candidateCount: 0 }
+    const created = { event: { id: 9 }, teams: [], athletes: [], rulesets: [], mats: [], matches: [], divisions: [], candidateCount: 0 }
     fakeFetch((url, init) => (url === '/api/events' && init?.method === 'POST' ? { status: 201, json: created } : { json: {} }))
     const onCreated = vi.fn()
     mount(onCreated)

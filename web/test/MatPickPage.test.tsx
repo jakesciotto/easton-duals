@@ -70,7 +70,7 @@ function fakeMediaQueryList(initialMatches: boolean) {
 describe('MatPickPage', () => {
   it('lists mats from the board, binds with the code, stores the binding, and opens the scorer', async () => {
     const f = fakeFetch((url, init) => {
-      if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }, { id: 2, number: 2, current: null, onDeck: [], bound: false }] }) } }
+      if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }, { id: 2, number: 2, current: null, onDeck: [], bound: false, blocked: null }] }) } }
       if (url === '/api/events/1/mats/2/bind') return JSON.parse(String(init?.body)).code === '0420'
         ? { json: { token: 'mat-tok', mat: { id: 2, number: 2 }, event: { id: 1, name: 'Fall Duels' } } }
         : { status: 401, json: { error: { code: 'bad_code', message: 'wrong mat code' } } }
@@ -106,7 +106,7 @@ describe('MatPickPage', () => {
       if (url === '/api/events/5/snapshot') {
         return { json: { version: 1, snapshot: sampleSnapshot({
           event: { id: 5, name: 'Winter Duels', date: '2026-11-01', status: 'live', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
-          mats: [{ id: 3, number: 1, current: null, onDeck: [], bound: false }],
+          mats: [{ id: 3, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
         }) } }
       }
       return { json: {} }
@@ -138,7 +138,7 @@ describe('MatPickPage', () => {
     const request = vi.fn().mockResolvedValue({ addEventListener: vi.fn(), release })
     vi.stubGlobal('navigator', { wakeLock: { request } })
     fakeFetch(url => {
-      if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }] }) } }
+      if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }] }) } }
       return { json: {} }
     })
     mount('/mat?event=1')
@@ -158,7 +158,7 @@ describe('MatPickPage', () => {
     const request = vi.fn().mockRejectedValue(new Error('not allowed'))
     vi.stubGlobal('navigator', { wakeLock: { request } })
     fakeFetch(url => {
-      if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }] }) } }
+      if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }] }) } }
       return { json: {} }
     })
     mount('/mat?event=1')
@@ -172,7 +172,7 @@ describe('MatPickPage', () => {
 
   it('surfaces a 429 rate limit error', async () => {
     fakeFetch(url => {
-      if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }, { id: 2, number: 2, current: null, onDeck: [], bound: false }] }) } }
+      if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }, { id: 2, number: 2, current: null, onDeck: [], bound: false, blocked: null }] }) } }
       if (url === '/api/events/1/mats/2/bind') return { status: 429, json: { error: { code: 'rate_limited', message: 'too many attempts; wait a minute' } } }
       return { json: {} }
     })
@@ -209,7 +209,7 @@ describe('MatPickPage', () => {
 
   it('holds mat 2 at the same grid position whether the event runs 2 mats or 4 (6.17b: fixed grid, unused slots empty)', async () => {
     fakeFetch(url => {
-      if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 10, number: 2, current: null, onDeck: [], bound: false }, { id: 11, number: 4, current: null, onDeck: [], bound: false }] }) } }
+      if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 10, number: 2, current: null, onDeck: [], bound: false, blocked: null }, { id: 11, number: 4, current: null, onDeck: [], bound: false, blocked: null }] }) } }
       return { json: {} }
     })
     mount('/mat?event=1')
@@ -228,7 +228,7 @@ describe('MatPickPage', () => {
       if (url === '/api/events/1/snapshot') {
         return { json: { version: 1, snapshot: sampleSnapshot({
           event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'live', mode: 'live', matCount: 6, contact: null, certifiedAt: null, far: null },
-          mats: Array.from({ length: 6 }, (_, i) => ({ id: i + 1, number: i + 1, current: null, onDeck: [], bound: false })),
+          mats: Array.from({ length: 6 }, (_, i) => ({ id: i + 1, number: i + 1, current: null, onDeck: [], bound: false, blocked: null })),
         }) } }
       }
       if (url === '/api/events/1/mats/6/bind') return { json: { token: 'mat-tok', mat: { id: 6, number: 6 }, event: { id: 1, name: 'Fall Duels' } } }
@@ -260,7 +260,7 @@ describe('MatPickPage', () => {
       if (url === '/api/events/3/snapshot') {
         return { json: { version: 1, snapshot: sampleSnapshot({
           event: { id: 3, name: 'Fall Duels', date: '2026-10-03', status: 'live', mode: 'entry', matCount: 1, contact: null, certifiedAt: null, far: null },
-          mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+          mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
         }) } }
       }
       return { json: {} }
@@ -292,7 +292,7 @@ describe('MatPickPage', () => {
       if (url === '/api/events/3/snapshot') {
         return { json: { version: 1, snapshot: sampleSnapshot({
           event: { id: 3, name: 'Fall Duels', date: '2026-10-03', status: 'live', mode, matCount: 1, contact: null, certifiedAt: null, far: null },
-          mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+          mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
         }) } }
       }
       return { json: { token: 'mat-tok', mat: { id: 1, number: 1 }, event: { id: 3, name: 'Fall Duels' } } }
@@ -322,7 +322,7 @@ describe('MatPickPage', () => {
    */
   describe('a mat that already has an iPad', () => {
     const twoMats = (boundIds: number[]) => sampleSnapshot({
-      mats: [1, 2].map(n => ({ id: n, number: n, current: null, onDeck: [], bound: boundIds.includes(n) })),
+      mats: [1, 2].map(n => ({ id: n, number: n, current: null, onDeck: [], bound: boundIds.includes(n), blocked: null })),
     })
 
     const serve = (over: (url: string, init?: RequestInit) => Reply | undefined) => fakeFetch((url, init) => {
@@ -400,7 +400,7 @@ describe('MatPickPage', () => {
    */
   describe('a tablet sent back here after losing its mat', () => {
     const serveOneMat = () => fakeFetch(url => (url === '/api/events/1/snapshot'
-      ? { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }] }) } }
+      ? { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }] }) } }
       : { json: {} }))
 
     it('says the code is needed again after an expired token', async () => {
@@ -441,7 +441,7 @@ describe('MatPickPage', () => {
       const { mql, set } = fakeMediaQueryList(false)
       vi.stubGlobal('matchMedia', () => mql)
       fakeFetch(url => {
-        if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }] }) } }
+        if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }] }) } }
         return { json: {} }
       })
       mount('/mat?event=1')

@@ -6,9 +6,9 @@ import { sampleMatch, sampleSnapshot } from './fakes'
 describe('useHeldResults', () => {
   it('keeps the finished match a mat has moved on from', () => {
     const live = sampleMatch({ id: 10 })
-    const first = sampleSnapshot({ mats: [{ id: 1, number: 1, current: live, onDeck: [], bound: true }], matches: [live] })
+    const first = sampleSnapshot({ mats: [{ id: 1, number: 1, current: live, onDeck: [], bound: true, blocked: null }], matches: [live] })
     const finished = { ...live, status: 'done' as const, result: { winnerAthleteId: 100, winType: 'submission' as const } }
-    const second = sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true }], matches: [finished] })
+    const second = sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true, blocked: null }], matches: [finished] })
 
     const { result, rerender } = renderHook(({ s }) => useHeldResults(s), { initialProps: { s: first } })
     expect(result.current.size).toBe(0)
@@ -20,9 +20,9 @@ describe('useHeldResults', () => {
     const live = sampleMatch({ id: 10 })
     const finished = { ...live, status: 'done' as const, result: { winnerAthleteId: 100, winType: 'submission' as const } }
     const next = sampleMatch({ id: 11 })
-    const first = sampleSnapshot({ mats: [{ id: 1, number: 1, current: live, onDeck: [], bound: true }], matches: [live] })
-    const second = sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true }], matches: [finished] })
-    const third = sampleSnapshot({ mats: [{ id: 1, number: 1, current: next, onDeck: [], bound: true }], matches: [finished, next] })
+    const first = sampleSnapshot({ mats: [{ id: 1, number: 1, current: live, onDeck: [], bound: true, blocked: null }], matches: [live] })
+    const second = sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true, blocked: null }], matches: [finished] })
+    const third = sampleSnapshot({ mats: [{ id: 1, number: 1, current: next, onDeck: [], bound: true, blocked: null }], matches: [finished, next] })
 
     const { result, rerender } = renderHook(({ s }) => useHeldResults(s), { initialProps: { s: first } })
     rerender({ s: second })
@@ -34,8 +34,8 @@ describe('useHeldResults', () => {
   it('ignores a match that left the mat without finishing', () => {
     const live = sampleMatch({ id: 10 })
     const skipped = { ...live, status: 'pending' as const }
-    const first = sampleSnapshot({ mats: [{ id: 1, number: 1, current: live, onDeck: [], bound: true }], matches: [live] })
-    const second = sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true }], matches: [skipped] })
+    const first = sampleSnapshot({ mats: [{ id: 1, number: 1, current: live, onDeck: [], bound: true, blocked: null }], matches: [live] })
+    const second = sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true, blocked: null }], matches: [skipped] })
 
     const { result, rerender } = renderHook(({ s }) => useHeldResults(s), { initialProps: { s: first } })
     rerender({ s: second })

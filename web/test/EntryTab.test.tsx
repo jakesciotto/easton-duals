@@ -25,7 +25,9 @@ const kid = (id: number, teamId: number, first: string, last: string): EventDeta
 const match = (id: number, over: Partial<MatchRow> = {}): MatchRow => ({
   id, eventId: 7, matId: null, orderIndex: id, rulesetId: 1, lengthSec: 300, athleteAId: 100, athleteBId: 200, status: 'pending',
   winnerAthleteId: null, winType: null, pointsA: 0, pointsB: 0, clockElapsedMs: 0, clockStartedAt: null,
-  pendingTerminalAthleteId: null, pendingTerminalKey: null, lastSeq: 0, why: null, source: 'designed', ...over,
+  pendingTerminalAthleteId: null, pendingTerminalKey: null,
+  number: id, style: 'gi', divisionId: null, round: null, feedAMatchId: null, feedATake: null, feedBMatchId: null, feedBTake: null,
+  lastSeq: 0, why: null, source: 'designed', ...over,
 })
 const detail: EventDetail = {
   event: { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 1, matCode: '0420', mode: 'live', status: 'setup', sameGender: false, createdAt: 'x' },
@@ -33,7 +35,7 @@ const detail: EventDetail = {
   athletes: [kid(100, 1, 'Mateo', 'Rivera'), kid(101, 1, 'Ava', 'Park'), kid(200, 2, 'Olivia', 'Kim'), kid(201, 2, 'Noah', 'Tran')],
   rulesets: [], mats: [],
   matches: [match(1, { status: 'done', pointsA: 4, pointsB: 2, winnerAthleteId: 100, winType: 'points' }), match(2, { athleteAId: 101, athleteBId: 201 })],
-  candidateCount: 0,
+  divisions: [], candidateCount: 0,
 }
 
 // The event body owns the one poll for the event and every tab under it reads that
@@ -1271,8 +1273,8 @@ describe('EntryTab', () => {
       json: {
         match: {
           id: 9,
-          a: { athleteId: 101, name: 'Ava Park', score: 5 },
-          b: { athleteId: 201, name: 'Noah Tran', score: 2 },
+          a: { athleteId: 101, name: 'Ava Park', score: 5, feed: null },
+          b: { athleteId: 201, name: 'Noah Tran', score: 2, feed: null },
           result: { winnerAthleteId: 101, winType: 'points' },
         },
         version: 3,
@@ -1297,8 +1299,8 @@ describe('EntryTab', () => {
       json: {
         match: {
           id: 9,
-          a: { athleteId: 101, name: 'Ava Park', score: 6 },
-          b: { athleteId: 201, name: 'Noah Tran', score: 1 },
+          a: { athleteId: 101, name: 'Ava Park', score: 6, feed: null },
+          b: { athleteId: 201, name: 'Noah Tran', score: 1, feed: null },
           result: { winnerAthleteId: 101, winType: 'submission' },
         },
         version: 3,

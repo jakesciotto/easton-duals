@@ -20,13 +20,15 @@ const ruleset: RulesetRow = {
 const match = (id: number, status: MatchRow['status']): MatchRow => ({
   id, eventId: 7, matId: null, orderIndex: id, rulesetId: 3, lengthSec: 300, athleteAId: 1, athleteBId: 2,
   status, winnerAthleteId: null, winType: null, pointsA: 0, pointsB: 0, clockElapsedMs: 0, clockStartedAt: null,
-  pendingTerminalAthleteId: null, pendingTerminalKey: null, lastSeq: 0, why: null, source: 'designed',
+  pendingTerminalAthleteId: null, pendingTerminalKey: null,
+  number: id, style: 'gi', divisionId: null, round: null, feedAMatchId: null, feedATake: null, feedBMatchId: null, feedBTake: null,
+  lastSeq: 0, why: null, source: 'designed',
 })
 
 function mount(matches: MatchRow[] = [], rs: RulesetRow | undefined = ruleset) {
   const detail: EventDetail = {
     event: { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 1, matCode: '0420', mode: 'live', status: 'live', sameGender: false, createdAt: 'x' },
-    teams: [], athletes: [], rulesets: [ruleset], mats: [], matches, candidateCount: 0,
+    teams: [], athletes: [], rulesets: [ruleset], mats: [], matches, divisions: [], candidateCount: 0,
   }
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><RulesetDialog detail={detail} open onOpenChange={() => {}} ruleset={rs} /></QueryClientProvider>)

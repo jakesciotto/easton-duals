@@ -260,10 +260,13 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
       ? { matchId, actions: l.actions.map(a => (a.seq === from ? { ...a, seq: to } : a)) }
       : l))
 
-  const tap = (athleteId: number, actionKey: string) => {
+  // Spec 10: advance never hands a tablet a match with an empty side, so a null here is
+  // a side that does not exist. Every write that names a competitor stops at the door
+  // rather than sending the server a score for nobody.
+  const tap = (athleteId: number | null, actionKey: string) => {
     const m = current
     const action = ruleset?.actions.find(a => a.key === actionKey)
-    if (!m || !action || !connected || !projected.current) return
+    if (athleteId === null || !m || !action || !connected || !projected.current) return
     setError(null)
     const target = ++projected.current.seq
     const name = m.a.athleteId === athleteId ? m.a.name : m.b.name
@@ -344,8 +347,8 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
 
   // The per side affordance is the same write; what differs is that it will only fire when
   // the newest event is one this tablet recorded FOR THAT SIDE, so it can name what it removes.
-  const minus = (athleteId: number) => {
-    if (!lastAction || lastAction.kind !== 'score' || lastAction.athleteId !== athleteId) return
+  const minus = (athleteId: number | null) => {
+    if (athleteId === null || !lastAction || lastAction.kind !== 'score' || lastAction.athleteId !== athleteId) return
     undo()
   }
 
@@ -356,14 +359,14 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
   // it reappeared in the centre column the moment the match ended successfully.
   const close = () => { setSheet(null); setError(null) }
 
-  const terminal = async (athleteId: number, actionKey: string) => {
+  const terminal = async (athleteId: number | null, actionKey: string) => {
     // Serialising behind the write chain is NOT enough. The second press is not a stale
     // write, it is a duplicate, and the half only disables once the pending terminal comes
     // back on a response -- so the window is the whole round trip. Two terminals land at
     // seq 1 and seq 2, one "Back to match" removes only the newer, and the mat is left
     // refused with a terminal still standing on the server and nothing on screen naming it.
     // A control that ends a match takes one press.
-    if (!current || !connected || terminating.current) return
+    if (athleteId === null || !current || !connected || terminating.current) return
     terminating.current = true
     setError(null)
     try {
@@ -384,7 +387,7 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
    * clearing `changed` costs a press on a control that names a competitor, which is what
    * makes it a new decision rather than the tail of a double tap.
    */
-  const pickWinner = (athleteId: number) => setSheet(s => (s
+  const pickWinner = (athleteId: number | null) => setSheet(s => (s && athleteId !== null
     ? { ...s, winner: athleteId, winType: s.winType ?? s.changed?.now.winType ?? 'decision', changed: null }
     : s))
 

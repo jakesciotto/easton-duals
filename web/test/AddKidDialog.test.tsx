@@ -27,7 +27,7 @@ const baseDetail: EventDetail = {
   teams: [{ id: 1, eventId: 7, name: 'Ridgeline', color: 'red', position: 0 }, { id: 2, eventId: 7, name: 'Lakeside', color: 'blue', position: 1 }],
   athletes: [athlete(100, 'u5', 'Mia', 'Diaz')],
   rulesets: [], mats: [], matches: [],
-  candidateCount: 4,
+  divisions: [], candidateCount: 4,
 }
 
 /** The search answers, everything else is an empty write. */
@@ -167,7 +167,7 @@ describe('AddKidDialog', () => {
 
   it('defaults to manual before any sync has found a pool, and still searches from the other tab', async () => {
     wl(() => ({ json: [zoe] }))
-    mount({ ...baseDetail, candidateCount: 0 })
+    mount({ ...baseDetail, divisions: [], candidateCount: 0 })
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('tab', { name: 'Manual' })).toHaveAttribute('aria-selected', 'true')
     const user = userEvent.setup()
@@ -183,7 +183,7 @@ describe('AddKidDialog', () => {
       }
       return { json: {} }
     })
-    mount({ ...baseDetail, candidateCount: 0 })
+    mount({ ...baseDetail, divisions: [], candidateCount: 0 })
     const dialog = await screen.findByRole('dialog')
     const user = userEvent.setup()
     await user.type(within(dialog).getByLabelText('First name'), 'Kai')

@@ -9,7 +9,7 @@ import { ApiError } from '@/lib/api'
 import { sampleMatch, sampleSnapshot } from './fakes'
 
 const mat = (over: Partial<MatView> & { id: number; number: number }): MatView =>
-  ({ current: null, onDeck: [], bound: false, ...over })
+  ({ current: null, onDeck: [], bound: false, blocked: null, ...over })
 
 const withMats = (mats: MatView[]): Snapshot => sampleSnapshot({ mats, matches: [] })
 
@@ -65,12 +65,12 @@ describe('deskSwitchRefusal', () => {
   })
 
   it('lets a bound mat with nothing on it through', () => {
-    expect(deskSwitchRefusal(withMats([mat({ id: 1, number: 1, bound: true })]))).toBeNull()
+    expect(deskSwitchRefusal(withMats([mat({ id: 1, number: 1, bound: true, blocked: null })]))).toBeNull()
   })
 
   it('lets a mat holding a stopped match through, because that is the confirm case', () => {
     const paused = sampleMatch({ id: 10, clock: STOPPED })
-    expect(deskSwitchRefusal(withMats([mat({ id: 1, number: 1, current: paused, bound: true })]))).toBeNull()
+    expect(deskSwitchRefusal(withMats([mat({ id: 1, number: 1, current: paused, bound: true, blocked: null })]))).toBeNull()
   })
 
   it('names the mat whose clock is running and says what the board would do', () => {
@@ -104,8 +104,8 @@ describe('deskSwitchMidMatch', () => {
     const paused = sampleMatch({ id: 10, clock: STOPPED })
     const notStarted = sampleMatch({ id: 11 })
     const mats = deskSwitchMidMatch(withMats([
-      mat({ id: 2, number: 2, current: notStarted, bound: true }),
-      mat({ id: 1, number: 1, current: paused, bound: true }),
+      mat({ id: 2, number: 2, current: notStarted, bound: true, blocked: null }),
+      mat({ id: 1, number: 1, current: paused, bound: true, blocked: null }),
     ]))
     expect(mats).toEqual([
       { number: 1, pair: 'Mateo Rivera vs Olivia Kim' },
@@ -119,7 +119,7 @@ describe('deskSwitchMidMatch', () => {
     expect(deskSwitchMidMatch(withMats([
       mat({ id: 1, number: 1, current: running }),
       mat({ id: 2, number: 2, current: done }),
-      mat({ id: 3, number: 3, bound: true }),
+      mat({ id: 3, number: 3, bound: true, blocked: null }),
     ]))).toEqual([])
   })
 

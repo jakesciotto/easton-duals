@@ -29,7 +29,7 @@ export function ConfirmSheet({ sheet, match, teams, busy, error, onPick, onConfi
    *  what stops the operator dismissing a modal that covers the whole screen. */
   busy: boolean
   error: string | null
-  onPick: (athleteId: number) => void
+  onPick: (athleteId: number | null) => void
   onConfirm: () => void
   onCancel: () => void
 }) {

@@ -27,7 +27,7 @@ describe('boardName', () => {
 })
 
 function mat(over: Partial<MatView> & { id: number; number: number }): MatView {
-  return { current: null, onDeck: [], bound: false, ...over }
+  return { current: null, onDeck: [], bound: false, blocked: null, ...over }
 }
 
 function event(status: EventStatus, mode: EventMode, matCount = 1): Snapshot['event'] {
@@ -126,7 +126,7 @@ describe('boardPlan', () => {
   it('leaves setup for the mode composition as soon as anything has been scored', () => {
     const scored = (mode: EventMode) => sampleSnapshot({
       event: event('setup', mode),
-      mats: [mat({ id: 1, number: 1, bound: true })],
+      mats: [mat({ id: 1, number: 1, bound: true, blocked: null })],
       matches: [sampleMatch({ id: 2, status: 'done' })],
     })
     expect(boardPlan(scored('live')).comp).toBe('mats')

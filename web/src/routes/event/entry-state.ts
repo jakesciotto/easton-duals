@@ -198,6 +198,7 @@ export function seedPairLog(matches: MatchRow[]): Record<string, number> {
     if (m.status !== 'done' || !m.endedAt) continue
     const at = Date.parse(m.endedAt)
     if (Number.isNaN(at)) continue
+    if (m.athleteAId === null || m.athleteBId === null) continue
     const key = pairKey(m.athleteAId, m.athleteBId)
     if (log[key] === undefined || at > log[key]) log[key] = at
   }
@@ -289,8 +290,8 @@ export function teamWins(matches: MatchRow[], athletes: AthleteRow[]): Map<numbe
 export function teamPoints(matches: MatchRow[], athletes: AthleteRow[]): Map<number, number> {
   const teamOf = new Map(athletes.map(a => [a.id, a.teamId]))
   const points = new Map<number, number>()
-  const add = (athleteId: number, scored: number) => {
-    const teamId = teamOf.get(athleteId)
+  const add = (athleteId: number | null, scored: number) => {
+    const teamId = athleteId === null ? undefined : teamOf.get(athleteId)
     if (teamId === null || teamId === undefined) return
     points.set(teamId, (points.get(teamId) ?? 0) + scored)
   }
@@ -317,7 +318,7 @@ export const RESTORED_NEW_ENTRY: SaveErrorCopy = { title: 'This entry never sent
 export function restoredBannerCopy(draft: EntryDraft, matches: MatchRow[], athletes: AthleteRow[]): SaveErrorCopy {
   if (draft.editingId === null) return RESTORED_NEW_ENTRY
   const byId = new Map(athletes.map(a => [a.id, a]))
-  const nameOf = (id: number) => { const a = byId.get(id); return a ? athleteName(a) : 'Unknown' }
+  const nameOf = (id: number | null) => { const a = id === null ? undefined : byId.get(id); return a ? athleteName(a) : 'Unknown' }
   const m = matches.find(x => x.id === draft.editingId)
   const label = m ? `${nameOf(m.athleteAId)} vs ${nameOf(m.athleteBId)}` : `match ${draft.editingId}`
   return { title: `This correction to ${label} never sent`, body: 'It was kept on this device. Check it, then press Save.' }

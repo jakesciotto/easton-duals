@@ -16,7 +16,7 @@ const binding: MatBinding = { eventId: 1, matId: 1, matNumber: 1, eventName: 'Fa
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 
 function snapshotWith(current: ReturnType<typeof sampleMatch>, version = 1): Snapshot {
-  return sampleSnapshot({ version, mats: [{ id: 1, number: 1, current, onDeck: [], bound: true }], matches: [current] })
+  return sampleSnapshot({ version, mats: [{ id: 1, number: 1, current, onDeck: [], bound: true, blocked: null }], matches: [current] })
 }
 
 // Every write is queued, so "the write landed" is "the queue drained", not "the call returned".

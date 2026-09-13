@@ -24,7 +24,7 @@ const detail: EventDetail = {
   event: { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'setup', mode: 'live', sameGender: false, createdAt: 'x' },
   teams: [{ id: 1, eventId: 7, name: 'Ridgeline', color: 'red', position: 0 }, { id: 2, eventId: 7, name: 'Lakeside', color: 'blue', position: 1 }],
   athletes: [kid(100, 1, 'Mateo'), kid(200, 2, 'Olivia'), kid(300, null, 'Noah', { age: null, ageSource: null }), kid(400, null, 'Zoe', { weightSource: 'leaderboard', erp: 5.2 })],
-  rulesets: [], mats: [], matches: [], candidateCount: 0,
+  rulesets: [], mats: [], matches: [], divisions: [], candidateCount: 0,
 }
 
 // Noah (300) is sitting in a pending match, which is the exact condition the server
@@ -35,7 +35,9 @@ const placed: EventDetail = {
     id: 1, eventId: 7, matId: null, orderIndex: 0, rulesetId: 1, lengthSec: 300,
     athleteAId: 300, athleteBId: 200, status: 'pending', winnerAthleteId: null, winType: null,
     pointsA: 0, pointsB: 0, clockElapsedMs: 0, clockStartedAt: null,
-    pendingTerminalAthleteId: null, pendingTerminalKey: null, lastSeq: 0, why: null, source: 'designed',
+    pendingTerminalAthleteId: null, pendingTerminalKey: null,
+    number: 1, style: 'gi', divisionId: null, round: null, feedAMatchId: null, feedATake: null, feedBMatchId: null, feedBTake: null,
+    lastSeq: 0, why: null, source: 'designed',
   }],
 }
 
@@ -179,7 +181,7 @@ describe('RosterTab', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const { rerender } = render(<QueryClientProvider client={qc}><RosterTab detail={detail} /></QueryClientProvider>)
     expect(screen.getByRole('button', { name: 'Sync from WellnessLiving' })).toBeInTheDocument()
-    rerender(<QueryClientProvider client={qc}><RosterTab detail={{ ...detail, candidateCount: 12 }} /></QueryClientProvider>)
+    rerender(<QueryClientProvider client={qc}><RosterTab detail={{ ...detail, divisions: [], candidateCount: 12 }} /></QueryClientProvider>)
     expect(screen.getByRole('button', { name: 'Sync from WellnessLiving' })).toBeInTheDocument()
   })
 
@@ -585,7 +587,9 @@ describe('RosterTab, moving a team kid to Unassigned', () => {
       id: 1, eventId: 7, matId: null, orderIndex: 0, rulesetId: 1, lengthSec: 300,
       athleteAId: 100, athleteBId: 200, status: 'pending', winnerAthleteId: null, winType: null,
       pointsA: 0, pointsB: 0, clockElapsedMs: 0, clockStartedAt: null,
-      pendingTerminalAthleteId: null, pendingTerminalKey: null, lastSeq: 0, why: null, source: 'designed',
+      pendingTerminalAthleteId: null, pendingTerminalKey: null,
+      number: 1, style: 'gi', divisionId: null, round: null, feedAMatchId: null, feedATake: null, feedBMatchId: null, feedBTake: null,
+      lastSeq: 0, why: null, source: 'designed',
     }],
   }
 
@@ -824,7 +828,7 @@ describe('RosterTab, the WellnessLiving link', () => {
       kid(300, null, 'Noah', { age: null, ageSource: null }),
       kid(400, null, 'Zoe', { weightSource: 'leaderboard', erp: 5.2 }),
     ],
-    candidateCount: 2,
+    divisions: [], candidateCount: 2,
   }
 
   // 7.1: the sync is one press with no pool button beside it. The pool-only rematch route
@@ -964,7 +968,7 @@ describe('RosterTab, the WellnessLiving link', () => {
     expect(within(teamA).queryByRole('button', { name: 'Link Mateo Kid' })).not.toBeInTheDocument()
     expect(within(teamB).getByRole('button', { name: 'Link Olivia Kid' })).toBeInTheDocument()
 
-    rerender(<QueryClientProvider client={qc}><RosterTab detail={{ ...pooled, candidateCount: 0 }} /></QueryClientProvider>)
+    rerender(<QueryClientProvider client={qc}><RosterTab detail={{ ...pooled, divisions: [], candidateCount: 0 }} /></QueryClientProvider>)
     expect(screen.getByRole('button', { name: 'Link Olivia Kid' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Link Noah Kid' })).toBeInTheDocument()
   })

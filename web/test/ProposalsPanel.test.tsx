@@ -33,7 +33,7 @@ const detail: EventDetail = {
   rulesets: [{ id: 1, eventId: 7, name: 'Default', defaultLengthSec: 300, actions: [], terminals: [] }],
   mats: [{ id: 11, eventId: 7, number: 1, currentMatchId: null }],
   matches: [],
-  candidateCount: 0,
+  divisions: [], candidateCount: 0,
 }
 
 const side = (athleteId: number, teamId: number, firstName: string, lastName: string, over: Partial<ProposalSide> = {}): ProposalSide => ({
@@ -41,7 +41,7 @@ const side = (athleteId: number, teamId: number, firstName: string, lastName: st
 })
 
 const proposal = (id: number, a: ProposalSide, b: ProposalSide, why: string): Proposal =>
-  ({ id, eventId: 7, cost: 2, why, a, b })
+  ({ id, eventId: 7, cost: 2, style: 'gi', why, a, b })
 
 const P1 = proposal(1, side(100, 1, 'Mateo', 'Alvarez'), side(200, 2, 'Olivia', 'Castellano'), 'same class, same age')
 const P2 = proposal(2, side(101, 1, 'Ava', 'Brandt'), side(300, 3, 'Kai', 'Espinoza'), '1 class apart, 2 years apart')

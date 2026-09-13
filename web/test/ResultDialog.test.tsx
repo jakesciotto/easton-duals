@@ -15,15 +15,15 @@ afterEach(() => vi.unstubAllGlobals())
 const detail: EventDetail = {
   event: { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 2, matCode: '0420', mode: 'live', status: 'live', sameGender: false, createdAt: 'x' },
   teams: [{ id: 1, eventId: 7, name: 'Ridgeline', color: 'red', position: 0 }, { id: 2, eventId: 7, name: 'Lakeside', color: 'blue', position: 1 }],
-  athletes: [], rulesets: [], mats: [{ id: 1, eventId: 7, number: 2, currentMatchId: null }], matches: [], candidateCount: 0,
+  athletes: [], rulesets: [], mats: [{ id: 1, eventId: 7, number: 2, currentMatchId: null }], matches: [], divisions: [], candidateCount: 0,
 }
 
 // Built from a local Date so the printed time is the same wherever the suite runs.
 const endedAt = new Date(2026, 9, 3, 15, 41).toISOString()
 const done = sampleMatch({
   id: 9, orderIndex: 11, matId: 1, status: 'done', endedAt,
-  a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: 'grey', weightLbs: 62, score: 9 },
-  b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: 'grey', weightLbs: 60, score: 2 },
+  a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: 'grey', weightLbs: 62, score: 9, feed: null },
+  b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: 'grey', weightLbs: 60, score: 2, feed: null },
   result: { winnerAthleteId: 100, winType: 'points' },
 })
 

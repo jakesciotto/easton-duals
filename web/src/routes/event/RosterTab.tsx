@@ -4,6 +4,7 @@ import { adminApi, useAdminMutation } from '@/lib/queries'
 import { ApiError } from '@/lib/api'
 import type { AthleteRow, EventDetail, RosterCandidate, SyncReport } from '@/lib/types'
 import { athleteName } from '@/lib/format'
+import { matchAthleteIds } from '@/lib/matchView'
 import { AddKidDialog } from './AddKidDialog'
 import { LinkCandidateDialog } from './LinkCandidateDialog'
 import { PasteRosterDialog } from './PasteRosterDialog'
@@ -164,7 +165,7 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   // the same set from the detail it already holds rather than discovering it one 409 at
   // a time in the middle of a bulk loop.
   const inMatch = useMemo(
-    () => new Set(detail.matches.flatMap(m => [m.athleteAId, m.athleteBId])),
+    () => new Set(detail.matches.flatMap(matchAthleteIds)),
     [detail.matches],
   )
   // inMatch above spans every status, which is right for a delete the server refuses for
@@ -173,7 +174,7 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   // moved again, so this one set, shared by both, is scoped to the two statuses nobody has
   // settled yet.
   const unfought = useMemo(
-    () => new Set(detail.matches.filter(m => m.status === 'pending' || m.status === 'live').flatMap(m => [m.athleteAId, m.athleteBId])),
+    () => new Set(detail.matches.filter(m => m.status === 'pending' || m.status === 'live').flatMap(matchAthleteIds)),
     [detail.matches],
   )
   // Gated on rows that still exist in detail.athletes, not on selected.size: a pick

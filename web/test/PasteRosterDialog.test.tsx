@@ -13,7 +13,7 @@ afterEach(() => vi.unstubAllGlobals())
 const detail: EventDetail = {
   event: { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 1, matCode: '0420', mode: 'live', status: 'setup', sameGender: false, createdAt: 'x' },
   teams: [{ id: 1, eventId: 7, name: 'Ridgeline', color: 'red', position: 0 }],
-  athletes: [], rulesets: [], mats: [], matches: [], candidateCount: 0,
+  athletes: [], rulesets: [], mats: [], matches: [], divisions: [], candidateCount: 0,
 }
 
 function mount() {

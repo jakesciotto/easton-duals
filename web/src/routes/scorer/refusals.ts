@@ -126,10 +126,12 @@ export function minusRefusal(
   connected: boolean,
   match: MatchView | null,
   last: LocalAction | null,
-  athleteId: number,
+  athleteId: number | null,
 ): string | null {
   const gone = unavailable(connected, match)
   if (gone) return gone
+  // A side waiting on a feeder has nothing to take a point back from.
+  if (athleteId === null) return NOTHING
   if (match!.lastSeq === 0) return NOTHING
   if (!last || last.seq !== match!.lastSeq) return ELSEWHERE
   if (last.kind === 'clock') return CLOCK_EVENT

@@ -25,7 +25,9 @@ const kid = (id: number, teamId: number, first: string, last: string): EventDeta
 const match = (id: number, orderIndex: number, a: number, b: number): MatchRow => ({
   id, eventId: 7, matId: 1, orderIndex, rulesetId: 1, lengthSec: 300, athleteAId: a, athleteBId: b, status: 'pending',
   winnerAthleteId: null, winType: null, pointsA: 0, pointsB: 0, clockElapsedMs: 0, clockStartedAt: null,
-  pendingTerminalAthleteId: null, pendingTerminalKey: null, lastSeq: 0, why: null, source: 'designed',
+  pendingTerminalAthleteId: null, pendingTerminalKey: null,
+  number: id, style: 'gi', divisionId: null, round: null, feedAMatchId: null, feedATake: null, feedBMatchId: null, feedBTake: null,
+  lastSeq: 0, why: null, source: 'designed',
 })
 
 const ROSTER = [
@@ -45,7 +47,7 @@ function detailWith(matches: MatchRow[], athletes = ROSTER): EventDetail {
     rulesets: [{ id: 1, eventId: 7, name: 'Default', defaultLengthSec: 300, actions: [], terminals: [] }],
     mats: [{ id: 1, eventId: 7, number: 1, currentMatchId: null }],
     matches,
-    candidateCount: 0,
+    divisions: [], candidateCount: 0,
   }
 }
 
@@ -298,7 +300,7 @@ describe('EventPage: how the event runs is one stored setting on the shell', () 
     // One mat and no clock is the 3s rung, so the switch lands on the next tick.
     const idle = (m: EventMode) => sampleSnapshot({
       event: { id: 7, name: 'Fall Duels', date: '2026-10-03', status: 'setup', mode: m, matCount: 1, contact: null, certifiedAt: null, far: null },
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       matches: [],
     })
     mount(url => snapshotReply(url, idle(mode)) ?? (url === '/api/events/7' ? { json: withEvent({ mode: 'live' }) } : undefined))
@@ -376,7 +378,7 @@ describe('EventPage: how the event runs is one stored setting on the shell', () 
     const bound = slowSnapshot()
     const { f } = mount(url => snapshotReply(url, {
       ...bound,
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true, blocked: null }],
     }) ?? (url === '/api/events/7' ? { json: detailWith(IN_ORDER) } : undefined))
     const user = userEvent.setup()
 
@@ -397,7 +399,7 @@ describe('EventPage: how the event runs is one stored setting on the shell', () 
     // A running clock is also the fastest poll rung, so the release below lands on the
     // next tick rather than three seconds later.
     const running = sampleMatch({ id: 10, clock: { elapsedMs: 0, startedAt: base.now, lengthMs: 300_000 } })
-    let mats: Snapshot['mats'] = [{ id: 1, number: 1, current: running, onDeck: [], bound: false }]
+    let mats: Snapshot['mats'] = [{ id: 1, number: 1, current: running, onDeck: [], bound: false, blocked: null }]
     const { f } = mount(url => snapshotReply(url, { ...base, mats }) ?? (url === '/api/events/7' ? { json: detailWith(IN_ORDER) } : undefined))
 
     await screen.findByRole('radiogroup', { name: MODE_GROUP_LABEL })
@@ -413,7 +415,7 @@ describe('EventPage: how the event runs is one stored setting on the shell', () 
     await act(async () => { await Promise.resolve() })
     expect(patchIndex(f)).toBe(-1)
 
-    mats = [{ id: 1, number: 1, current: null, onDeck: [], bound: false }]
+    mats = [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }]
     await vi.waitFor(() => expect(deskOption()).not.toHaveAttribute('aria-disabled'), { timeout: 4000 })
     expect(screen.queryByText(/has a clock running\./)).not.toBeInTheDocument()
   })
@@ -428,7 +430,7 @@ describe('EventPage: how the event runs is one stored setting on the shell', () 
     const paused = sampleMatch({ id: 10, clock: { elapsedMs: 40_000, startedAt: null, lengthMs: 300_000 } })
     const { f } = mount(url => snapshotReply(url, {
       ...base,
-      mats: [{ id: 1, number: 2, current: paused, onDeck: [], bound: true }],
+      mats: [{ id: 1, number: 2, current: paused, onDeck: [], bound: true, blocked: null }],
     }) ?? (url === '/api/events/7' ? { json: detailWith(IN_ORDER) } : undefined))
     const user = userEvent.setup()
 
@@ -465,7 +467,7 @@ describe('EventPage: how the event runs is one stored setting on the shell', () 
       }
       return snapshotReply(url, {
         ...base,
-        mats: [{ id: 1, number: 2, current: paused, onDeck: [], bound: true }],
+        mats: [{ id: 1, number: 2, current: paused, onDeck: [], bound: true, blocked: null }],
       }) ?? (url === '/api/events/7' ? { json: detailWith(IN_ORDER) } : undefined)
     })
     const user = userEvent.setup()

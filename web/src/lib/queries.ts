@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, type ApiOptions } from './api'
 import { clearAdminToken, getAdminToken } from './auth'
 import { useHeldWhileEngaged } from './operatorEngaged'
-import type { EventDetail, EventSummary, Proposal } from './types'
+import type { DivisionView, EventDetail, EventSummary, Proposal } from './types'
 
 export const qk = {
   events: ['events'] as const,
@@ -42,7 +42,16 @@ export interface EventDetailQuery {
  * Held by the same mechanism the snapshot poll uses, so the two paths cannot drift apart.
  */
 export function useEventDetail(eventId: number): EventDetailQuery {
-  const q = useQuery({ queryKey: qk.event(eventId), queryFn: () => adminApi<EventDetail>(`/api/events/${eventId}`) })
+  const q = useQuery({
+    queryKey: qk.event(eventId),
+    queryFn: async () => {
+      // The divisions arrived with the match progression batch, and this browser can be
+      // talking to a server that predates them, so the panel that reads them is handed an
+      // empty list rather than an undefined every use would have to guard.
+      const detail = await adminApi<Omit<EventDetail, 'divisions'> & { divisions?: DivisionView[] }>(`/api/events/${eventId}`)
+      return { ...detail, divisions: detail.divisions ?? [] }
+    },
+  })
   return { data: useHeldWhileEngaged(q.data, eventId), error: q.error, isLoading: q.isLoading }
 }
 

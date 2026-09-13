@@ -1,8 +1,15 @@
-import type { EventContact, EventMode, EventStatus, MatchStatus, RulesetAction, RulesetTerminal, TeamColor, WinType } from '@shared/types'
+import type { DivisionView, EventContact, EventMode, EventStatus, FeedTake, MatchSource, MatchStatus, RulesetAction, RulesetTerminal, Style, TeamColor, WinType } from '@shared/types'
 
 // The sync answers one shape, and the two screens that print it read it from here rather
 // than each reaching into the server's own module.
 export type { SyncReport, SyncSuggestion } from '@shared/types'
+
+/**
+ * The division vocabulary, mirrored for the same reason the sync report is: the screens
+ * that print a division read one shape from this module rather than each reaching into
+ * the server's own.
+ */
+export type { DivisionFormat, DivisionMember, DivisionStyles, DivisionView, Feed, FeedTake, Style } from '@shared/types'
 
 export interface EventRow {
   id: number
@@ -70,12 +77,24 @@ export interface MatRow { id: number; eventId: number; number: number; currentMa
 export interface MatchRow {
   id: number
   eventId: number
+  /** The stable per-event number, printed as M12 on every surface. */
+  number: number
   matId: number | null
   orderIndex: number
   rulesetId: number
   lengthSec: number
-  athleteAId: number
-  athleteBId: number
+  /** Null only while a bracket side waits on the feed beside it. */
+  athleteAId: number | null
+  athleteBId: number | null
+  /** Which side of an earlier match fills this one, and whether it takes the winner. */
+  feedAMatchId: number | null
+  feedATake: FeedTake | null
+  feedBMatchId: number | null
+  feedBTake: FeedTake | null
+  style: Style
+  /** The division this match belongs to, and its round inside that division's format. */
+  divisionId: number | null
+  round: number | null
   status: MatchStatus
   winnerAthleteId: number | null
   winType: WinType | null
@@ -87,13 +106,14 @@ export interface MatchRow {
   pendingTerminalKey: string | null
   lastSeq: number
   why: string | null
-  /** Whether the proposer paired these two or somebody designed the match by hand. */
-  source: 'designed' | 'proposed'
+  /** Whether the proposer paired these two, somebody designed the match by hand, or a
+      division's format generated it. */
+  source: MatchSource
   // Derived server side from the latest end event rather than stored on the row, so
   // it is read only here and absent on any row this client has built itself.
   endedAt?: string | null
 }
-export interface EventDetail { event: EventRow; teams: TeamRow[]; athletes: AthleteRow[]; rulesets: RulesetRow[]; mats: MatRow[]; matches: MatchRow[]; candidateCount: number }
+export interface EventDetail { event: EventRow; teams: TeamRow[]; athletes: AthleteRow[]; rulesets: RulesetRow[]; mats: MatRow[]; matches: MatchRow[]; divisions: DivisionView[]; candidateCount: number }
 export type EventSummary = EventRow & { teams: TeamRow[] }
 export interface RosterCandidate {
   wlUid: string
@@ -123,7 +143,7 @@ export interface ProposalSide {
   belt: string | null
   erp: number | null
 }
-export interface Proposal { id: number; eventId: number; cost: number; why: string; a: ProposalSide; b: ProposalSide }
+export interface Proposal { id: number; eventId: number; cost: number; why: string; style: Style; a: ProposalSide; b: ProposalSide }
 export interface LeaderboardRow { teamId: number; rank: number; wins: number; points: number }
 
 export interface ManualKid {
@@ -135,3 +155,21 @@ export interface ManualKid {
   gender?: string | null
   teamId?: number | null
 }
+
+/**
+ * One run of the scheduler, as `POST /events/:id/schedule` answers it. It is mirrored
+ * here rather than imported because the planner lives outside the shared folder the
+ * `@shared` alias points at, and the preview dialog is the only thing that reads it.
+ */
+export interface SchedulePlan {
+  order: { matchId: number; matId: number | null; orderIndex: number; wave: number }[]
+  waves: number
+  minutes: number
+  perMat: { matId: number | null; number: number; count: number }[]
+  warnings: string[]
+  /** A mat that idles for a wave, and the number of the match it is waiting on. */
+  gaps: { wave: number; matId: number | null; waitingOn: number }[]
+}
+
+/** The same plan, plus whether the call that produced it also wrote the order. */
+export type ScheduleAnswer = SchedulePlan & { applied: boolean }

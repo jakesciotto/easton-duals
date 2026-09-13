@@ -7,7 +7,9 @@ const row: MatchRow = {
   id: 10, eventId: 1, matId: 1, orderIndex: 3, rulesetId: 1, lengthSec: 300,
   athleteAId: 100, athleteBId: 200, status: 'done', winnerAthleteId: 200, winType: 'submission',
   pointsA: 4, pointsB: 1, clockElapsedMs: 12_000, clockStartedAt: null,
-  pendingTerminalAthleteId: null, pendingTerminalKey: null, lastSeq: 6, why: null, source: 'designed',
+  pendingTerminalAthleteId: null, pendingTerminalKey: null,
+  number: 10, style: 'gi', divisionId: null, round: null, feedAMatchId: null, feedATake: null, feedBMatchId: null, feedBTake: null,
+  lastSeq: 6, why: null, source: 'designed',
   endedAt: '2026-10-03T15:41:00.000Z',
 }
 
@@ -27,8 +29,8 @@ describe('matchViewOf', () => {
 
   it('builds the view from the row and the roster before the first snapshot lands', () => {
     const view = matchViewOf(row, detail, null)
-    expect(view.a).toMatchObject({ athleteId: 100, name: 'Mateo Rivera', teamId: 1, score: 4 })
-    expect(view.b).toMatchObject({ athleteId: 200, name: 'Olivia Kim', teamId: 2, score: 1 })
+    expect(view.a).toMatchObject({ athleteId: 100, name: 'Mateo Rivera', teamId: 1, score: 4, feed: null })
+    expect(view.b).toMatchObject({ athleteId: 200, name: 'Olivia Kim', teamId: 2, score: 1, feed: null })
     expect(view.result).toEqual({ winnerAthleteId: 200, winType: 'submission' })
     expect(view.clock).toEqual({ elapsedMs: 12_000, startedAt: null, lengthMs: 300_000 })
     expect(view.endedAt).toBe('2026-10-03T15:41:00.000Z')

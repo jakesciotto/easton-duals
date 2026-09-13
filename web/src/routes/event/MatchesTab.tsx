@@ -12,7 +12,7 @@ import type { EventDetail, MatchRow, TeamRow } from '@/lib/types'
 import { athleteName, winTypeLabel } from '@/lib/format'
 import { moveId } from '@/lib/reorder'
 import { doubleBookedMatchIds } from '@/lib/doubleBooking'
-import { matchViewOf } from '@/lib/matchView'
+import { feedLabel, feedOf, matchAthleteIds, matchViewOf } from '@/lib/matchView'
 import { cn } from '@/lib/utils'
 import { KidPickerDialog } from './KidPickerDialog'
 import { MatchHistorySheet } from './MatchHistorySheet'
@@ -56,8 +56,8 @@ type Hover = (athleteId: number | null) => void
  * column it sits in. It comes off the roster row, and a competitor the roster no longer
  * carries reads as unknown rather than borrowing somebody else's colour.
  */
-interface Side { name: string; team: TeamRow | undefined }
-type SideOf = (athleteId: number) => Side
+interface Side { athleteId: number | null; name: string; team: TeamRow | undefined }
+type SideOf = (row: MatchRow, side: 'a' | 'b') => Side
 
 interface Option { value: string; label: string }
 
@@ -75,6 +75,11 @@ function CompetitorLine({ side, disabled = false, title, onHover, onPick }: {
   onPick: () => void
 }) {
   const { name, team } = side
+  // Spec 10: a side waiting on a feeder is the sentence that names its feeder, in the
+  // muted tone, with no team colour and nothing to press.
+  if (side.athleteId === null) {
+    return <span className="flex h-8 min-w-0 items-center truncate t3 text-gray-10">{name}</span>
+  }
   return (
     <button
       type="button"
@@ -131,12 +136,12 @@ function LiveStrip({ line, a, b, serverNow, lastSuccessAt, pollIntervalMs, highl
         </span>
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 t5">
-        <span className="flex min-w-0 items-center gap-2" onMouseEnter={() => onHover(line.row.athleteAId)} onMouseLeave={() => onHover(null)}>
+        <span className="flex min-w-0 items-center gap-2" onMouseEnter={() => onHover(a.athleteId)} onMouseLeave={() => onHover(null)}>
           {a.team && <TeamPlate color={a.team.color} name={a.team.name} size="inline" showName={false} />}
           <span className="truncate">{a.name}</span>
         </span>
         <span className="t1 text-gray-10 uppercase">vs</span>
-        <span className="flex min-w-0 items-center gap-2" onMouseEnter={() => onHover(line.row.athleteBId)} onMouseLeave={() => onHover(null)}>
+        <span className="flex min-w-0 items-center gap-2" onMouseEnter={() => onHover(b.athleteId)} onMouseLeave={() => onHover(null)}>
           {b.team && <TeamPlate color={b.team.color} name={b.team.name} size="inline" showName={false} />}
           <span className="truncate">{b.name}</span>
         </span>
@@ -224,8 +229,8 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: line.row.id })
   const m = line.row
-  const a = sideOf(m.athleteAId)
-  const b = sideOf(m.athleteBId)
+  const a = sideOf(m, 'a')
+  const b = sideOf(m, 'b')
   const attend = doubleBooked || line.state === 'skipped'
   const ready = line.state === 'ready' ? readyNote(line) : null
   // Every control below is otherwise named the same on all fourteen rows.
@@ -271,13 +276,13 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
         <div className="grid min-w-0">
           <CompetitorLine
             side={a} disabled={certified || b.team === undefined} title={certified ? CERTIFIED_REFUSAL : undefined}
-            onHover={on => onHover(on ? m.athleteAId : null)}
-            onPick={() => { if (b.team) onPick({ matchId: m.id, side: 'a', exclude: b.team.id, held: m.athleteAId }) }}
+            onHover={on => onHover(on ? a.athleteId : null)}
+            onPick={() => { if (b.team && a.athleteId !== null) onPick({ matchId: m.id, side: 'a', exclude: b.team.id, held: a.athleteId }) }}
           />
           <CompetitorLine
             side={b} disabled={certified || a.team === undefined} title={certified ? CERTIFIED_REFUSAL : undefined}
-            onHover={on => onHover(on ? m.athleteBId : null)}
-            onPick={() => { if (a.team) onPick({ matchId: m.id, side: 'b', exclude: a.team.id, held: m.athleteBId }) }}
+            onHover={on => onHover(on ? b.athleteId : null)}
+            onPick={() => { if (a.team && b.athleteId !== null) onPick({ matchId: m.id, side: 'b', exclude: a.team.id, held: b.athleteId }) }}
           />
         </div>
       </TableCell>
@@ -340,8 +345,8 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
             text="Swap"
             disabled={certified}
             items={[
-              { key: 'a', label: `Swap ${a.name}`, disabled: b.team === undefined, onSelect: () => { if (b.team) onPick({ matchId: m.id, side: 'a', exclude: b.team.id, held: m.athleteAId }) } },
-              { key: 'b', label: `Swap ${b.name}`, disabled: a.team === undefined, onSelect: () => { if (a.team) onPick({ matchId: m.id, side: 'b', exclude: a.team.id, held: m.athleteBId }) } },
+              { key: 'a', label: `Swap ${a.name}`, disabled: b.team === undefined || a.athleteId === null, onSelect: () => { if (b.team && a.athleteId !== null) onPick({ matchId: m.id, side: 'a', exclude: b.team.id, held: a.athleteId }) } },
+              { key: 'b', label: `Swap ${b.name}`, disabled: a.team === undefined || b.athleteId === null, onSelect: () => { if (a.team && b.athleteId !== null) onPick({ matchId: m.id, side: 'b', exclude: a.team.id, held: b.athleteId }) } },
             ]}
           />
           {/* 7.7: a destructive control never sits flush against the row's most repeated one. */}
@@ -364,10 +369,10 @@ function SettledRow({ line, sideOf, highlight, certified, onHover, onHistory, on
 }) {
   const m = line.row
   const aWon = m.winnerAthleteId === m.athleteAId
-  const winnerId = aWon ? m.athleteAId : m.athleteBId
-  const loserId = aWon ? m.athleteBId : m.athleteAId
-  const winner = sideOf(winnerId)
-  const loser = sideOf(loserId)
+  const winner = sideOf(m, aWon ? 'a' : 'b')
+  const loser = sideOf(m, aWon ? 'b' : 'a')
+  const winnerId = winner.athleteId
+  const loserId = loser.athleteId
 
   return (
     <TableRow data-match-state="done" selected={highlight}>
@@ -400,7 +405,7 @@ function SettledRow({ line, sideOf, highlight, certified, onHover, onHistory, on
       <TableCell numeric className="w-[80px] text-gray-10">{endedLabel(line.endedAt)}</TableCell>
       <TableCell className="w-px pl-0">
         <OverflowMenu
-          label={`${matchLabel(line.position, sideOf(m.athleteAId).name, sideOf(m.athleteBId).name)} actions`}
+          label={`${matchLabel(line.position, sideOf(m, 'a').name, sideOf(m, 'b').name)} actions`}
           items={[
             { key: 'history', label: 'Match history', disabled: false, onSelect: onHistory },
             { key: 'edit', label: 'Edit result', disabled: certified, onSelect: onEdit },
@@ -518,10 +523,16 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
 
   const byId = useMemo(() => new Map(detail.athletes.map(a => [a.id, a])), [detail.athletes])
   const teamById = useMemo(() => new Map(detail.teams.map(t => [t.id, t])), [detail.teams])
-  const sideOf: SideOf = id => {
-    const k = byId.get(id)
-    if (!k) return { name: 'Unknown competitor', team: undefined }
-    return { name: athleteName(k), team: k.teamId === null ? undefined : teamById.get(k.teamId) }
+  const numberOf = (matchId: number) => detail.matches.find(x => x.id === matchId)?.number ?? null
+  const sideOf: SideOf = (row, side) => {
+    const athleteId = side === 'a' ? row.athleteAId : row.athleteBId
+    if (athleteId === null) {
+      const feed = feedOf(row, side, numberOf)
+      return { athleteId: null, name: feed === null ? 'Unknown competitor' : feedLabel(feed.take, feed.matchNumber), team: undefined }
+    }
+    const k = byId.get(athleteId)
+    if (!k) return { athleteId, name: 'Unknown competitor', team: undefined }
+    return { athleteId, name: athleteName(k), team: k.teamId === null ? undefined : teamById.get(k.teamId) }
   }
   const matItems = useMemo(() => [
     { value: '', label: 'No mat' },
@@ -531,7 +542,7 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
   // Spec 6's "Without a match": a competitor in a pending or a live match is busy, one
   // whose matches have all settled is free to be paired again, and one already on either
   // side of a proposal is spoken for the moment that draft is confirmed.
-  const booked = new Set(detail.matches.filter(m => m.status === 'pending' || m.status === 'live').flatMap(m => [m.athleteAId, m.athleteBId]))
+  const booked = new Set(detail.matches.filter(m => m.status === 'pending' || m.status === 'live').flatMap(matchAthleteIds))
   const draftedIds = new Set(proposals.flatMap(p => [p.a.athleteId, p.b.athleteId]))
   const drafted = detail.athletes.filter(a => !booked.has(a.id) && draftedIds.has(a.id)).length
   const free = detail.teams.map(t => ({
@@ -572,7 +583,7 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
         <section aria-label="Live now" className="grid gap-3">
           {live.map(l => (
             <LiveStrip
-              key={l.row.id} line={l} a={sideOf(l.row.athleteAId)} b={sideOf(l.row.athleteBId)}
+              key={l.row.id} line={l} a={sideOf(l.row, 'a')} b={sideOf(l.row, 'b')}
               serverNow={snapshot?.now ?? null} lastSuccessAt={lastSuccessAt} pollIntervalMs={pollIntervalMs}
               highlight={holds(l)} onHover={setHovered}
             />

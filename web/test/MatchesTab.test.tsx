@@ -21,7 +21,9 @@ const kid = (id: number, teamId: number, first: string, last: string): EventDeta
 const match = (id: number, over: Partial<MatchRow> = {}): MatchRow => ({
   id, eventId: 7, matId: 1, orderIndex: id, rulesetId: 1, lengthSec: 300, athleteAId: 100, athleteBId: 200, status: 'pending',
   winnerAthleteId: null, winType: null, pointsA: 0, pointsB: 0, clockElapsedMs: 0, clockStartedAt: null,
-  pendingTerminalAthleteId: null, pendingTerminalKey: null, lastSeq: 0, why: 'ERP 6.1 vs 5.8', source: 'designed', ...over,
+  pendingTerminalAthleteId: null, pendingTerminalKey: null,
+  number: id, style: 'gi', divisionId: null, round: null, feedAMatchId: null, feedATake: null, feedBMatchId: null, feedBTake: null,
+  lastSeq: 0, why: 'ERP 6.1 vs 5.8', source: 'designed', ...over,
 })
 // Three matches: two pending (1, 2, adjacent in order) and one settled (3, done).
 // This lets one fixture cover both the reorder-among-pending-only rules and the
@@ -45,7 +47,7 @@ const detail: EventDetail = {
     match(2, { athleteAId: 101, athleteBId: 201, matId: 2, why: 'ERP 5.0 vs 4.8' }),
     match(3, { status: 'done', winnerAthleteId: 100, winType: 'points' }),
   ],
-  candidateCount: 0,
+  divisions: [], candidateCount: 0,
 }
 
 // Adds a 4th pending match that puts Mateo Rivera (100, already Team A in match 1)
@@ -174,7 +176,7 @@ describe('MatchesTab', () => {
     const live = view(1, { status: 'live' })
     mountStreaming(sampleSnapshot({
       matches: [live, view(2), view(3, { status: 'done', result: { winnerAthleteId: 100, winType: 'points' } })],
-      mats: [{ id: 1, number: 1, current: live, onDeck: [view(2)], bound: true }],
+      mats: [{ id: 1, number: 1, current: live, onDeck: [view(2)], bound: true, blocked: null }],
     }))
     const strip = await screen.findByRole('region', { name: 'Live now' })
     expect(within(strip).getByText('Mateo Rivera')).toBeInTheDocument()
@@ -192,7 +194,7 @@ describe('MatchesTab', () => {
   it('keeps a skipped match in the queue with the reason printed', async () => {
     mountStreaming(sampleSnapshot({
       matches: [view(1), view(2, { lastSeq: 3 }), view(3, { status: 'done', result: { winnerAthleteId: 100, winType: 'points' } })],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
     }))
     // Match 2 is on mat 2 in the detail, which is where the skip sent it.
     expect(await screen.findByText('Skipped, moved to the end of mat 2')).toBeInTheDocument()
@@ -285,7 +287,7 @@ describe('MatchesTab', () => {
     const live = view(1, { status: 'live' })
     mountStreaming(sampleSnapshot({
       matches: [live, view(2), view(3, { status: 'done', result: { winnerAthleteId: 100, winType: 'points' } })],
-      mats: [{ id: 1, number: 1, current: live, onDeck: [], bound: true }],
+      mats: [{ id: 1, number: 1, current: live, onDeck: [], bound: true, blocked: null }],
     }))
     const strip = await screen.findByRole('region', { name: 'Live now' })
     expect(within(strip).getByRole('button', { name: `Delete ${M1}` })).toBeInTheDocument()
@@ -409,7 +411,7 @@ describe('MatchesTab without a match', () => {
   const draftSide = (athleteId: number, teamId: number, firstName: string, lastName: string): ProposalSide =>
     ({ athleteId, teamId, firstName, lastName, age: null, weightLbs: null, weightClass: null, belt: null, erp: null })
   const draftProposal = (id: number, a: ProposalSide, b: ProposalSide): Proposal =>
-    ({ id, eventId: 7, cost: 0, why: 'same class', a, b })
+    ({ id, eventId: 7, cost: 0, style: 'gi', why: 'same class', a, b })
 
   function mountWithProposals(proposals: Proposal[]) {
     const f = fakeFetch(url =>
@@ -467,7 +469,7 @@ describe('MatchesTab in desk mode', () => {
   const deskSnapshot = (over: Partial<Snapshot> = {}): Snapshot => {
     const base = sampleSnapshot({
       matches: [view(1), view(2), view(3, { status: 'done', result: { winnerAthleteId: 100, winType: 'points' } })],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       ...over,
     })
     return { ...base, event: { ...base.event, mode: 'entry' } }
@@ -484,7 +486,7 @@ describe('MatchesTab in desk mode', () => {
   it('keeps both columns when the mats are scoring', async () => {
     mountStreaming(sampleSnapshot({
       matches: [view(1), view(2), view(3, { status: 'done', result: { winnerAthleteId: 100, winType: 'points' } })],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
     }))
     await vi.waitFor(() => expect(pendingRows().length).toBeGreaterThan(0))
     expect(screen.getByText('Sec')).toBeInTheDocument()
@@ -503,7 +505,7 @@ describe('MatchesTab in desk mode', () => {
   it('follows the stream when the detail cache still says the mats are scoring', async () => {
     const { feed } = mountStreaming(sampleSnapshot({
       matches: [view(1), view(2), view(3, { status: 'done', result: { winnerAthleteId: 100, winType: 'points' } })],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
     }))
     expect(await screen.findByText('Sec')).toBeInTheDocument()
     feed.push(deskSnapshot())

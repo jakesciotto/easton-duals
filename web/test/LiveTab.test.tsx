@@ -20,7 +20,7 @@ const SERVER_NOW = '2026-10-03T16:00:00.000Z'
 const detail: EventDetail = {
   event: { id: 1, name: 'Fall Duels', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'live', mode: 'live', sameGender: false, createdAt: 'x' },
   teams: [{ id: 1, eventId: 1, name: 'Ridgeline', color: 'red', position: 0 }, { id: 2, eventId: 1, name: 'Lakeside', color: 'blue', position: 1 }],
-  athletes: [], rulesets: [], mats: [{ id: 1, eventId: 1, number: 1, currentMatchId: 10 }], matches: [], candidateCount: 0,
+  athletes: [], rulesets: [], mats: [{ id: 1, eventId: 1, number: 1, currentMatchId: 10 }], matches: [], divisions: [], candidateCount: 0,
 }
 
 // The same event as `detail`, with mat 1 actually holding the live match its
@@ -34,7 +34,9 @@ const withLiveMat: EventDetail = {
   matches: [{
     id: 10, eventId: 1, matId: 1, orderIndex: 1, rulesetId: 1, lengthSec: 300, athleteAId: 100, athleteBId: 200,
     status: 'live', winnerAthleteId: null, winType: null, pointsA: 6, pointsB: 2, clockElapsedMs: 0,
-    clockStartedAt: SERVER_NOW, pendingTerminalAthleteId: null, pendingTerminalKey: null, lastSeq: 0, why: null, source: 'designed',
+    clockStartedAt: SERVER_NOW, pendingTerminalAthleteId: null, pendingTerminalKey: null,
+    number: 10, style: 'gi', divisionId: null, round: null, feedAMatchId: null, feedATake: null, feedBMatchId: null, feedBTake: null,
+    lastSeq: 0, why: null, source: 'designed',
   }],
 }
 
@@ -43,30 +45,30 @@ const expiredClock = { elapsedMs: 300_000, startedAt: null, lengthMs: 300_000 }
 
 const scored = (over: Partial<MatchView> = {}) => sampleMatch({
   id: 10, orderIndex: 1, clock: running,
-  a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: 'grey', weightLbs: 62, score: 6 },
-  b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: 'grey-white', weightLbs: 60, score: 2 },
+  a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: 'grey', weightLbs: 62, score: 6, feed: null },
+  b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: 'grey-white', weightLbs: 60, score: 2, feed: null },
   ...over,
 })
 
 const settled = sampleMatch({
   id: 9, orderIndex: 0, status: 'done', endedAt: '2026-10-03T15:41:00.000Z',
   result: { winnerAthleteId: 100, winType: 'submission' },
-  a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: 'grey', weightLbs: 62, score: 4 },
-  b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: 'grey-white', weightLbs: 60, score: 1 },
+  a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: 'grey', weightLbs: 62, score: 4, feed: null },
+  b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: 'grey-white', weightLbs: 60, score: 1, feed: null },
 })
 
 const onDeckMatch = (id: number, aName: string, bName: string) => sampleMatch({
   id, orderIndex: id, status: 'pending',
-  a: { athleteId: id * 10, name: aName, teamId: 1, belt: null, weightLbs: null, score: 0 },
-  b: { athleteId: id * 10 + 1, name: bName, teamId: 2, belt: null, weightLbs: null, score: 0 },
+  a: { athleteId: id * 10, name: aName, teamId: 1, belt: null, weightLbs: null, score: 0, feed: null },
+  b: { athleteId: id * 10 + 1, name: bName, teamId: 2, belt: null, weightLbs: null, score: 0, feed: null },
 })
 
-function oneMat(over: { current?: MatchView | null; onDeck?: MatchView[]; bound?: boolean } = {}, matches?: MatchView[]): Snapshot {
+function oneMat(over: { current?: MatchView | null; onDeck?: MatchView[]; bound?: boolean; blocked?: string | null } = {}, matches?: MatchView[]): Snapshot {
   const current = over.current === undefined ? scored() : over.current
   const onDeck = over.onDeck ?? []
   return sampleSnapshot({
     now: SERVER_NOW,
-    mats: [{ id: 1, number: 1, current, onDeck, bound: over.bound ?? false }],
+    mats: [{ id: 1, number: 1, current, onDeck, bound: over.bound ?? false, blocked: over.blocked ?? null }],
     matches: matches ?? [settled, ...(current ? [current] : []), ...onDeck],
   })
 }
@@ -93,8 +95,8 @@ describe('LiveTab', () => {
     const feed = snapshotFeed(sampleSnapshot({
       now: SERVER_NOW,
       mats: [
-        { id: 2, number: 2, current: null, onDeck: [], bound: false },
-        { id: 1, number: 1, current: scored(), onDeck: [], bound: true },
+        { id: 2, number: 2, current: null, onDeck: [], bound: false, blocked: null },
+        { id: 1, number: 1, current: scored(), onDeck: [], bound: true, blocked: null },
       ],
       matches: [scored()],
     }))
@@ -118,7 +120,7 @@ describe('LiveTab', () => {
         { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 3, points: 9 },
         { id: 3, name: 'Fernwood', color: 'teal', position: 2, wins: 2, points: 11 },
       ],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true, blocked: null }],
       matches: [],
     }))
     mount(url => feed.handle(url) ?? connectOnly(url))
@@ -131,8 +133,8 @@ describe('LiveTab', () => {
     const feed = snapshotFeed(sampleSnapshot({
       now: SERVER_NOW,
       mats: [
-        { id: 1, number: 1, current: scored(), onDeck: [], bound: true },
-        { id: 2, number: 2, current: null, onDeck: [], bound: true },
+        { id: 1, number: 1, current: scored(), onDeck: [], bound: true, blocked: null },
+        { id: 2, number: 2, current: null, onDeck: [], bound: true, blocked: null },
       ],
       matches: [scored()],
     }))
@@ -141,8 +143,8 @@ describe('LiveTab', () => {
     feed.push(sampleSnapshot({
       now: SERVER_NOW,
       mats: [
-        { id: 1, number: 1, current: null, onDeck: [], bound: true },
-        { id: 2, number: 2, current: scored(), onDeck: [], bound: true },
+        { id: 1, number: 1, current: null, onDeck: [], bound: true, blocked: null },
+        { id: 2, number: 2, current: scored(), onDeck: [], bound: true, blocked: null },
       ],
       matches: [scored()],
     }))
@@ -152,7 +154,7 @@ describe('LiveTab', () => {
   })
 
   it('holds all three lanes and says what each empty one is missing', async () => {
-    const feed = snapshotFeed(oneMat({ current: null, bound: true }, [settled]))
+    const feed = snapshotFeed(oneMat({ current: null, bound: true, blocked: null }, [settled]))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(within(one).getByText('Now')).toBeInTheDocument()
@@ -177,7 +179,7 @@ describe('LiveTab', () => {
       onDeckMatch(14, 'Maya Lopez', 'Liam Shaw'),
       onDeckMatch(15, 'Ivy Nolan', 'Kai Brooks'),
     ]
-    const feed = snapshotFeed(oneMat({ onDeck: deck, bound: true }))
+    const feed = snapshotFeed(oneMat({ onDeck: deck, bound: true, blocked: null }))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(within(one).getByText('Ava Park')).toBeInTheDocument()
@@ -213,7 +215,7 @@ describe('LiveTab', () => {
       onDeckMatch(21, 'Iris Doyle', 'Milo Frank'),
     ]
     const current = scored()
-    const feed = snapshotFeed(oneMat({ onDeck: deck, bound: true }, [settled, current, ...deck, ...behind]))
+    const feed = snapshotFeed(oneMat({ onDeck: deck, bound: true, blocked: null }, [settled, current, ...deck, ...behind]))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     // deck[0] (Ava vs Noah) is the NEXT pair itself; the four behind it are the queue.
@@ -229,7 +231,7 @@ describe('LiveTab', () => {
   it('prints no depth line when the whole queue is on screen', async () => {
     const deck = [onDeckMatch(11, 'Ava Park', 'Noah Tran'), onDeckMatch(12, 'Emma Cole', 'Ben Ortiz')]
     const current = scored()
-    const feed = snapshotFeed(oneMat({ onDeck: deck, bound: true }, [settled, current, ...deck]))
+    const feed = snapshotFeed(oneMat({ onDeck: deck, bound: true, blocked: null }, [settled, current, ...deck]))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(within(one).getByText('Emma Cole vs Ben Ortiz')).toBeInTheDocument()
@@ -245,7 +247,7 @@ describe('LiveTab', () => {
    */
   it('calls the next match onto an idle mat that still has a queue', async () => {
     const deck = [onDeckMatch(11, 'Ava Park', 'Noah Tran')]
-    const feed = snapshotFeed(oneMat({ current: null, onDeck: deck, bound: true }, [settled, ...deck]))
+    const feed = snapshotFeed(oneMat({ current: null, onDeck: deck, bound: true, blocked: null }, [settled, ...deck]))
     const f = mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(one).toHaveAttribute('data-state', 'attend')
@@ -262,7 +264,7 @@ describe('LiveTab', () => {
    */
   it('prints the missing match and the missing scorer as separate facts', async () => {
     const deck = [onDeckMatch(11, 'Ava Park', 'Noah Tran')]
-    const feed = snapshotFeed(oneMat({ current: null, onDeck: deck, bound: false }, [settled, ...deck]))
+    const feed = snapshotFeed(oneMat({ current: null, onDeck: deck, bound: false, blocked: null }, [settled, ...deck]))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(within(one).getByText('No match on this mat')).toBeInTheDocument()
@@ -271,7 +273,7 @@ describe('LiveTab', () => {
   })
 
   it('drops the scorer line once the mat has nothing left to run', async () => {
-    const feed = snapshotFeed(oneMat({ current: null, bound: false }, [settled]))
+    const feed = snapshotFeed(oneMat({ current: null, bound: false, blocked: null }, [settled]))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(within(one).getByText('No match on this mat')).toBeInTheDocument()
@@ -281,7 +283,7 @@ describe('LiveTab', () => {
 
   it('prints the missing match alone while a scorer is bound', async () => {
     const deck = [onDeckMatch(11, 'Ava Park', 'Noah Tran')]
-    const feed = snapshotFeed(oneMat({ current: null, onDeck: deck, bound: true }, [settled, ...deck]))
+    const feed = snapshotFeed(oneMat({ current: null, onDeck: deck, bound: true, blocked: null }, [settled, ...deck]))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(within(one).getByText('No match on this mat')).toBeInTheDocument()
@@ -290,7 +292,7 @@ describe('LiveTab', () => {
 
   it('prints the server reason when the mat is already showing a match', async () => {
     const deck = [onDeckMatch(11, 'Ava Park', 'Noah Tran')]
-    const feed = snapshotFeed(oneMat({ current: null, onDeck: deck, bound: true }, [settled, ...deck]))
+    const feed = snapshotFeed(oneMat({ current: null, onDeck: deck, bound: true, blocked: null }, [settled, ...deck]))
     mount((url, init) => {
       const fromFeed = feed.handle(url)
       if (fromFeed) return fromFeed
@@ -311,7 +313,7 @@ describe('LiveTab', () => {
    * score in one write, so the panel opens the result dialog and the two steps become one.
    */
   it('routes the primary through the result dialog when the scorer is gone', async () => {
-    const feed = snapshotFeed(oneMat({ bound: false }))
+    const feed = snapshotFeed(oneMat({ bound: false, blocked: null }))
     const f = mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(within(one).queryByRole('button', { name: 'End match' })).not.toBeInTheDocument()
@@ -329,7 +331,7 @@ describe('LiveTab', () => {
   })
 
   it('keeps End match as the primary while a scorer is bound', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(within(one).getByRole('button', { name: 'End match' })).toBeInTheDocument()
@@ -341,14 +343,14 @@ describe('LiveTab', () => {
   // second write on a match that already has one.
   it('leaves a settled match on an unbound mat to the overflow', async () => {
     const done = scored({ status: 'done', endedAt: '2026-10-03T15:55:00.000Z', result: { winnerAthleteId: 100, winType: 'points' } })
-    const feed = snapshotFeed(oneMat({ current: done, bound: false }, [settled, done]))
+    const feed = snapshotFeed(oneMat({ current: done, bound: false, blocked: null }, [settled, done]))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(within(one).queryByRole('button', { name: 'Enter the result' })).not.toBeInTheDocument()
   })
 
   it('repaints the panel and its control when the clock runs out', async () => {
-    const feed = snapshotFeed(oneMat({ current: scored({ clock: expiredClock }), bound: true }))
+    const feed = snapshotFeed(oneMat({ current: scored({ clock: expiredClock }), bound: true, blocked: null }))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(one).toHaveAttribute('data-state', 'attend')
@@ -360,8 +362,8 @@ describe('LiveTab', () => {
     const feed = snapshotFeed(sampleSnapshot({
       now: SERVER_NOW,
       mats: [
-        { id: 1, number: 1, current: scored(), onDeck: [], bound: true },
-        { id: 2, number: 2, current: scored({ id: 20 }), onDeck: [], bound: false },
+        { id: 1, number: 1, current: scored(), onDeck: [], bound: true, blocked: null },
+        { id: 2, number: 2, current: scored({ id: 20 }), onDeck: [], bound: false, blocked: null },
       ],
       matches: [scored(), scored({ id: 20 })],
     }))
@@ -373,7 +375,7 @@ describe('LiveTab', () => {
   })
 
   it('ends a decided match from the panel control', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     const f = mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     await userEvent.setup().click(within(one).getByRole('button', { name: 'End match' }))
@@ -384,8 +386,8 @@ describe('LiveTab', () => {
   })
 
   it('asks who won before ending a level match', async () => {
-    const tied = scored({ a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: null, weightLbs: null, score: 3 }, b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: null, weightLbs: null, score: 3 } })
-    const feed = snapshotFeed(oneMat({ current: tied, bound: true }))
+    const tied = scored({ a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: null, weightLbs: null, score: 3, feed: null }, b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: null, weightLbs: null, score: 3, feed: null } })
+    const feed = snapshotFeed(oneMat({ current: tied, bound: true, blocked: null }))
     const f = mount(url => feed.handle(url) ?? connectOnly(url))
     const user = userEvent.setup()
     const one = await panel(1)
@@ -399,13 +401,13 @@ describe('LiveTab', () => {
   })
 
   it('pauses the rack, counts what is waiting, and commits on resume', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const user = userEvent.setup()
     const one = await panel(1)
     expect(within(one).getByText('6')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Pause updates' }))
-    feed.push(oneMat({ current: scored({ a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: null, weightLbs: null, score: 9 } }), bound: true }))
+    feed.push(oneMat({ current: scored({ a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: null, weightLbs: null, score: 9, feed: null } }), bound: true, blocked: null }))
     const paused = await screen.findByRole('button', { name: 'Paused, 1 update waiting' }, { timeout: 3000 })
     expect(within(await panel(1)).getByText('6')).toBeInTheDocument()
     await user.click(paused)
@@ -413,7 +415,7 @@ describe('LiveTab', () => {
   })
 
   it('collapses the connect card once every mat reports a scorer', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     mount(url => feed.handle(url) ?? connectOnly(url))
     expect(await screen.findByText('0420')).toBeInTheDocument()
     expect(screen.getByText('The mat has a scorer connected.')).toBeInTheDocument()
@@ -421,7 +423,7 @@ describe('LiveTab', () => {
   })
 
   it('skips the running match from the panel overflow', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     const f = mount(url => feed.handle(url) ?? connectOnly(url))
     const user = userEvent.setup()
     await panel(1)
@@ -434,7 +436,7 @@ describe('LiveTab', () => {
   })
 
   it('reopens the last result from the panel overflow', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     const f = mount(url => feed.handle(url) ?? connectOnly(url))
     const user = userEvent.setup()
     await panel(1)
@@ -444,7 +446,7 @@ describe('LiveTab', () => {
   })
 
   it('shows the server message when an override is refused', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     mount((url, init) => {
       const fromFeed = feed.handle(url)
       if (fromFeed) return fromFeed
@@ -463,7 +465,7 @@ describe('LiveTab', () => {
   // The dialog's own controls are covered by ResultDialog's tests; the panel's job is to
   // hand it the settled match this mat is showing.
   it('opens the result dialog for the mat last result', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const user = userEvent.setup()
     await panel(1)
@@ -476,7 +478,7 @@ describe('LiveTab', () => {
 
   it('starts the event', async () => {
     // The stream is the source for the status (I5), so the snapshot says setup too.
-    const base = oneMat({ current: null, bound: false }, [settled])
+    const base = oneMat({ current: null, bound: false, blocked: null }, [settled])
     const feed = snapshotFeed({ ...base, event: { ...base.event, status: 'setup' } })
     const f = mount(url => feed.handle(url) ?? connectOnly(url), { ...detail, event: { ...detail.event, status: 'setup' } })
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Start event' }))
@@ -485,7 +487,7 @@ describe('LiveTab', () => {
   })
 
   it('finishes the event only after the confirm dialog', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     const f = mount(url => feed.handle(url) ?? connectOnly(url))
     const user = userEvent.setup()
     const patches = () => f.calls.filter(c => c.url === '/api/events/1' && c.init?.method === 'PATCH')
@@ -506,7 +508,7 @@ describe('LiveTab', () => {
    * that stays where it is, it is a result nobody can record.
    */
   it('names the mats still on a match in the shared finish dialog', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     mount(url => feed.handle(url) ?? connectOnly(url), withLiveMat)
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Finish event' }))
     const dialog = await screen.findByRole('dialog')
@@ -518,7 +520,7 @@ describe('LiveTab', () => {
   })
 
   it('keeps the finish dialog open when the server refuses', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     mount((url, init) => {
       const fromFeed = feed.handle(url)
       if (fromFeed) return fromFeed
@@ -543,7 +545,7 @@ describe('LiveTab', () => {
         { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 42 },
         { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 31 },
       ],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       matches: [settled],
     }))
     mount(url => feed.handle(url) ?? connectOnly(url), { ...detail, event: { ...detail.event, status: 'done' } })
@@ -567,7 +569,7 @@ describe('LiveTab', () => {
         { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 42 },
         { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 31 },
       ],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       matches: [settled],
     }))
     mount(url => feed.handle(url) ?? connectOnly(url), { ...detail, event: { ...detail.event, status: 'done' } })
@@ -601,7 +603,7 @@ describe('LiveTab certification', () => {
       { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 42 },
       { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 31 },
     ],
-    mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+    mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
     matches: [settled],
   }))
 
@@ -724,7 +726,7 @@ describe('LiveTab certification', () => {
         { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 42 },
         { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 31 },
       ],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       matches: [settled],
     }))
     expect(await screen.findByRole('button', { name: 'Certify results' }, { timeout: 4000 })).toBeInTheDocument()
@@ -752,7 +754,7 @@ describe('LiveTab certification', () => {
         { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 42 },
         { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 31 },
       ],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }],
+      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       matches: [settled],
     }))
     expect(await screen.findByText(/^Certified/, undefined, { timeout: 4000 })).toBeInTheDocument()
@@ -818,7 +820,7 @@ describe('LiveTab in entry mode', () => {
   // The tab is never hidden: an organizer still wants to look at the running order, and a
   // hidden tab is a screen somebody hunts for. It has to say what it is instead.
   it('states that the event runs from the desk rather than handing out a mat code', async () => {
-    const feed = snapshotFeed(atMode(oneMat({ current: null, bound: false }, [settled]), 'entry'))
+    const feed = snapshotFeed(atMode(oneMat({ current: null, bound: false, blocked: null }, [settled]), 'entry'))
     const f = mount(url => feed.handle(url) ?? connectOnly(url), entryDetail)
     expect(await screen.findByText(DESK_NOTE)).toBeInTheDocument()
     expect(screen.getByText(DESK_NOTE_DETAIL)).toBeInTheDocument()
@@ -833,7 +835,7 @@ describe('LiveTab in entry mode', () => {
   })
 
   it('keeps the connect card and its code in live mode', async () => {
-    const feed = snapshotFeed(oneMat({ current: null, bound: false }, [settled]))
+    const feed = snapshotFeed(oneMat({ current: null, bound: false, blocked: null }, [settled]))
     mount(url => feed.handle(url) ?? connectOnly(url))
     expect(await screen.findByText('0420')).toBeInTheDocument()
     expect(screen.queryByText(DESK_NOTE)).not.toBeInTheDocument()
@@ -850,7 +852,7 @@ describe('LiveTab in entry mode', () => {
   it('drops the bound checks, the amber and the primary control on every panel', async () => {
     const deck = [onDeckMatch(11, 'Ava Park', 'Noah Tran'), onDeckMatch(12, 'Emma Cole', 'Ben Ortiz')]
     const feed = snapshotFeed(atMode(
-      oneMat({ current: null, onDeck: deck, bound: false }, [settled, ...deck]),
+      oneMat({ current: null, onDeck: deck, bound: false, blocked: null }, [settled, ...deck]),
       'entry',
     ))
     mount(url => feed.handle(url) ?? connectOnly(url), entryDetail)
@@ -874,7 +876,7 @@ describe('LiveTab in entry mode', () => {
   })
 
   it('says the mat is complete once its designed order runs out', async () => {
-    const feed = snapshotFeed(atMode(oneMat({ current: null, bound: false }, [settled]), 'entry'))
+    const feed = snapshotFeed(atMode(oneMat({ current: null, bound: false, blocked: null }, [settled]), 'entry'))
     mount(url => feed.handle(url) ?? connectOnly(url), entryDetail)
     const one = await panel(1)
     expect(within(one).getByText('Mat 1 complete')).toBeInTheDocument()
@@ -889,11 +891,11 @@ describe('LiveTab in entry mode', () => {
   it('follows the polled stream when the detail cache still says the mats are scoring', async () => {
     // A running clock, so the stream is on its one second rung and the switch lands on
     // the next tick rather than three seconds later.
-    const feed = snapshotFeed(oneMat({ bound: false }))
+    const feed = snapshotFeed(oneMat({ bound: false, blocked: null }))
     mount(url => feed.handle(url) ?? connectOnly(url))
     expect(await screen.findByText('0420')).toBeInTheDocument()
 
-    feed.push(atMode(oneMat({ bound: false }), 'entry'))
+    feed.push(atMode(oneMat({ bound: false, blocked: null }), 'entry'))
     expect(await screen.findByText(DESK_NOTE, {}, { timeout: 3000 })).toBeInTheDocument()
     expect(screen.queryByText('0420')).not.toBeInTheDocument()
     expect(screen.queryByRole('img', { name: 'QR code' })).not.toBeInTheDocument()
@@ -913,10 +915,10 @@ describe('LiveTab dialogs, 6.18', () => {
 
   it('puts the End dialog on the shared frame', async () => {
     const tied = scored({
-      a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: null, weightLbs: null, score: 3 },
-      b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: null, weightLbs: null, score: 3 },
+      a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: null, weightLbs: null, score: 3, feed: null },
+      b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: null, weightLbs: null, score: 3, feed: null },
     })
-    const feed = snapshotFeed(oneMat({ current: tied, bound: true }))
+    const feed = snapshotFeed(oneMat({ current: tied, bound: true, blocked: null }))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     await userEvent.setup().click(within(one).getByRole('button', { name: 'End match' }))
@@ -924,7 +926,7 @@ describe('LiveTab dialogs, 6.18', () => {
   })
 
   it('puts the Finish dialog on the shared frame', async () => {
-    const feed = snapshotFeed(oneMat({ bound: true }))
+    const feed = snapshotFeed(oneMat({ bound: true, blocked: null }))
     mount(url => feed.handle(url) ?? connectOnly(url))
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Finish event' }))
     goesFullScreenBelow640(await screen.findByRole('dialog'))
@@ -937,7 +939,7 @@ describe('LiveTab after the whole-branch review', () => {
   // call the mat complete one lane down.
   it('keeps a mid-match pair on a desk event panel and says where its result goes', async () => {
     const paused = scored({ clock: { elapsedMs: 40_000, startedAt: null, lengthMs: 300_000 } })
-    const feed = snapshotFeed(atMode(oneMat({ current: paused, bound: false }, [settled, paused]), 'entry'))
+    const feed = snapshotFeed(atMode(oneMat({ current: paused, bound: false, blocked: null }, [settled, paused]), 'entry'))
     mount(url => feed.handle(url) ?? connectOnly(url), entryDetail)
     const one = await panel(1)
     expect(within(one).getByText('Mid-match')).toBeInTheDocument()
@@ -949,7 +951,7 @@ describe('LiveTab after the whole-branch review', () => {
 
   // M10: a mat created after Start that nothing was ever put on is empty, not finished.
   it('calls a mat empty, not complete, when no match was ever put on it', async () => {
-    const feed = snapshotFeed(oneMat({ current: null, bound: false }, [{ ...settled, matId: 2 }]))
+    const feed = snapshotFeed(oneMat({ current: null, bound: false, blocked: null }, [{ ...settled, matId: 2 }]))
     mount(url => feed.handle(url) ?? connectOnly(url))
     const one = await panel(1)
     expect(within(one).getByText('Empty')).toBeInTheDocument()
@@ -962,7 +964,7 @@ describe('LiveTab after the whole-branch review', () => {
   // the version the write returned.
   it('keeps Call the next match busy until the stream carries the advance', async () => {
     const next = onDeckMatch(11, 'Emma Cole', 'Ben Ortiz')
-    const feed = snapshotFeed(oneMat({ current: null, onDeck: [next], bound: false }))
+    const feed = snapshotFeed(oneMat({ current: null, onDeck: [next], bound: false, blocked: null }))
     mount((url, init) => {
       if (url === '/api/mats/1/advance' && init?.method === 'POST') return { json: { match: null, version: 50 } }
       return feed.handle(url) ?? connectOnly(url)
@@ -976,7 +978,7 @@ describe('LiveTab after the whole-branch review', () => {
   // I5: a Finish pressed on a second device reaches this tab through the stream and never
   // through the detail cache, which nothing invalidates.
   it('reads the event status off the stream, not the detail cache', async () => {
-    const base = oneMat({ current: null, bound: false }, [settled])
+    const base = oneMat({ current: null, bound: false, blocked: null }, [settled])
     const feed = snapshotFeed({ ...base, event: { ...base.event, status: 'done' } })
     mount(url => feed.handle(url) ?? connectOnly(url))
     expect(await screen.findByText('Final result')).toBeInTheDocument()

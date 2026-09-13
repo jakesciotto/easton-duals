@@ -30,10 +30,10 @@ function Reason({ text }: { text: string | null }) {
 
 function MinusButton({ name, athleteId, points, refusal, onMinus }: {
   name: string
-  athleteId: number
+  athleteId: number | null
   points: number | null
   refusal: string | null
-  onMinus: (athleteId: number) => void
+  onMinus: (athleteId: number | null) => void
 }) {
   return (
     <Button
@@ -84,7 +84,7 @@ export function CenterColumn({ mat, match, serverNow, lastSuccessAt, pollInterva
   onClock: () => void
   onAddTime: () => void
   onUndo: () => void
-  onMinus: (athleteId: number) => void
+  onMinus: (athleteId: number | null) => void
   onEnd: () => void
 }) {
   const running = match.clock.startedAt !== null

@@ -31,7 +31,7 @@ function detailWith(matches: MatchRow[]): EventDetail {
     rulesets: [{ id: 1, eventId: 7, name: 'Default', defaultLengthSec: 300, actions: [], terminals: [] }],
     mats: [{ id: 1, eventId: 7, number: 1, currentMatchId: null }, { id: 2, eventId: 7, number: 2, currentMatchId: null }],
     matches,
-    candidateCount: 0,
+    divisions: [], candidateCount: 0,
   }
 }
 

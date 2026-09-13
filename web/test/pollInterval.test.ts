@@ -25,14 +25,14 @@ describe('pollIntervalForSnapshot', () => {
     const running = sampleMatch({ clock: { elapsedMs: 0, startedAt: '2026-10-03T16:00:00.000Z', lengthMs: 300_000 } })
     const snapshot = sampleSnapshot({
       event: { ...sampleSnapshot().event, mode: 'entry' },
-      mats: [{ id: 1, number: 1, current: running, onDeck: [], bound: true }],
+      mats: [{ id: 1, number: 1, current: running, onDeck: [], bound: true, blocked: null }],
     })
     expect(pollIntervalForSnapshot(snapshot)).toBe(POLL_DATA_ENTRY_MS)
   })
 
   it('polls at the live idle rate when mats exist and no clock is running', () => {
     const idle = sampleMatch({ clock: { elapsedMs: 0, startedAt: null, lengthMs: 300_000 } })
-    const snapshot = sampleSnapshot({ mats: [{ id: 1, number: 1, current: idle, onDeck: [], bound: true }] })
+    const snapshot = sampleSnapshot({ mats: [{ id: 1, number: 1, current: idle, onDeck: [], bound: true, blocked: null }] })
     expect(pollIntervalForSnapshot(snapshot)).toBe(POLL_LIVE_IDLE_MS)
   })
 
@@ -41,15 +41,15 @@ describe('pollIntervalForSnapshot', () => {
     const idle = sampleMatch({ id: 11, clock: { elapsedMs: 0, startedAt: null, lengthMs: 300_000 } })
     const snapshot = sampleSnapshot({
       mats: [
-        { id: 1, number: 1, current: idle, onDeck: [], bound: true },
-        { id: 2, number: 2, current: running, onDeck: [], bound: true },
+        { id: 1, number: 1, current: idle, onDeck: [], bound: true, blocked: null },
+        { id: 2, number: 2, current: running, onDeck: [], bound: true, blocked: null },
       ],
     })
     expect(pollIntervalForSnapshot(snapshot)).toBe(POLL_CLOCK_RUNNING_MS)
   })
 
   it('treats a mat with no current match as idle, not running', () => {
-    const snapshot = sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false }] })
+    const snapshot = sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }] })
     expect(pollIntervalForSnapshot(snapshot)).toBe(POLL_LIVE_IDLE_MS)
   })
 })
