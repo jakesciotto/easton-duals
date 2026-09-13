@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import type { ClockState, MatchSide } from '@shared/types'
+import type { ClockState, MatchSide, MatchView } from '@shared/types'
 import { formatClock, remainingMs as remainingAt } from '@shared/clock'
-import { teamStyle } from '@/lib/format'
+import { styleTag, teamStyle } from '@/lib/format'
 import { useClock, useServerOffset } from '@/lib/useClock'
 import { POLL_CLOCK_RUNNING_MS } from '@/lib/pollInterval'
 import { cn } from '@/lib/utils'
@@ -70,6 +70,18 @@ export function BoardName({ full, side, className }: { full: string; side: 'a' |
       {last && <span className="b-name-last">{` ${last}`}</span>}
     </span>
   )
+}
+
+/**
+ * Spec 10. A side still waiting on its feeder is not a competitor, so it is not laid out
+ * as one: "Winner of M7" is one muted line rather than a first name and an initial, and
+ * the row carries no team edge for a child nobody knows yet.
+ */
+export function BoardSide({ side, which, className }: { side: MatchSide; which: 'a' | 'b'; className?: string }) {
+  if (side.athleteId === null) {
+    return <span className={cn('b-name b-feed font-sans', which === 'a' ? 'b-name-a' : 'b-name-b')}>{side.name}</span>
+  }
+  return <BoardName full={side.name} side={which} className={className} />
 }
 
 /**
@@ -161,14 +173,14 @@ export function MatRow({
       )}
     >
       <span className="b-gut" aria-hidden />
-      {a && colorA && <span aria-hidden style={teamStyle(colorA)} className="b-edge b-edge-a" />}
-      {b && colorB && <span aria-hidden style={teamStyle(colorB)} className="b-edge b-edge-b" />}
+      {a?.athleteId != null && colorA && <span aria-hidden style={teamStyle(colorA)} className="b-edge b-edge-a" />}
+      {b?.athleteId != null && colorB && <span aria-hidden style={teamStyle(colorB)} className="b-edge b-edge-b" />}
       {matNumber !== undefined && <span className="b-mat">{matNumber}</span>}
       {/* 7.10: a mat with nothing on it and nothing left to call says so. Before this it
           rendered the gutter and the numeral alone, so after a reload every mat that had
           finished was a blank row for the rest of the afternoon. */}
       {note !== null && <span className="b-row-note font-sans">{note}</span>}
-      {a && <BoardName full={a.name} side="a" className={nameToneA ?? undefined} />}
+      {a && <BoardSide side={a} which="a" className={nameToneA ?? undefined} />}
       {showScores && a && b && <Fig className={cn('b-score b-score-a', toneA)} value={a.score} />}
       {clock && (
         <BoardClock
@@ -179,7 +191,7 @@ export function MatRow({
         />
       )}
       {showScores && a && b && <Fig className={cn('b-score b-score-b', toneB)} value={b.score} />}
-      {b && <BoardName full={b.name} side="b" className={nameToneB ?? undefined} />}
+      {b && <BoardSide side={b} which="b" className={nameToneB ?? undefined} />}
     </div>
   )
 }
@@ -187,8 +199,23 @@ export function MatRow({
 export function NextLine({ a, b }: { a: MatchSide; b: MatchSide }) {
   return (
     <div className="b-next-line">
-      <BoardName full={a.name} side="a" />
-      <BoardName full={b.name} side="b" />
+      <BoardSide side={a} which="a" />
+      <BoardSide side={b} which="b" />
+    </div>
+  )
+}
+
+/**
+ * Spec 10's desk line: the same pairing, led by the match's own number and style. Nothing
+ * runs on a mat in that composition, so the column has a track to spend on naming the
+ * match that the mat ledger has already promised to a competitor's name.
+ */
+export function OrderLine({ match }: { match: MatchView }) {
+  return (
+    <div className="b-order-line">
+      <span className="b-order-tag font-sans">{`M${match.number} · ${styleTag(match.style)}`}</span>
+      <BoardSide side={match.a} which="a" />
+      <BoardSide side={match.b} which="b" />
     </div>
   )
 }

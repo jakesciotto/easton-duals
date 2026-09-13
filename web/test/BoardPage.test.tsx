@@ -23,7 +23,7 @@ const RUNNING = { elapsedMs: 0, startedAt: '2026-10-03T15:59:00.000Z', lengthMs:
 const PAUSED = { elapsedMs: 0, startedAt: null, lengthMs: 300_000 }
 
 function pair(id: number, aName: string, bName: string, over: Partial<MatchView> = {}): MatchView {
-  const base = sampleMatch({ id, ...over })
+  const base = sampleMatch({ id, number: id, ...over })
   return { ...base, a: { ...base.a, name: aName }, b: { ...base.b, name: bName } }
 }
 
@@ -337,11 +337,44 @@ describe('Board compositions', () => {
     // Two columns of three, filled down before across, and the order is the event's own
     // rather than each mat's: orderIndex 0 leads column one and column two carries the
     // tail, so reading the board down and then across is reading the running order.
-    const lines = Array.from(container.querySelectorAll('.b-next-line'))
+    const lines = Array.from(container.querySelectorAll('.b-order-line'))
     expect(lines).toHaveLength(5)
     expect(lines[0]).toHaveTextContent('Kai5')
     expect(lines[2]).toHaveTextContent('Kai3')
     expect(lines[3]).toHaveTextContent('Kai2')
+    // Spec 10: the desk band names every match, because nothing on it runs on a mat.
+    expect(lines[0]).toHaveTextContent('M5 \u00b7 GI')
+  })
+
+  // Spec 10: the mat head names the match the mat is on, in the height the budget already
+  // reserves for the row and the row does not use, so it costs the queue nothing.
+  it('heads a mat with the match it is running and drops the head when there is nothing on it', () => {
+    const live = pair(12, 'Kai Nakamura', 'Rosa Oliveira', { number: 12, style: 'nogi', status: 'live' })
+    const running = sampleSnapshot({
+      event: event('live', 'live', 2),
+      mats: [mat(1, { current: live }), mat(2)],
+      matches: [live],
+    })
+    const { container } = render(<Board snapshot={running} connected />)
+    const heads = Array.from(container.querySelectorAll('.b-mat-head')).map(h => h.textContent)
+    expect(heads).toEqual(['M12 \u00b7 NOGI'])
+  })
+
+  // Spec 10: the row prints an empty side's feed label as one muted line and draws no
+  // team edge beside it, because nobody knows whose child it is yet.
+  it('prints a bracket side as the match it waits on, with no team edge', () => {
+    const waiting = pair(9, 'Kai Nakamura', 'Winner of M7', { status: 'pending', orderIndex: 0 })
+    const snapshot = sampleSnapshot({
+      event: event('setup', 'entry', 1),
+      mats: [mat(1)],
+      matches: [{ ...waiting, b: { ...waiting.b, athleteId: null, teamId: null, feed: { matchId: 7, matchNumber: 7, take: 'winner' } } }],
+    })
+    const { container } = render(<Board snapshot={snapshot} connected />)
+    const feed = container.querySelector('.b-feed')
+    expect(feed).toHaveTextContent('Winner of M7')
+    // A competitor's name is a first name and an initial in two elements; a feed is one.
+    expect(feed?.querySelector('.b-name-first')).toBeNull()
+    expect(container.querySelectorAll('.b-edge')).toHaveLength(0)
   })
 
   it('never opens a column it has nothing to put in', () => {

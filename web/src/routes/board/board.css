@@ -391,6 +391,27 @@
   background: transparent;
 }
 
+/* Spec 10's mat head, over the ledger row and inside the height the budget already
+   reserves for it: the row is allotted --b-row-n and renders at --b-score-step, so the
+   difference is spare the panel has already paid for and the queue never sees. The 1cqh
+   it holds back is the line's own breathing room; below that the room is zero, the line
+   is zero tall at a zero step, and a deep board spends its height on mats instead, which
+   is the trade budget.ts makes everywhere else. */
+.b-mat-head {
+  --b-head-room: max(0px, calc(var(--b-row-n) * 1cqh - var(--b-score-step) - 1cqh));
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: min(var(--b3), var(--b-head-room));
+  padding-left: var(--b-indent);
+  overflow: hidden;
+  font-size: min(calc(var(--b-name-step) * 0.62), var(--b-head-room));
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--gray-10);
+}
+
 .b-mat {
   grid-column: 1;
   font-size: var(--b-name-step);
@@ -432,6 +453,23 @@
 .b-name-b {
   padding-right: var(--b-edge-w);
 }
+/* Spec 10: a side waiting on its feeder is one muted line rather than a first name and
+   an initial, so it takes the name track's step and the row's quiet colour and none of
+   .b-name-first's two part layout. The row draws no team edge beside it either: nobody
+   knows whose child it is yet. */
+.b-feed {
+  /* Block rather than the flex .b-name is, because one run of text ellipsises and a
+     flex container does not. The right alignment comes back with it. */
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--gray-10);
+}
+.b-name-a.b-feed {
+  text-align: right;
+}
+
 /* --fig-lead and --fig-trail are 7.5's score tones and stay on the scores. A name here is
    the largest text in the room, and the trailing one at --gray-10 was the quietest thing
    on the panel at the moment it mattered. The settled row still steps its loser's name
@@ -612,6 +650,28 @@
      neither: at a full column the last pairing clipped. */
   gap: 0;
 }
+/* Spec 10. The desk band is the one place a match can be named without spending a track
+   the mat ledger has already promised to a competitor's name: its columns are pairings
+   only, so a leading tag sits inside the line it belongs to. */
+.b-order-line {
+  display: grid;
+  grid-template-columns: auto var(--b-gap-tight) minmax(0, 1fr) var(--b-gap-pair) minmax(0, 1fr);
+  align-items: center;
+  height: var(--b3);
+  padding-left: var(--b-indent);
+}
+.b-order-line > .b-order-tag { grid-column: 1; }
+.b-order-line > .b-name-a { grid-column: 3; }
+.b-order-line > .b-name-b { grid-column: 5; }
+.b-order-line .b-name { color: var(--gray-10); }
+.b-order-tag {
+  font-size: calc(var(--b-name-step) * 0.62);
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--gray-11);
+}
+
 .b-order {
   flex: 1 1 0;
   display: flex;

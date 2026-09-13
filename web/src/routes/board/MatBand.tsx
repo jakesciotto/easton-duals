@@ -1,5 +1,6 @@
 import type { MatView, MatchView } from '@shared/types'
 import { isRunning } from '@shared/clock'
+import { styleTag } from '@/lib/format'
 import { POLL_CLOCK_RUNNING_MS } from '@/lib/pollInterval'
 import { MatRow, NextLine } from './MatRow'
 
@@ -30,6 +31,9 @@ function MatPanel({ mat, held, settled, serverNow, nextCount, withClock, lastSuc
 
   return (
     <section aria-label={`Mat ${mat.number}`} className="b-panel">
+      {/* Spec 10: the match the mat is on, named the way every other surface names it.
+          A mat with nothing to show has nothing to name, and the line goes with it. */}
+      {subject !== null && <div className="b-mat-head font-sans">{`M${subject.number} · ${styleTag(subject.style)}`}</div>}
       <MatRow
         matNumber={mat.number}
         a={subject?.a ?? null}

@@ -1,5 +1,5 @@
 import type { MatView, MatchView } from '@shared/types'
-import { NextLine } from './MatRow'
+import { NextLine, OrderLine } from './MatRow'
 
 /** The head over the desk event's running order, where no mat runs anything. */
 export const UP_NEXT_HEAD = 'Up next'
@@ -66,7 +66,7 @@ export function OrderBand({ mats, matches, firstUp = 3 }: {
             {order.length === 0
               ? <div className="b-setup-empty font-sans">{NOT_DRAWN}</div>
               : order.slice(i * firstUp, (i + 1) * firstUp).map(match => (
-                <NextLine key={match.id} a={match.a} b={match.b} />
+                <OrderLine key={match.id} match={match} />
               ))}
           </section>
         ))}
