@@ -255,6 +255,8 @@ async function formatArm(admin) {
   assert(bulk.body.matches.length === 1, 'the pasted pair made one match')
   assert(bulk.body.divisions.length === 1, 'the pasted division was created')
   assert(bulk.body.warnings.length === 0, 'the paste warns about nothing')
+  const detailed = await j('GET', `/api/events/${eventId}`, undefined, admin)
+  assert(detailed.body.divisions.length === 1 && detailed.body.divisions[0].matchIds.length === 3, 'the event detail carries the division and its three matches')
 
   const rowsOf = async () => (await j('GET', `/api/events/${eventId}`, undefined, admin)).body.matches
   const numbered = (rows, n) => rows.find(m => m.number === n)

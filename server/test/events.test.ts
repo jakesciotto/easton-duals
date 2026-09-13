@@ -34,6 +34,16 @@ describe('events', () => {
     expect(one.body.candidateCount).toBe(0)
   })
 
+  it('carries its divisions on the detail, each with its match ids', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { divisions: true })
+    const one = await call(app, 'GET', `/api/events/${s.eventId}`, undefined, adminToken)
+    expect(one.status).toBe(200)
+    expect(one.body.divisions).toHaveLength(1)
+    expect(one.body.divisions[0]).toMatchObject({ id: s.divisionId, format: 'single_elim', styles: 'gi', running: false })
+    expect(one.body.divisions[0].matchIds).toHaveLength(3)
+  })
+
   // How the event runs is a stored fact, because the walkthrough two weeks out decides it.
   // The app used to infer it from whether a mat happened to be bound at that instant, which
   // is why the board could change composition on a reload between bouts.

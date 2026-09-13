@@ -15,6 +15,7 @@ import { MatchStateError, bumpVersion, endedAtByMatch } from '../match/events.js
 import { recordAudit, HISTORY_LIMIT } from '../audit/log.js'
 import { assertNotCertified } from '../audit/certify.js'
 import { eventContact } from '../live/snapshot.js'
+import { loadDivisions } from '../formats/divisions.js'
 import { CORRECTION_REASON_MAX, DEFAULT_ACTIONS, DEFAULT_TERMINALS, DEFAULT_LENGTH_SEC, FAR_MIN, FAR_MAX, MIN_TEAMS, MAX_TEAMS, TEAM_COLOR_KEYS, type AuditAction, type AuditEntry, type TeamColor } from '../shared/types.js'
 
 const colorSchema = z.enum(TEAM_COLOR_KEYS as [TeamColor, ...TeamColor[]])
@@ -68,6 +69,7 @@ export async function eventDetail(db: DbLike, eventId: number) {
     rulesets: await db.select().from(rulesets).where(eq(rulesets.eventId, eventId)).orderBy(asc(rulesets.id)).all(),
     mats: await db.select().from(mats).where(eq(mats.eventId, eventId)).orderBy(asc(mats.number)).all(),
     matches: matchRows.map(m => ({ ...m, endedAt: endedAtById.get(m.id) ?? null })),
+    divisions: await loadDivisions(db, eventId),
     candidateCount: candidateRow?.n ?? 0,
   }
 }
