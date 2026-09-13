@@ -69,8 +69,24 @@ describe('AddMatchDialog', () => {
     await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Add match' }))
     await vi.waitFor(() => expect(f.calls.some(c => c.init?.method === 'POST')).toBe(true))
     expect(f.body(f.calls.findIndex(c => c.init?.method === 'POST'))).toEqual({
-      athleteAId: 100, athleteBId: 200, rulesetId: 1, lengthSec: 300,
+      athleteAId: 100, athleteBId: 200, style: 'gi', rulesetId: 1, lengthSec: 300,
     })
+  })
+
+  // Spec 9: gi is selected first, because gi runs first.
+  it('sends the style the segment names', async () => {
+    const f = fakeFetch(() => ({ status: 201, json: {} }))
+    mount()
+    const dialog = await screen.findByRole('dialog')
+    const user = userEvent.setup()
+    await pick(dialog, 'First competitor', /Mateo Rivera/)
+    await pick(dialog, 'Second competitor', /Olivia Kim/)
+    expect(within(dialog).getByRole('radio', { name: 'Gi' })).toBeChecked()
+
+    await user.click(within(dialog).getByRole('radio', { name: 'Nogi' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Add match' }))
+    await vi.waitFor(() => expect(f.calls.some(c => c.init?.method === 'POST')).toBe(true))
+    expect(f.body(f.calls.findIndex(c => c.init?.method === 'POST'))).toMatchObject({ style: 'nogi' })
   })
 
   it('will not add a match with a slot still empty', async () => {

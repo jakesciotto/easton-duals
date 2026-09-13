@@ -21,7 +21,7 @@ const detail: EventDetail = {
 // Built from a local Date so the printed time is the same wherever the suite runs.
 const endedAt = new Date(2026, 9, 3, 15, 41).toISOString()
 const done = sampleMatch({
-  id: 9, orderIndex: 11, matId: 1, status: 'done', endedAt,
+  id: 9, number: 12, orderIndex: 11, matId: 1, status: 'done', endedAt,
   a: { athleteId: 100, name: 'Mateo Rivera', teamId: 1, belt: 'grey', weightLbs: 62, score: 9, feed: null },
   b: { athleteId: 200, name: 'Olivia Kim', teamId: 2, belt: 'grey', weightLbs: 60, score: 2, feed: null },
   result: { winnerAthleteId: 100, winType: 'points' },
@@ -37,17 +37,17 @@ describe('ResultDialog', () => {
     fakeFetch(() => ({ json: {} }))
     mount()
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByText('Match 12, mat 2, ended 3:41 pm, 9 to 2, Mateo Rivera on points.')).toBeInTheDocument()
+    expect(within(dialog).getByText('M12, mat 2, ended 3:41 pm, 9 to 2, Mateo Rivera on points.')).toBeInTheDocument()
   })
 
   it('asks for a result, not a correction, on a match that is still live', async () => {
     // G20: the dead tablet path opens this dialog on a live match, where nothing is stored
     // yet and the desk is entering the first result.
     fakeFetch(() => ({ json: {} }))
-    mount(sampleMatch({ id: 9, orderIndex: 11, matId: 1, a: { ...done.a, score: 4 }, b: { ...done.b, score: 2 } }))
+    mount(sampleMatch({ id: 9, number: 12, orderIndex: 11, matId: 1, a: { ...done.a, score: 4 }, b: { ...done.b, score: 2 } }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('heading', { name: 'Enter the result' })).toBeInTheDocument()
-    expect(within(dialog).getByText('Match 12, mat 2, 4 to 2, no result recorded.')).toBeInTheDocument()
+    expect(within(dialog).getByText('M12, mat 2, 4 to 2, no result recorded.')).toBeInTheDocument()
   })
 
   it('holds that sentence still while a newer snapshot of the same match arrives', async () => {

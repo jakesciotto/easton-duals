@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { dialogBody, dialogFooter, dialogSurface } from '@/components/dialog-frame'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Chip } from '@/components/ui/chip'
 import { EmptyState } from '@/components/ui/empty-state'
 import { List, ListRow } from '@/components/ui/list'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -83,7 +84,12 @@ export function MatchHistorySheet({ source, open, onOpenChange }: {
       <DialogContent className={dialogSurface(512)}>
         <DialogHeader>
           <div className="grid min-w-0 gap-0.5">
-            <DialogTitle>{source.title}</DialogTitle>
+            <span className="flex min-w-0 items-center gap-2">
+              {/* The one name every surface prints for this row, so the sheet reads
+                  against the board and the Matches tab without a lookup. */}
+              {source.number !== null && <Chip size="t1">M<span className="fig">{source.number}</span></Chip>}
+              <DialogTitle>{source.title}</DialogTitle>
+            </span>
             <DialogDescription className="t2 text-gray-10">{HISTORY_NOTE}</DialogDescription>
           </div>
         </DialogHeader>

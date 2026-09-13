@@ -66,13 +66,17 @@ export function matchLines(detail: EventDetail, snapshot: Snapshot | null): Matc
 /**
  * Every control in a queue row is otherwise named identically on all of them, so an
  * elements list of a fourteen match queue is fourteen buttons called "Delete match" and
- * fourteen comboboxes called "Mat", in an order that carries no row identity. The
- * position is the number the row already prints and the two competitors are what the
- * operator recognises, so the row's name is built from both. "versus" rather than "vs",
- * which a screen reader spells out.
+ * fourteen comboboxes called "Mat", in an order that carries no row identity. The number
+ * is what the row prints and the two competitors are what the operator recognises, so the
+ * row's name is built from both. "versus" rather than "vs", which a screen reader spells
+ * out.
+ *
+ * It is the match's own number rather than its place in the running order: a reorder
+ * moves every place below it and renames half the controls on the screen, while M12 is
+ * M12 all afternoon.
  */
-export function matchLabel(position: number, nameA: string, nameB: string): string {
-  return `match ${position}, ${nameA} versus ${nameB}`
+export function matchLabel(number: number, nameA: string, nameB: string): string {
+  return `match M${number}, ${nameA} versus ${nameB}`
 }
 
 // 6.8 prints the refusal rather than opening a dialog that says no, so every refused

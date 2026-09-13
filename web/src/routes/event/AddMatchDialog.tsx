@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { formatClock } from '@shared/clock'
 import { writeErrorMessage } from '@/lib/eventMode'
 import { adminApi, useAdminMutation } from '@/lib/queries'
-import type { AthleteRow, EventDetail, TeamRow } from '@/lib/types'
-import { athleteName, beltLabel } from '@/lib/format'
+import type { AthleteRow, EventDetail, Style, TeamRow } from '@/lib/types'
+import { athleteName, beltLabel, styleLabel } from '@/lib/format'
 import { isDoubleBooked } from '@/lib/doubleBooking'
 import { cn } from '@/lib/utils'
 import { dialogBody, dialogFooter, dialogStack, dialogSurface } from '@/components/dialog-frame'
@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Segment } from '@/components/ui/segment'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Toggle } from '@/components/ui/toggle'
 import { TeamPlate } from '@/components/TeamPlate'
@@ -18,6 +19,12 @@ import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTi
 import { clockToSec, maskClock } from './clock-input'
 
 const LEAST_LOADED = ''
+
+// Gi first, because gi runs first: spec 5 places every gi match before any nogi one.
+const STYLE_OPTIONS: { value: Style; label: string }[] = [
+  { value: 'gi', label: styleLabel('gi') },
+  { value: 'nogi', label: styleLabel('nogi') },
+]
 
 interface CreateResult { warnings?: string[] }
 
@@ -79,6 +86,7 @@ export function AddMatchDialog({ detail, start, open, onOpenChange }: {
   const [rulesetId, setRulesetId] = useState('')
   const [length, setLength] = useState('')
   const [matId, setMatId] = useState(LEAST_LOADED)
+  const [style, setStyle] = useState<Style>('gi')
   // What the server said about the pair it just accepted. A warning never blocks a save,
   // so it is reported after the write rather than instead of it.
   const [warnings, setWarnings] = useState<string[]>([])
@@ -97,6 +105,7 @@ export function AddMatchDialog({ detail, start, open, onOpenChange }: {
     setRulesetId(String(detail.rulesets[0]?.id ?? ''))
     setLength(formatClock((detail.rulesets[0]?.defaultLengthSec ?? 300) * 1000))
     setMatId(LEAST_LOADED)
+    setStyle('gi')
     create.reset()
   }, [open, start])
 
@@ -132,7 +141,7 @@ export function AddMatchDialog({ detail, start, open, onOpenChange }: {
     if (!ready) return
     setWarnings([])
     create.mutate(
-      { athleteAId: Number(aId), athleteBId: Number(bId), rulesetId: Number(rulesetId), lengthSec, matId: matId === LEAST_LOADED ? undefined : Number(matId) },
+      { athleteAId: Number(aId), athleteBId: Number(bId), style, rulesetId: Number(rulesetId), lengthSec, matId: matId === LEAST_LOADED ? undefined : Number(matId) },
       {
         onSuccess: r => {
           const said = r?.warnings ?? []
@@ -181,6 +190,11 @@ export function AddMatchDialog({ detail, start, open, onOpenChange }: {
                 value={length} onChange={e => setLength(maskClock(e.target.value))}
                 className="fig fig-4 w-[var(--col-num-l)] text-right"
               />
+            </div>
+
+            <div className="grid gap-2 sm:col-span-2">
+              <span className="t2 text-gray-10">Style</span>
+              <Segment aria-label="Style" value={style} onValueChange={v => setStyle(v as Style)} options={STYLE_OPTIONS} />
             </div>
 
             <div className="grid gap-2 sm:col-span-2" role="group" aria-label="Mat">

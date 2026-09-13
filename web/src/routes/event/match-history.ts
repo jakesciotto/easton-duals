@@ -29,6 +29,8 @@ export interface HistoryContext {
 export interface HistorySource {
   path: string
   title: string
+  /** The match's own number, printed as a chip beside the title. Null for the event log. */
+  number: number | null
   context: HistoryContext
 }
 
@@ -293,6 +295,7 @@ export function matchHistorySource(match: MatchView, matNumber: number | null, d
   return {
     path: `/api/matches/${match.id}/history`,
     title: matNumber === null ? pair : `Mat ${matNumber}, ${pair}`,
+    number: match.number,
     context: {
       nameOf: namer(detail),
       athleteAId: match.a.athleteId,
@@ -310,6 +313,7 @@ export function eventHistorySource(detail: EventDetail): HistorySource {
   return {
     path: `/api/events/${detail.event.id}/history`,
     title: EVENT_HISTORY_TITLE,
+    number: null,
     context: { nameOf: namer(detail), athleteAId: null, athleteBId: null, actions: [], terminals: [] },
   }
 }

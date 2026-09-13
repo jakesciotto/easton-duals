@@ -15,6 +15,7 @@ const at = (h: number, m: number, s: number) => new Date(2026, 9, 3, h, m, s).to
 const source: HistorySource = {
   path: '/api/matches/9/history',
   title: 'Mat 2, Mateo Rivera vs Olivia Kim',
+  number: 12,
   context: {
     nameOf: id => (id === 100 ? 'Mateo Rivera' : 'Olivia Kim'),
     athleteAId: 100,
@@ -85,6 +86,24 @@ describe('MatchHistorySheet', () => {
     fakeFetch(() => ({ json: [] }))
     mount()
     expect(await screen.findByText(HISTORY_EMPTY)).toBeInTheDocument()
+  })
+
+  // Spec 9: the sheet names the match the way every other surface does, so it reads
+  // against the board and the Matches tab without a lookup. The event log names no match.
+  it('carries the match number beside the title, and none for the event log', async () => {
+    fakeFetch(() => ({ json: [] }))
+    const chip = () => document.querySelector('[data-slot="chip"]')?.textContent ?? null
+    const { rerender } = mount()
+    await screen.findByRole('dialog')
+    expect(chip()).toBe('M12')
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    rerender(
+      <QueryClientProvider client={qc}>
+        <MatchHistorySheet source={{ ...source, title: 'Event history', number: null }} open onOpenChange={() => {}} />
+      </QueryClientProvider>,
+    )
+    expect(chip()).toBeNull()
   })
 
   it('renders nothing at all without a source', () => {

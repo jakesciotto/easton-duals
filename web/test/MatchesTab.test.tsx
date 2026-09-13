@@ -45,7 +45,7 @@ const detail: EventDetail = {
   matches: [
     match(1),
     match(2, { athleteAId: 101, athleteBId: 201, matId: 2, why: 'ERP 5.0 vs 4.8' }),
-    match(3, { status: 'done', winnerAthleteId: 100, winType: 'points' }),
+    match(3, { style: 'nogi', status: 'done', winnerAthleteId: 100, winType: 'points' }),
   ],
   divisions: [], candidateCount: 0,
 }
@@ -85,13 +85,14 @@ function mountStreaming(snapshot: Snapshot, d: EventDetail = detail) {
   return { f, feed }
 }
 
+const chipsIn = (el: HTMLElement) => Array.from(el.querySelectorAll('[data-slot="chip"]')).map(c => c.textContent)
 const pendingField = () => screen.getByRole('region', { name: 'Pending matches' })
 const pendingRows = () => within(pendingField()).getAllByRole('row').slice(1)
 
 // Every per-row control is named by its row, so the fixture's two queue rows name
 // themselves here once rather than in eight places.
-const M1 = 'match 1, Mateo Rivera versus Olivia Kim'
-const M2 = 'match 2, Ava Park versus Noah Tran'
+const M1 = 'match M1, Mateo Rivera versus Olivia Kim'
+const M2 = 'match M2, Ava Park versus Noah Tran'
 
 describe('MatchesTab', () => {
   // Spec 9's toolbar. Both open a dialog of their own, and Order matches asks the server
@@ -111,13 +112,18 @@ describe('MatchesTab', () => {
     expect(f.body(f.calls.findIndex(c => c.url === '/api/events/7/schedule'))).toEqual({ apply: false })
   })
 
-  it('splits the queue from the history and keeps the why chip', async () => {
+  it('splits the queue from the history and leads every row with its own number', async () => {
     mount()
     const user = userEvent.setup()
 
     const rows = pendingRows()
     expect(rows).toHaveLength(2)
-    expect(within(rows[0]).getByText('ERP 6.1 vs 5.8')).toBeInTheDocument()
+    // Spec 9: the number as a chip first, then the style. The "why" chip and the length
+    // cell are gone; the length is set through the Add match dialog and the API.
+    expect(chipsIn(rows[0])).toEqual(['M1', 'GI'])
+    expect(within(rows[0]).queryByText('ERP 6.1 vs 5.8')).not.toBeInTheDocument()
+    expect(within(rows[0]).queryByLabelText(`Length for ${M1}`)).not.toBeInTheDocument()
+    expect(screen.queryByText('Sec')).not.toBeInTheDocument()
     // Two competitors, two lines, one unit.
     expect(within(rows[0]).getByRole('button', { name: 'Swap Mateo Rivera, Ridgeline' })).toBeInTheDocument()
     expect(within(rows[0]).getByRole('button', { name: 'Swap Olivia Kim, Lakeside' })).toBeInTheDocument()
@@ -127,10 +133,11 @@ describe('MatchesTab', () => {
     await user.click(screen.getByRole('button', { name: 'Show' }))
     const settled = within(screen.getByRole('region', { name: 'Settled matches' })).getAllByRole('row').slice(1)
     expect(settled).toHaveLength(1)
+    expect(chipsIn(settled[0])).toEqual(['M3', 'NOGI'])
     expect(within(settled[0]).getByText('Mateo Rivera')).toBeInTheDocument()
     expect(within(settled[0]).getByText('on points')).toBeInTheDocument()
 
-    const free = screen.getByRole('region', { name: 'Without a match' })
+    const free = screen.getByRole('region', { name: 'No match yet' })
     expect(free).toHaveTextContent('Kai Wong')
     // Every team has a column, the third one included, and each name carries its own press.
     expect(within(free).getByRole('button', { name: 'Add match for Iris Nolan' })).toBeInTheDocument()
@@ -218,17 +225,6 @@ describe('MatchesTab', () => {
     expect(pendingRows()).toHaveLength(2)
   })
 
-  it('snaps an out of range length back to the saved value and sends nothing', async () => {
-    const f = mount()
-    const user = userEvent.setup()
-    const length = within(pendingRows()[0]).getByLabelText(`Length for ${M1}`)
-    await user.clear(length)
-    await user.type(length, '5')
-    await user.tab()
-    expect(length).toHaveValue('300')
-    expect(f.calls.some(c => c.url === '/api/matches/1' && c.init?.method === 'PATCH')).toBe(false)
-  })
-
   // 4.4: an arriving snapshot is held, not committed, while the operator is engaged, and
   // `data-dragging` on the tab root is the contract operatorEngaged() reads for a drag.
   it('marks the tab as engaged while a row is being dragged', async () => {
@@ -287,7 +283,6 @@ describe('MatchesTab', () => {
       expect(within(row).getByRole('button', { name: `Delete ${label}` })).toBeInTheDocument()
       expect(within(row).getByLabelText(`Mat for ${label}`)).toBeInTheDocument()
       expect(within(row).getByLabelText(`Ruleset for ${label}`)).toBeInTheDocument()
-      expect(within(row).getByLabelText(`Length for ${label}`)).toBeInTheDocument()
     }
     // The row-blind names are gone, and every name on the screen is unique.
     for (const blind of ['Delete match', 'Mat', 'Ruleset', 'Length', 'Move up', 'Move down', 'Drag to reorder']) {
@@ -295,8 +290,8 @@ describe('MatchesTab', () => {
     }
     const labelled = Array.from(document.querySelectorAll('[aria-label]'))
       .map(el => el.getAttribute('aria-label')!)
-      .filter(l => /^(Reorder|Move|Delete|Mat for|Ruleset for|Length for) match /.test(l))
-    expect(labelled).toHaveLength(14)
+      .filter(l => /^(Reorder|Move|Delete|Mat for|Ruleset for) match /.test(l))
+    expect(labelled).toHaveLength(12)
     expect(new Set(labelled).size).toBe(labelled.length)
   })
 
@@ -309,34 +304,6 @@ describe('MatchesTab', () => {
     const strip = await screen.findByRole('region', { name: 'Live now' })
     expect(within(strip).getByRole('button', { name: `Delete ${M1}` })).toBeInTheDocument()
     expect(within(strip).queryByRole('button', { name: 'Delete match' })).not.toBeInTheDocument()
-  })
-
-  // React writes a defaultValue once at mount and never again, so a length changed by a
-  // second organizer never reached this cell and the operator set a
-  // mat clock from a stale number.
-  it('follows the served length when it changes after mount', () => {
-    fakeFetch((url: string) => noStream(url) ?? { json: {} })
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    const { rerender } = render(<QueryClientProvider client={qc}><MatchesTab detail={detail} /></QueryClientProvider>)
-    const length = () => within(pendingRows()[0]).getByLabelText(`Length for ${M1}`)
-    expect(length()).toHaveValue('300')
-
-    const changed: EventDetail = { ...detail, matches: detail.matches.map(m => (m.id === 1 ? { ...m, lengthSec: 600 } : m)) }
-    rerender(<QueryClientProvider client={qc}><MatchesTab detail={changed} /></QueryClientProvider>)
-    expect(length()).toHaveValue('600')
-  })
-
-  it('drops a refused length edit instead of leaving the rejected value looking saved', async () => {
-    mount(detail, (url, init) => (url === '/api/matches/1' && init?.method === 'PATCH'
-      ? { status: 422, json: { error: { code: 'validation', message: 'lengthSec must be between 30 and 1800' } } }
-      : { json: {} }))
-    const user = userEvent.setup()
-    const length = within(pendingRows()[0]).getByLabelText(`Length for ${M1}`)
-    await user.clear(length)
-    await user.type(length, '600')
-    await user.tab()
-    expect(await screen.findByRole('alert')).toHaveTextContent('lengthSec must be between 30 and 1800')
-    await vi.waitFor(() => expect(length).toHaveValue('300'))
   })
 
   // 2.1: --gray-9 is decoration only and never carries a word a person reads. jsdom
@@ -401,7 +368,7 @@ describe('MatchesTab', () => {
   it('opens the Add match dialog on the competitor whose row asked for it', async () => {
     mount()
     const user = userEvent.setup()
-    await user.click(within(screen.getByRole('region', { name: 'Without a match' })).getByRole('button', { name: 'Add match for Iris Nolan' }))
+    await user.click(within(screen.getByRole('region', { name: 'No match yet' })).getByRole('button', { name: 'Add match for Iris Nolan' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByLabelText('First competitor')).toHaveTextContent('Iris Nolan')
   })
@@ -417,7 +384,8 @@ describe('MatchesTab', () => {
 
 describe('MatchesTab without a match', () => {
   // Mateo and Olivia are in a pending match, Ava and Noah's only match is done, and Kai
-  // and Iris are free until a draft names one of them.
+  // and Iris are free until a draft names one of them. Ava and Noah have a settled match,
+  // which no longer frees them: a competitor with a match in any status has been drawn.
   const draftDetail: EventDetail = {
     ...detail,
     matches: [
@@ -444,27 +412,44 @@ describe('MatchesTab without a match', () => {
     mountWithProposals([draftProposal(1, draftSide(202, 2, 'Kai', 'Wong'), draftSide(100, 1, 'Mateo', 'Rivera'))])
     // The proposals query is async, so the drafted count only appears once it settles.
     expect(await screen.findByText(/more have a proposed match/)).toHaveTextContent('1 more have a proposed match.')
-    const free = screen.getByRole('region', { name: 'Without a match' })
+    const free = screen.getByRole('region', { name: 'No match yet' })
     expect(within(free).queryByText('Kai Wong')).not.toBeInTheDocument()
     expect(within(free).getByText('Iris Nolan')).toBeInTheDocument()
-    expect(within(free).getByText('Ava Park')).toBeInTheDocument()
-    expect(within(free).getByText('Noah Tran')).toBeInTheDocument()
   })
 
   it('keeps a competitor in a pending match off the list, whatever else is drafted', async () => {
     mountWithProposals([draftProposal(2, draftSide(202, 2, 'Kai', 'Wong'), draftSide(300, 3, 'Iris', 'Nolan'))])
     await screen.findByText(/more have a proposed match/)
-    const free = screen.getByRole('region', { name: 'Without a match' })
+    const free = screen.getByRole('region', { name: 'No match yet' })
     expect(within(free).queryByText('Mateo Rivera')).not.toBeInTheDocument()
     expect(within(free).queryByText('Olivia Kim')).not.toBeInTheDocument()
   })
 
-  it('keeps a competitor whose only match is done on the list, whatever else is drafted', async () => {
+  // Spec 9 asks a wider question than spec 6 did: a kid may hold any number of unfought
+  // matches now, so a settled one no longer hands them back to the field.
+  it('keeps a competitor whose only match is done off the list', async () => {
     mountWithProposals([draftProposal(2, draftSide(202, 2, 'Kai', 'Wong'), draftSide(300, 3, 'Iris', 'Nolan'))])
     await screen.findByText(/more have a proposed match/)
-    const free = screen.getByRole('region', { name: 'Without a match' })
-    expect(within(free).getByText('Ava Park')).toBeInTheDocument()
-    expect(within(free).getByText('Noah Tran')).toBeInTheDocument()
+    const free = screen.getByRole('region', { name: 'No match yet' })
+    expect(within(free).queryByText('Ava Park')).not.toBeInTheDocument()
+    expect(within(free).queryByText('Noah Tran')).not.toBeInTheDocument()
+  })
+
+  it('keeps a competitor in a division off the list, match or no match', async () => {
+    const inADivision: EventDetail = {
+      ...draftDetail,
+      divisions: [{
+        id: 1, eventId: 7, name: '47 to 53 boys', format: 'round_robin', styles: 'gi', position: 0,
+        members: [{ athleteId: 300, seed: 1, firstName: 'Iris', lastName: 'Nolan', teamId: 3, erp: null }],
+        matchIds: [], running: false, warnings: [],
+      }],
+    }
+    fakeFetch(url => (/\/snapshot(\?|$)/.test(url) ? { json: { version: 0 } } : { json: [] }))
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={qc}><MatchesTab detail={inADivision} /></QueryClientProvider>)
+    const free = screen.getByRole('region', { name: 'No match yet' })
+    expect(within(free).queryByText('Iris Nolan')).not.toBeInTheDocument()
+    expect(within(free).getByText('Kai Wong')).toBeInTheDocument()
   })
 
   it('says nothing extra when nothing is drafted', async () => {
@@ -492,22 +477,15 @@ describe('MatchesTab in desk mode', () => {
     return { ...base, event: { ...base.event, mode: 'entry' } }
   }
 
-  it('drops the clock length column and keeps the mat select', async () => {
+  // The length cell was the only thing on this row the mode decided, and spec 9 removed
+  // it, so the queue is the same screen whoever is scoring.
+  it('draws the same row whoever is scoring', async () => {
     mountStreaming(deskSnapshot(), entryDetail)
     await vi.waitFor(() => expect(pendingRows().length).toBeGreaterThan(0))
-    expect(screen.queryByText('Sec')).not.toBeInTheDocument()
-    expect(within(pendingRows()[0]).queryByLabelText(`Length for ${M1}`)).not.toBeInTheDocument()
+    expect(chipsIn(pendingRows()[0])).toEqual(['M1', 'GI'])
     expect(within(pendingRows()[0]).getByLabelText(`Mat for ${M1}`)).toBeInTheDocument()
-  })
-
-  it('keeps both columns when the mats are scoring', async () => {
-    mountStreaming(sampleSnapshot({
-      matches: [view(1), view(2), view(3, { status: 'done', result: { winnerAthleteId: 100, winType: 'points' } })],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
-    }))
-    await vi.waitFor(() => expect(pendingRows().length).toBeGreaterThan(0))
-    expect(screen.getByText('Sec')).toBeInTheDocument()
-    expect(within(pendingRows()[0]).getByLabelText(`Length for ${M1}`)).toBeInTheDocument()
+    expect(within(pendingRows()[0]).getByLabelText(`Ruleset for ${M1}`)).toBeInTheDocument()
+    expect(screen.queryByText('Sec')).not.toBeInTheDocument()
   })
 
   it('drops the live strip, because nothing on a desk event is live', async () => {
@@ -516,24 +494,12 @@ describe('MatchesTab in desk mode', () => {
     expect(screen.queryByRole('region', { name: 'Live now' })).not.toBeInTheDocument()
     expect(screen.queryByText(/^Live on mat/)).not.toBeInTheDocument()
   })
-
-  // One fact, one source: the organizer switches the event from a phone at the same desk
-  // and nothing invalidates this browser's detail cache when they do.
-  it('follows the stream when the detail cache still says the mats are scoring', async () => {
-    const { feed } = mountStreaming(sampleSnapshot({
-      matches: [view(1), view(2), view(3, { status: 'done', result: { winnerAthleteId: 100, winType: 'points' } })],
-      mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
-    }))
-    expect(await screen.findByText('Sec')).toBeInTheDocument()
-    feed.push(deskSnapshot())
-    await vi.waitFor(() => expect(screen.queryByText('Sec')).not.toBeInTheDocument(), { timeout: 6000 })
-  })
 })
 
 // 6.8 keeps the settled field out of the work lane, and its rows carry the two things a
 // record needs after the fact: what happened, and one way to change it.
 describe('MatchesTab settled row actions', () => {
-  const M3 = 'match 3, Mateo Rivera versus Olivia Kim'
+  const M3 = 'match M3, Mateo Rivera versus Olivia Kim'
   const openSettledMenu = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.click(screen.getByRole('button', { name: 'Show' }))
     await user.click(screen.getByRole('button', { name: `${M3} actions` }))
@@ -608,7 +574,6 @@ describe('MatchesTab on a certified event', () => {
     }
     expect(row.getByRole('combobox', { name: `Mat for ${M1}` })).toBeDisabled()
     expect(row.getByRole('combobox', { name: `Ruleset for ${M1}` })).toBeDisabled()
-    expect(row.getByLabelText(`Length for ${M1}`)).toBeDisabled()
     // The competitor swap is a button on each side of the pair.
     expect(row.getByRole('button', { name: 'Swap Mateo Rivera, Ridgeline' })).toBeDisabled()
     expect(row.getByRole('button', { name: 'Swap Olivia Kim, Lakeside' })).toBeDisabled()

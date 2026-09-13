@@ -8,8 +8,8 @@ import { rankTeams } from '@shared/leaderboard'
 import { CERTIFIED_ENTRY_LINE, FINISHED_LINE, MAT_NOTE, isFinished, modeOf, statusOf } from '@/lib/eventMode'
 import { useSnapshot } from '@/lib/useSnapshot'
 import { newEventId } from '@/lib/ids'
-import type { AthleteRow, EventDetail, MatchRow, TeamRow } from '@/lib/types'
-import { athleteName, beltLabel, winTypeLabel } from '@/lib/format'
+import type { AthleteRow, EventDetail, MatchRow, Style, TeamRow } from '@/lib/types'
+import { athleteName, beltLabel, styleLabel, winTypeLabel } from '@/lib/format'
 import { feedLabel, feedOf, matchViewOf } from '@/lib/matchView'
 import { matchLines } from './matches-view'
 import { cn } from '@/lib/utils'
@@ -23,10 +23,12 @@ import {
 } from './entry-state'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Chip } from '@/components/ui/chip'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { List, ListRow } from '@/components/ui/list'
+import { Segment } from '@/components/ui/segment'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Toggle } from '@/components/ui/toggle'
 import { TeamPlate } from '@/components/TeamPlate'
@@ -49,6 +51,15 @@ const draftOf = (f: Form): EntryDraft => ({
   v: DRAFT_VERSION, entryId: f.entryId, aId: f.aId, bId: f.bId, pointsA: f.pointsA, pointsB: f.pointsB,
   winner: f.winner, winType: f.winType, editingId: f.editingId, reason: f.reason,
 })
+
+// Gi first, because gi runs first: spec 5 places every gi match before any nogi one. It
+// is component state rather than a field of the stored draft: it describes the match the
+// desk is about to create, a correction never carries one, and a restored draft opens on
+// gi the way a fresh one does.
+const STYLE_OPTIONS: { value: Style; label: string }[] = [
+  { value: 'gi', label: styleLabel('gi') },
+  { value: 'nogi', label: styleLabel('nogi') },
+]
 
 const WIN_TYPES: { value: WinType; label: string; hint: string }[] = [
   { value: 'points', label: 'On points', hint: 'P' },
@@ -88,9 +99,9 @@ const WIN_TYPE_KEY: Record<string, WinType> = { p: 'points', s: 'submission', d:
 // The win type track is 6.6's 84px, not the 88px the points well happens to be: the two
 // numbers are unrelated and the row was reading a form field's height as a column width.
 const LEDGER_COLS =
-  'grid grid-cols-[minmax(0,1fr)_var(--col-num-s)_84px_var(--col-num-s)_minmax(0,1fr)_var(--col-num-l)_var(--col-act)_var(--col-act)] items-center gap-x-3 px-3 font-mono t2'
+  'grid grid-cols-[56px_minmax(0,1fr)_var(--col-num-s)_84px_var(--col-num-s)_minmax(0,1fr)_var(--col-num-l)_var(--col-act)_var(--col-act)] items-center gap-x-3 px-3 font-mono t2'
 
-interface NewEntryBody { entryId: string; athleteAId: number; athleteBId: number; pointsA: number; pointsB: number; winnerAthleteId: number; winType: WinType }
+interface NewEntryBody { entryId: string; athleteAId: number; athleteBId: number; style: Style; pointsA: number; pointsB: number; winnerAthleteId: number; winType: WinType }
 interface CorrectionBody { entryId: string; pointsA: number; pointsB: number; winnerAthleteId: number; winType: WinType; reason?: string }
 interface EntryResponse { match?: EntryMatch | null; version?: number }
 // The POST answers 201 for a write it made and 200 for one it deduped.
@@ -153,6 +164,9 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
   // open until certification, so the ledger's Edit hands a settled result to the one
   // correction dialog rather than to a form that is no longer on the screen.
   const [correcting, setCorrecting] = useState<MatchRow | null>(null)
+  // The style the next new entry creates its match in. See STYLE_OPTIONS above for why it
+  // is not a field of the stored draft.
+  const [style, setStyle] = useState<Style>('gi')
   // Whether the desk has answered G30's prompt by naming a win type since the pick.
   const [winTypeChecked, setWinTypeChecked] = useState(false)
   // Seeded from the ledger so a reload does not reopen the same-pair window on a result
@@ -412,7 +426,7 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
         // Absent rather than empty: the server reads a blank as no reason at all, and
         // sending one would write an empty string into the record.
         ? { kind: 'correct', id: f.editingId, body: { entryId, pointsA: pA, pointsB: pB, winnerAthleteId, winType, ...(reason === '' ? {} : { reason }) } }
-        : { kind: 'create', body: { entryId, athleteAId: a.id, athleteBId: b.id, pointsA: pA, pointsB: pB, winnerAthleteId, winType } },
+        : { kind: 'create', body: { entryId, athleteAId: a.id, athleteBId: b.id, style, pointsA: pA, pointsB: pB, winnerAthleteId, winType } },
     })
   }
 
@@ -598,6 +612,17 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
               {mode === 'live' && <p className="t2 text-gray-11">{MAT_NOTE}</p>}
             </div>
 
+            {/* A correction sets a stored result and never creates a match, so the style
+                belongs to the new entry alone. It sits ahead of the pair rather than inside
+                it: the desk sets it once at the top of the gi block and leaves it, and
+                9.2's eight step run below has to stay in the order it names. */}
+            {f.editingId === null && (
+              <div className="mb-4 grid gap-2">
+                <span className="t2 text-gray-10">Style</span>
+                <Segment aria-label="Style" value={style} onValueChange={v => setStyle(v as Style)} options={STYLE_OPTIONS} />
+              </div>
+            )}
+
             {/*
               One flat grid, not two nested per-team grids: spec 9.2 fixes the tab
               order (competitor A, competitor B, points A, points B, winner A,
@@ -702,12 +727,9 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
               <List>
                 {shownPending.map(line => (
                   <ListRow key={line.row.id} className="flex items-center gap-3">
-                    {/* The position the running order is read by, and the mat it sits on,
-                        both in the figure face so a column of them lines up. */}
-                    <span className="shrink-0 t2 text-gray-10">
-                      <span className="sr-only">Match </span>
-                      <span className="fig">{line.position}</span>
-                    </span>
+                    {/* The match's own number, which is what the Matches tab, the board
+                        and the scorer all print for the same row. */}
+                    <Chip size="t1" className="shrink-0">M<span className="fig">{line.row.number}</span></Chip>
                     <span className="min-w-0 flex-1 truncate t3">{sideName(line.row, 'a')} vs {sideName(line.row, 'b')}</span>
                     <span className="shrink-0 t2 text-gray-10">
                       {line.matNumber === null ? 'No mat' : <>Mat <span className="fig">{line.matNumber}</span></>}
@@ -742,6 +764,7 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
           <div className={cn(LEDGER_COLS, 'h-8 bg-gray-1')}>
             {/* No column belongs to a team any more, so each side is headed by what it
                 holds and the row's own plates say which team that competitor is on. */}
+            <span className="font-sans t1 text-gray-10 uppercase">Match</span>
             <span className="truncate font-sans t1 text-gray-10 uppercase">Competitor</span>
             <span className="tick text-right font-sans t1 text-gray-10 uppercase">Pts</span>
             <span className="text-center font-sans t1 text-gray-10 uppercase">Win by</span>
@@ -962,6 +985,7 @@ function LedgerRow({ match, nameA, nameB, teamOfA, teamOfB, at, cued, cueing, on
         cued ? 'bg-gray-6' : 'bg-transparent',
       )}
     >
+      <Chip size="t1">M<span className="fig">{match.number}</span></Chip>
       <span data-side="a" data-outcome={aWon ? 'win' : 'loss'} className={cn('flex min-w-0 items-center gap-2 font-sans t3', aWon ? 'font-medium text-white' : 'text-gray-10')}>
         {teamOfA && <TeamPlate color={teamOfA.color} name={teamOfA.name} size="inline" showName={false} />}
         {aWon && <Mark side="left" />}

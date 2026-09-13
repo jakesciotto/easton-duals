@@ -596,7 +596,15 @@ function MatPanel({ mat, view, mode, paused, lastSuccessAt, pollIntervalMs, busy
           {current === null
             // One fact per line: a mat with neither a tablet nor a match says both, and
             // neither sentence has to carry the other's meaning.
-            ? model.nowNotes.map(note => <p key={note} className="t3 text-gray-10">{note}</p>)
+            ? (
+              <>
+                {model.nowNotes.map(note => <p key={note} className="t3 text-gray-10">{note}</p>)}
+                {/* Spec 6: a mat with a queue and nothing on it is not idle, it is held
+                    up, and the server says by what: a side still waiting on its feeder,
+                    or a competitor who is live somewhere else. */}
+                {mat.blocked !== null && <p className="t2 text-attend">{mat.blocked}</p>}
+              </>
+            )
             : (
               <div className={NOW_COLS}>
                 {[current.a, current.b].map(side => (

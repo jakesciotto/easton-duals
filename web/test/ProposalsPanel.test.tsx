@@ -95,6 +95,37 @@ describe('ProposalsPanel', () => {
     expect(await screen.findByText('2 proposals ready.')).toBeInTheDocument()
   })
 
+  // Spec 9: proposing is per style, and proposing replaces only the drafts of the style it
+  // was asked for, so the segment drives the write and the confirm names what it throws away.
+  it('sends the style the segment names, and reads the drafts by their own', async () => {
+    const nogi: Proposal = { ...P1, id: 3, style: 'nogi' }
+    const f = mount([nogi])
+    const user = userEvent.setup()
+    await screen.findByText('same class, same age')
+    expect(within(await screen.findByRole('listitem')).getByText('NOGI')).toBeInTheDocument()
+
+    // Gi is selected first, and no gi draft stands, so the first press asks nothing.
+    expect(screen.getByRole('button', { name: 'Propose matches' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Propose matches' }))
+    await vi.waitFor(() => expect(posted(f, '/api/events/7/proposals')).toBe(1))
+    expect(f.body(f.calls.findIndex(c => c.url === '/api/events/7/proposals' && c.init?.method === 'POST'))).toEqual({ style: 'gi' })
+  })
+
+  it('asks about the selected style alone', async () => {
+    const nogi: Proposal = { ...P1, id: 3, style: 'nogi' }
+    mount([P1, nogi])
+    const user = userEvent.setup()
+    await screen.findAllByText('same class, same age')
+
+    await user.click(screen.getByRole('button', { name: 'Propose more' }))
+    expect(within(await screen.findByRole('dialog')).getByText('Replace 1 gi proposal?')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+
+    await user.click(screen.getByRole('radio', { name: 'Nogi' }))
+    await user.click(screen.getByRole('button', { name: 'Propose more' }))
+    expect(within(await screen.findByRole('dialog')).getByText('Replace 1 nogi proposal?')).toBeInTheDocument()
+  })
+
   it('asks before a second press replaces the drafts that already exist', async () => {
     const f = mount([P1, P2])
     const user = userEvent.setup()
@@ -103,7 +134,7 @@ describe('ProposalsPanel', () => {
 
     await user.click(screen.getByRole('button', { name: 'Propose more' }))
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByText('Replace 2 proposals?')).toBeInTheDocument()
+    expect(within(dialog).getByText('Replace 2 gi proposals?')).toBeInTheDocument()
     expect(posted(f, '/api/events/7/proposals')).toBe(0)
 
     await user.click(within(dialog).getByRole('button', { name: 'Propose more' }))
@@ -115,7 +146,7 @@ describe('ProposalsPanel', () => {
     const user = userEvent.setup()
     await screen.findByText('same class, same age')
     await user.click(screen.getByRole('button', { name: 'Propose more' }))
-    await screen.findByText('Replace 1 proposal?')
+    await screen.findByText('Replace 1 gi proposal?')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(posted(f, '/api/events/7/proposals')).toBe(0)
   })

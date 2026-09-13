@@ -40,7 +40,7 @@ const QUIET = sampleSnapshot({ mats: [], matches: [] })
 const proposalSide = (athleteId: number, teamId: number, firstName: string, lastName: string) =>
   ({ athleteId, teamId, firstName, lastName, age: 9, weightLbs: 58, weightClass: '54 to 61 lbs', belt: 'grey', erp: null })
 const PROPOSAL = {
-  id: 1, eventId: 7, cost: 2, why: 'same class, same age',
+  id: 1, eventId: 7, cost: 2, style: 'gi', why: 'same class, same age',
   a: proposalSide(100, 1, 'Mateo', 'Alvarez'), b: proposalSide(200, 2, 'Olivia', 'Brandt'),
 }
 
@@ -110,7 +110,7 @@ describe('SetupMatchesStep', () => {
     const user = userEvent.setup()
     await screen.findByText('Assign the matches')
     await user.click(await screen.findByRole('button', { name: 'Propose more' }))
-    expect(await screen.findByText('Replace 1 proposal?')).toBeInTheDocument()
+    expect(await screen.findByText('Replace 1 gi proposal?')).toBeInTheDocument()
     // Held in the DOM but hidden: unmounting the step would take the panel, and the
     // confirm the panel just opened, with it.
     expect(screen.getByText('Assign the matches')).not.toBeVisible()
@@ -126,7 +126,7 @@ describe('SetupMatchesStep', () => {
     const user = userEvent.setup()
     await screen.findByText('Assign the matches')
     await user.click(await screen.findByRole('button', { name: 'Propose more' }))
-    await screen.findByText('Replace 1 proposal?')
+    await screen.findByText('Replace 1 gi proposal?')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     await vi.waitFor(() => expect(screen.getByText('Assign the matches')).toBeVisible())
     expect(posted(f, '/api/events/7/proposals')).toBe(0)

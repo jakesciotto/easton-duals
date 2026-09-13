@@ -7,9 +7,9 @@ import { GripVerticalIcon } from 'lucide-react'
 import { adminApi, useAdminMutation, useProposals } from '@/lib/queries'
 import { useSnapshot } from '@/lib/useSnapshot'
 import { pollIntervalForSnapshot } from '@/lib/pollInterval'
-import { CERTIFIED_REFUSAL, modeOf, statusOf, writeErrorMessage } from '@/lib/eventMode'
+import { CERTIFIED_REFUSAL, statusOf, writeErrorMessage } from '@/lib/eventMode'
 import type { EventDetail, MatchRow, TeamRow } from '@/lib/types'
-import { athleteName, winTypeLabel } from '@/lib/format'
+import { athleteName, styleTag, winTypeLabel } from '@/lib/format'
 import { moveId } from '@/lib/reorder'
 import { doubleBookedMatchIds } from '@/lib/doubleBooking'
 import { feedLabel, feedOf, matchAthleteIds, matchViewOf } from '@/lib/matchView'
@@ -44,8 +44,8 @@ interface Pick { matchId: number; side: 'a' | 'b'; exclude: number; held: number
 // 4.4 names 2000ms for this tab. The suspension that keeps an arriving snapshot off the
 // screen while the operator is dragging, typing or picking lives in useSnapshot.
 
-// The length column is absent in desk mode, where nothing runs a clock.
-const pendingColumns = (entryMode: boolean) => (entryMode ? 8 : 9)
+// Reorder, state, the match's own chips, mat, competitors, ruleset, actions.
+const PENDING_COLUMNS = 7
 
 // The hovered competitor lights every row they appear in. Scanning for one child's next
 // bout is the most common thing this screen is used for, and the table is too tall to
@@ -63,6 +63,19 @@ interface Side { athleteId: number | null; name: string; team: TeamRow | undefin
 type SideOf = (row: MatchRow, side: 'a' | 'b') => Side
 
 interface Option { value: string; label: string }
+
+/**
+ * Spec 9: the number first, then the style. A match is M12 on the board, on the scorer,
+ * in the bracket and here, so the row leads with the one name the whole event uses.
+ */
+function MatchChips({ row }: { row: MatchRow }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <Chip size="t1">M<span className="fig">{row.number}</span></Chip>
+      <Chip size="t1">{styleTag(row.style)}</Chip>
+    </span>
+  )
+}
 
 // A hand designed pair is never refused, so the server reports what it noticed instead.
 interface PatchResult { warnings?: string[] }
@@ -127,7 +140,7 @@ function LiveStrip({ line, a, b, serverNow, lastSuccessAt, pollIntervalMs, highl
       <div className="flex items-baseline gap-4">
         <span className="t1 text-live uppercase">Live</span>
         <span className="t1 text-gray-10 uppercase">{line.matNumber === null ? 'No mat' : `Mat ${line.matNumber}`}</span>
-        <span className="t1 text-gray-10 uppercase">Match <span className="fig">{line.position}</span></span>
+        <MatchChips row={line.row} />
         <span className="ml-auto font-mono">
           <Clock
             clock={line.clock}
@@ -153,7 +166,7 @@ function LiveStrip({ line, a, b, serverNow, lastSuccessAt, pollIntervalMs, highl
         <span className="t2 text-gray-10">{reason}</span>
         <Button
           size="sm" variant="destructive" title={reason} disabled
-          aria-label={`Delete ${matchLabel(line.position, a.name, b.name)}`}
+          aria-label={`Delete ${matchLabel(line.row.number, a.name, b.name)}`}
         >
           Delete
         </Button>
@@ -162,55 +175,7 @@ function LiveStrip({ line, a, b, serverNow, lastSuccessAt, pollIntervalMs, highl
   )
 }
 
-/**
- * Controlled, because React writes a `defaultValue` once at mount and never again: a
- * length another operator changed never reached this cell, and the operator set a mat
- * clock from a number the model had already replaced. The draft is
- * dropped whenever the served value moves and whenever a write is refused, so a value
- * on screen is either the served one or one the operator is still typing.
- */
-function LengthCell({ label, value, disabled = false, title, onSave }: {
-  label: string
-  value: number
-  disabled?: boolean
-  title?: string
-  onSave: (v: number, onRefused: () => void) => void
-}) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const [served, setServed] = useState(value)
-  if (served !== value) {
-    setServed(value)
-    setDraft(null)
-  }
-  const revert = () => setDraft(null)
-
-  const commit = () => {
-    if (draft === null) return
-    const v = Number(draft)
-    if (!Number.isInteger(v) || v < 30 || v > 1800 || v === value) {
-      // A refused value must not sit on screen looking saved.
-      revert()
-      return
-    }
-    onSave(v, revert)
-  }
-
-  return (
-    <input
-      aria-label={label}
-      inputMode="numeric"
-      autoComplete="off"
-      disabled={disabled}
-      title={title}
-      value={draft ?? String(value)}
-      onChange={e => setDraft(e.target.value)}
-      onBlur={commit}
-      className="fig fig-4 h-8 w-full rounded-md bg-transparent px-3 text-right outline-none transition-colors duration-150 ease-standard hover:bg-gray-3 focus-visible:bg-gray-3 focus-visible:shadow-focus disabled:opacity-50"
-    />
-  )
-}
-
-function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, count, doubleBooked, entryMode, certified, highlight, onHover, onPick, onPatch, onDelete, onMove }: {
+function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, count, doubleBooked, certified, highlight, onHover, onPick, onPatch, onDelete, onMove }: {
   line: MatchLine
   sideOf: SideOf
   /** What the server said about the pair the last swap on this row produced. */
@@ -220,7 +185,6 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
   index: number
   count: number
   doubleBooked: boolean
-  entryMode: boolean
   /** 6.8: a certified event refuses rather than asks, so every control here is dead. */
   certified: boolean
   highlight: boolean
@@ -237,7 +201,7 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
   const attend = doubleBooked || line.state === 'skipped'
   const ready = line.state === 'ready' ? readyNote(line) : null
   // Every control below is otherwise named the same on all fourteen rows.
-  const row = matchLabel(line.position, a.name, b.name)
+  const row = matchLabel(m.number, a.name, b.name)
 
   return (
     <TableRow
@@ -262,7 +226,7 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
       <TableCell className="relative w-[var(--col-state)] p-0">
         {attend && <span aria-hidden className="absolute inset-y-0 left-0 w-[var(--col-state)] bg-attend" />}
       </TableCell>
-      <TableCell numeric className="w-[var(--col-num-s)] text-gray-10">{line.position}</TableCell>
+      <TableCell className="w-[116px]"><MatchChips row={m} /></TableCell>
       <TableCell className="w-[112px]">
         <Select
           value={String(m.matId ?? '')}
@@ -287,15 +251,8 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
             onHover={on => onHover(on ? b.athleteId : null)}
             onPick={() => { if (a.team && b.athleteId !== null) onPick({ matchId: m.id, side: 'b', exclude: a.team.id, held: b.athleteId }) }}
           />
-        </div>
-      </TableCell>
-      <TableCell className="min-w-0">
-        <div className="grid min-w-0 gap-1">
-          <span className="flex h-6 min-w-0 items-center">
-            {m.why
-              ? <Chip title={m.why}>{m.why}</Chip>
-              : <span className="t2 text-gray-10">Added by hand</span>}
-          </span>
+          {/* What the row has to attend to. It sat beside the "why" chip until the chip
+              went; it belongs against the pair it is about. */}
           <span className="flex h-4 min-w-0 items-center gap-3 overflow-hidden whitespace-nowrap">
             {line.state === 'skipped' && <span className="t2 text-attend">{skipNote(line)}</span>}
             {doubleBooked && <span className="t2 text-attend">Double booked</span>}
@@ -306,25 +263,6 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
           </span>
         </div>
       </TableCell>
-      {/*
-        An editable cell rather than a boxed input: the length is a figure on the Ledger
-        Grid's own track, and a boxed control cannot hold 4ch plus its own border inside it.
-        Never type="number" (7.8): the spinner steals the track and the scroll wheel.
-
-        Absent in desk mode. No clock ever starts there, so the cell is a number the
-        organizer can set and nothing will ever read.
-      */}
-      {!entryMode && (
-        <TableCell numeric className="w-[var(--col-num-l)] p-0">
-          <LengthCell
-            label={`Length for ${row}`}
-            value={m.lengthSec}
-            disabled={certified}
-            title={certified ? CERTIFIED_REFUSAL : undefined}
-            onSave={(lengthSec, onRefused) => onPatch(m.id, { lengthSec }, onRefused)}
-          />
-        </TableCell>
-      )}
       <TableCell className="w-[168px]">
         <Select
           value={String(m.rulesetId)}
@@ -379,7 +317,7 @@ function SettledRow({ line, sideOf, highlight, certified, onHover, onHistory, on
 
   return (
     <TableRow data-match-state="done" selected={highlight}>
-      <TableCell numeric className="w-[var(--col-num-s)] text-gray-10">{line.position}</TableCell>
+      <TableCell className="w-[116px]"><MatchChips row={m} /></TableCell>
       <TableCell className="w-[80px] t2 text-gray-10">{line.matNumber === null ? '' : `Mat ${line.matNumber}`}</TableCell>
       <TableCell className="min-w-0">
         <span className="flex min-w-0 items-center gap-2">
@@ -408,7 +346,7 @@ function SettledRow({ line, sideOf, highlight, certified, onHover, onHistory, on
       <TableCell numeric className="w-[80px] text-gray-10">{endedLabel(line.endedAt)}</TableCell>
       <TableCell className="w-px pl-0">
         <OverflowMenu
-          label={`${matchLabel(line.position, sideOf(m, 'a').name, sideOf(m, 'b').name)} actions`}
+          label={`${matchLabel(m.number, sideOf(m, 'a').name, sideOf(m, 'b').name)} actions`}
           items={[
             { key: 'history', label: 'Match history', disabled: false, onSelect: onHistory },
             { key: 'edit', label: 'Edit result', disabled: certified, onSelect: onEdit },
@@ -430,10 +368,9 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
   // The same list the Proposals panel reads. A kid already on one side of a draft is
   // spoken for the moment it is confirmed, so "Without a match" should not offer them.
   const proposals = useProposals(eventId).data ?? []
-  // The room's own account of how the event runs, not this browser's detail cache: the
-  // organizer switches the event from a phone at the same desk and nothing invalidates
-  // the cache when they do.
-  const entryMode = modeOf(liveSnapshot, detail.event.mode) === 'entry'
+  // The room's own account of the event, not this browser's detail cache: the organizer
+  // certifies it from a phone at the same desk and nothing invalidates the cache when
+  // they do.
   const certified = statusOf(liveSnapshot, detail.event.status) === 'certified'
   const [pick, setPick] = useState<Pick | null>(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -544,10 +481,14 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
     ...detail.mats.map(mat => ({ value: String(mat.id), label: `Mat ${mat.number}` })),
   ], [detail.mats])
   const rulesetItems = useMemo(() => detail.rulesets.map(r => ({ value: String(r.id), label: r.name })), [detail.rulesets])
-  // Spec 6's "Without a match": a competitor in a pending or a live match is busy, one
-  // whose matches have all settled is free to be paired again, and one already on either
-  // side of a proposal is spoken for the moment that draft is confirmed.
-  const booked = new Set(detail.matches.filter(m => m.status === 'pending' || m.status === 'live').flatMap(matchAthleteIds))
+  // Spec 9's "No match yet": a competitor with no match in any style or status, and in no
+  // division. A kid may hold any number of unfought matches now, so a settled one no
+  // longer frees them; what the field is for is the child nobody has drawn at all. One
+  // already on either side of a proposal is spoken for the moment that draft is confirmed.
+  const booked = new Set([
+    ...detail.matches.flatMap(matchAthleteIds),
+    ...detail.divisions.flatMap(d => d.members.map(m => m.athleteId)),
+  ])
   const draftedIds = new Set(proposals.flatMap(p => [p.a.athleteId, p.b.athleteId]))
   const drafted = detail.athletes.filter(a => !booked.has(a.id) && draftedIds.has(a.id)).length
   const free = detail.teams.map(t => ({
@@ -635,11 +576,9 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-[var(--col-act)] pr-0"><span className="sr-only">Reorder</span></TableHead>
                   <TableHead className="w-[var(--col-state)] p-0"><span className="sr-only">State</span></TableHead>
-                  <TableHead numeric className="w-[var(--col-num-s)]"><span className="font-sans">#</span></TableHead>
+                  <TableHead className="w-[116px]">Match</TableHead>
                   <TableHead className="w-[112px]">Mat</TableHead>
                   <TableHead>Competitors</TableHead>
-                  <TableHead>Why</TableHead>
-                  {!entryMode && <TableHead numeric className="w-[var(--col-num-l)]"><span className="font-sans">Sec</span></TableHead>}
                   <TableHead className="w-[168px]">Ruleset</TableHead>
                   <TableHead className="w-px"><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
@@ -647,7 +586,7 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
               <TableBody>
                 {pending.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={pendingColumns(entryMode)} className="p-0">
+                    <TableCell colSpan={PENDING_COLUMNS} className="p-0">
                       <EmptyState
                         message="No matches yet."
                         action={<Button size="sm" variant="ghost" disabled={certified} onClick={() => openAdd(null)}>Add match</Button>}
@@ -658,7 +597,7 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
                   <PendingRow
                     key={l.row.id} line={l} sideOf={sideOf} warnings={swapNotes[l.row.id] ?? []}
                     matItems={matItems} rulesetItems={rulesetItems} index={i} count={pending.length}
-                    doubleBooked={doubleBooked.has(l.row.id)} entryMode={entryMode} certified={certified}
+                    doubleBooked={doubleBooked.has(l.row.id)} certified={certified}
                     highlight={holds(l)} onHover={setHovered}
                     onPick={setPick} onPatch={onPatchAction} onDelete={onDeleteAction} onMove={onMovePending}
                   />
@@ -683,7 +622,7 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead numeric className="w-[var(--col-num-s)]"><span className="font-sans">#</span></TableHead>
+                    <TableHead className="w-[116px]">Match</TableHead>
                     <TableHead className="w-[80px]">Mat</TableHead>
                     <TableHead>Result</TableHead>
                     <TableHead className="w-[160px]">Win by</TableHead>
@@ -707,8 +646,8 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
         </section>
       )}
 
-      <section aria-label="Without a match" className="grid gap-3">
-        <h3 className="t4">Without a match</h3>
+      <section aria-label="No match yet" className="grid gap-3">
+        <h3 className="t4">No match yet</h3>
         {drafted > 0 && <p className="t2 text-gray-10"><span className="fig">{drafted}</span> more have a proposed match.</p>}
         <div className="grid items-start gap-6 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
           {free.map(({ team, kids }) => (

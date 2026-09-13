@@ -28,7 +28,7 @@ const WIN_TYPES: { value: WinType; word: string }[] = [
  * record that can move under the operator mid-edit.
  */
 export function originalSentence(match: MatchView, matNumber: number | null): string {
-  const parts = [`Match ${match.orderIndex + 1}`]
+  const parts = [`M${match.number}`]
   parts.push(matNumber === null ? 'no mat' : `mat ${matNumber}`)
   const at = timeOfDay(match.endedAt)
   if (at) parts.push(`ended ${at}`)
@@ -99,7 +99,10 @@ export function ResultDialog({ detail, match, open, onOpenChange }: { detail: Ev
     save.reset()
   }, [open, match?.id])
 
-  if (!match) return null
+  // Spec 9: a bracket match whose sides are not both filled has no result to correct and
+  // no competitor to name as the winner, so the dialog is never the thing that opens on
+  // one. The callers do not offer it either; this is the door itself.
+  if (!match || match.a.athleteId === null || match.b.athleteId === null) return null
 
   // G20: a live match reaches this dialog from the dead tablet path, where the desk is
   // entering the first result rather than correcting a stored one, and the head says so.

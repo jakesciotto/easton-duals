@@ -153,6 +153,25 @@ describe('LiveTab', () => {
     expect(within(screen.getByRole('region', { name: 'Mat 1' })).getByText('No match on this mat')).toBeInTheDocument()
   })
 
+  // Spec 6: a mat with a queue and nothing on it is held up rather than idle, and the
+  // server says by what.
+  it('prints why an idle mat with a queue has not started anything', async () => {
+    const next = onDeckMatch(4, 'Iris Nakamura', 'Milo Achebe')
+    const feed = snapshotFeed(oneMat({ current: null, bound: true, onDeck: [next], blocked: 'Waiting on M3' }, [next]))
+    mount(url => feed.handle(url) ?? connectOnly(url))
+    const one = await panel(1)
+    expect(within(one).getByText('Waiting on M3')).toBeInTheDocument()
+  })
+
+  it('says nothing extra when the server reports no reason', async () => {
+    const next = onDeckMatch(4, 'Iris Nakamura', 'Milo Achebe')
+    const feed = snapshotFeed(oneMat({ current: null, bound: true, onDeck: [next], blocked: null }, [next]))
+    mount(url => feed.handle(url) ?? connectOnly(url))
+    const one = await panel(1)
+    expect(within(one).getByText('No match on this mat')).toBeInTheDocument()
+    expect(within(one).queryByText(/^Waiting on M/)).toBeNull()
+  })
+
   it('holds all three lanes and says what each empty one is missing', async () => {
     const feed = snapshotFeed(oneMat({ current: null, bound: true, blocked: null }, [settled]))
     mount(url => feed.handle(url) ?? connectOnly(url))

@@ -111,6 +111,33 @@ describe('EntryTab', () => {
     await vi.waitFor(() => expect(screen.getByLabelText('First competitor points')).toHaveValue(''))
   })
 
+  // Spec 9: the desk names the style the match it is about to create runs in, gi first. A
+  // correction sets a stored result and creates nothing, so it never offers the control.
+  it('sends the style the segment names, and offers none while correcting', async () => {
+    const f = fakeFetch(() => ({ status: 201, json: { match: { id: 9 }, version: 1 } }))
+    mount()
+    const user = userEvent.setup()
+    expect(screen.getByRole('radio', { name: 'Gi' })).toBeChecked()
+    await user.click(screen.getByRole('radio', { name: 'Nogi' }))
+    await pick(user, 'First competitor', 'Ava Park')
+    await pick(user, 'Second competitor', 'Noah Tran')
+    await user.type(screen.getByLabelText('First competitor points'), '5')
+    await user.type(screen.getByLabelText('Second competitor points'), '2')
+    await user.click(saveButton())
+    await vi.waitFor(() => expect(f.calls.some(c => c.url === '/api/events/7/entries')).toBe(true))
+    expect(f.body(f.calls.findIndex(c => c.url === '/api/events/7/entries'))).toMatchObject({ style: 'nogi' })
+  })
+
+  it('offers no style while a correction is loaded', async () => {
+    fakeFetch(() => ({ json: { match: { id: 1 }, version: 2 } }))
+    mount()
+    const user = userEvent.setup()
+    expect(screen.getByRole('radio', { name: 'Gi' })).toBeInTheDocument()
+    const results = screen.getByRole('region', { name: 'Results' })
+    await user.click(within(results).getByRole('button', { name: 'Edit Mateo Rivera over Olivia Kim' }))
+    expect(screen.queryByRole('radio', { name: 'Gi' })).toBeNull()
+  })
+
   // Spec 6: every team on the event, in leaderboard order, whatever the count.
   it('shows the running team score for every team, the leader first', () => {
     mount({
@@ -260,6 +287,8 @@ describe('EntryTab', () => {
     await user.type(screen.getByLabelText('Second competitor points'), '2')
 
     const order = [
+      // The style is a set-once control ahead of 9.2's eight step run.
+      screen.getByRole('radio', { name: 'Gi' }),
       screen.getByRole('combobox', { name: 'First competitor' }),
       screen.getByRole('combobox', { name: 'Second competitor' }),
       screen.getByLabelText('First competitor points'),
@@ -587,7 +616,7 @@ describe('EntryTab', () => {
     expect(within(list).getByText(/more on the Matches tab/)).toHaveTextContent('and 3 more on the Matches tab')
   })
 
-  it('prints the mat and the order position on every pending row', () => {
+  it('prints the mat and the match number on every pending row', () => {
     fakeFetch(() => ({ json: {} }))
     mount({
       ...detail,
@@ -599,9 +628,9 @@ describe('EntryTab', () => {
     })
 
     const rows = Array.from(screen.getByRole('region', { name: 'Pending pairs' }).querySelectorAll('[data-slot="list-row"]'))
-    expect(rows[0]).toHaveTextContent('Match 1')
+    expect(rows[0]).toHaveTextContent('M1')
     expect(rows[0]).toHaveTextContent('Mat 2')
-    expect(rows[1]).toHaveTextContent('Match 2')
+    expect(rows[1]).toHaveTextContent('M2')
     expect(rows[1]).toHaveTextContent('No mat')
   })
 

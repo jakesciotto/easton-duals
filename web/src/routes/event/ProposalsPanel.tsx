@@ -1,19 +1,27 @@
 import { useState } from 'react'
 import { adminApi, useAdminMutation, useProposals } from '@/lib/queries'
 import { CERTIFIED_REFUSAL, writeErrorMessage } from '@/lib/eventMode'
-import type { EventDetail, Proposal, ProposalSide, TeamRow } from '@/lib/types'
-import { beltLabel } from '@/lib/format'
+import type { EventDetail, Proposal, ProposalSide, Style, TeamRow } from '@/lib/types'
+import { beltLabel, styleLabel, styleTag } from '@/lib/format'
 import { KidPickerDialog } from './KidPickerDialog'
 import { RegenerateConfirmDialog } from './RegenerateConfirmDialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Chip } from '@/components/ui/chip'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Segment } from '@/components/ui/segment'
 import { FieldHead, FieldRow, FieldSet } from '@/components/ui/field-set'
 import { OverflowMenu } from '@/components/OverflowMenu'
 import { TeamPlate } from '@/components/TeamPlate'
 
-/** Two competitors and the sentence between them, with the three actions at the right. */
-const PROPOSAL_COLS = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3'
+/** The style, two competitors and the sentence between them, the three actions at the right. */
+const PROPOSAL_COLS = 'grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3'
+
+// Gi first, because gi runs first: spec 5 places every gi match before any nogi one.
+const STYLE_OPTIONS: { value: Style; label: string }[] = [
+  { value: 'gi', label: styleLabel('gi') },
+  { value: 'nogi', label: styleLabel('nogi') },
+]
 
 // Which slot a swap is filling, and the two facts the picker needs: the team the kid
 // staying in the pairing is on, and who is in the slot now.
@@ -102,12 +110,13 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
   const eventId = detail.event.id
   const q = useProposals(eventId)
   const proposals = q.data ?? []
+  const [style, setStyle] = useState<Style>('gi')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [summary, setSummary] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<number, RowNote>>({})
   const [swapping, setSwapping] = useState<Swap | null>(null)
 
-  const propose = useAdminMutation(eventId, () => adminApi<Proposal[]>(`/api/events/${eventId}/proposals`, { method: 'POST' }), { proposals: true })
+  const propose = useAdminMutation(eventId, (asked: Style) => adminApi<Proposal[]>(`/api/events/${eventId}/proposals`, { method: 'POST', body: { style: asked } }), { proposals: true })
   const confirm = useAdminMutation(eventId, (id: number) => adminApi(`/api/proposals/${id}/confirm`, { method: 'POST' }), { proposals: true })
   const confirmAll = useAdminMutation(eventId, () => adminApi<{ created: number; skipped: number }>(`/api/events/${eventId}/proposals/confirm-all`, { method: 'POST' }), { proposals: true })
   const swap = useAdminMutation(eventId, (v: { id: number; body: Record<string, number> }) =>
@@ -116,6 +125,9 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
 
   const teams = new Map(detail.teams.map(t => [t.id, t]))
   const has = proposals.length > 0
+  // Proposing replaces only the drafts of the style it is asked for, so what the button
+  // says, and whether it asks first, is a question about that style alone.
+  const inStyle = proposals.filter(p => p.style === style).length
 
   const openConfirm = (o: boolean) => {
     setConfirmOpen(o)
@@ -126,7 +138,7 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
     propose.reset()
   }
   const runPropose = () => {
-    propose.mutate(undefined, {
+    propose.mutate(style, {
       onSuccess: rows => {
         setSummary(proposedLine(rows.length))
         setNotes({})
@@ -136,7 +148,7 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
   }
   const onProposeClick = () => {
     setSummary(null)
-    if (has) { openConfirm(true); return }
+    if (inStyle > 0) { openConfirm(true); return }
     runPropose()
   }
   const onConfirmAll = () => {
@@ -170,8 +182,14 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
     <section aria-label="Proposals" className="grid gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="t4">Proposals</h3>
+        <Segment
+          aria-label="Style"
+          value={style}
+          onValueChange={v => { setSummary(null); setStyle(v as Style) }}
+          options={STYLE_OPTIONS}
+        />
         <Button size="sm" disabled={certified || propose.isPending} onClick={onProposeClick}>
-          {has ? 'Propose more' : 'Propose matches'}
+          {inStyle > 0 ? 'Propose more' : 'Propose matches'}
         </Button>
         <Button size="sm" variant="secondary" disabled={certified || !has || confirmAll.isPending} onClick={onConfirmAll}>
           Confirm all
@@ -198,6 +216,7 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
 
       <FieldSet>
         <FieldHead className={PROPOSAL_COLS}>
+          <span className="font-sans">Style</span>
           <span className="font-sans">Competitor</span>
           <span className="font-sans">Why</span>
           <span className="font-sans">Competitor</span>
@@ -213,6 +232,7 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
                 return (
                   <FieldRow key={p.id} role="listitem" className="py-2">
                     <div className={PROPOSAL_COLS}>
+                      <Chip size="t1">{styleTag(p.style)}</Chip>
                       <SideLine
                         side={p.a} team={teams.get(p.a.teamId)} disabled={certified}
                         onSwap={() => setSwapping({ proposalId: p.id, side: 'a', exclude: p.b.teamId, held: p.a.athleteId })}
@@ -277,7 +297,8 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
 
       <RegenerateConfirmDialog
         open={confirmOpen}
-        count={proposals.length}
+        count={inStyle}
+        style={style}
         pending={propose.isPending}
         error={propose.error}
         onOpenChange={o => { if (o) openConfirm(true); else closeConfirm() }}
