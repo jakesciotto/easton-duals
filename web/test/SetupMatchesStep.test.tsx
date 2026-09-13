@@ -144,6 +144,31 @@ describe('SetupMatchesStep', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('no competitors to pair')
   })
 
+  // Spec 9 puts both beside Propose matches, and each is a dialog of its own, so the step
+  // stands down for it the way it already does for the panel's replace confirm.
+  it('opens the paste from the step, standing the step down while it is up', async () => {
+    mount(detailWith([]))
+    const user = userEvent.setup()
+    await screen.findByText('Assign the matches')
+    await user.click(screen.getByRole('button', { name: 'Paste matches' }))
+    expect(await screen.findByText('Paste matches', { selector: 'h2' })).toBeInTheDocument()
+    // Held in the DOM but hidden, the way the panel's replace confirm holds it.
+    expect(screen.getByText('Assign the matches')).not.toBeVisible()
+  })
+
+  it('opens the order preview from the step', async () => {
+    mount(detailWith([]), {
+      reply: (url, init) => (url === '/api/events/7/schedule' && init?.method === 'POST'
+        ? { json: { order: [], waves: 0, minutes: 0, perMat: [], warnings: [], gaps: [], applied: false } }
+        : undefined),
+    })
+    const user = userEvent.setup()
+    await screen.findByText('Assign the matches')
+    await user.click(screen.getByRole('button', { name: 'Order matches' }))
+    expect(await screen.findByText('Nothing left to order.')).toBeInTheDocument()
+    expect(screen.getByText('Assign the matches')).not.toBeVisible()
+  })
+
   it('hands the event over from either footer control', async () => {
     const onClose = vi.fn()
     mount(detailWith([]), { onClose })

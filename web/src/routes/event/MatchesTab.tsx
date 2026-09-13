@@ -20,6 +20,8 @@ import { matchHistorySource, type HistorySource } from './match-history'
 import { ResultDialog } from './ResultDialog'
 import { AddMatchDialog } from './AddMatchDialog'
 import { DivisionsPanel } from './DivisionsPanel'
+import { PasteMatchesDialog } from './PasteMatchesDialog'
+import { ScheduleDialog } from './ScheduleDialog'
 import { ProposalsPanel } from './ProposalsPanel'
 import {
   endedLabel, liveReason, matchLabel, matchLines, readyNote, skipNote, type MatchLine,
@@ -435,6 +437,8 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
   const certified = statusOf(liveSnapshot, detail.event.status) === 'certified'
   const [pick, setPick] = useState<Pick | null>(null)
   const [addOpen, setAddOpen] = useState(false)
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [orderOpen, setOrderOpen] = useState(false)
   // The competitor the Add match dialog opens on, when it was opened from a row that
   // names one. Null when it was opened from the toolbar.
   const [addStart, setAddStart] = useState<number | null>(null)
@@ -565,6 +569,8 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
     <div className="grid gap-6" data-dragging={dragging ? 'true' : undefined}>
       <div className="flex flex-wrap items-center gap-3">
         <Button size="sm" variant="secondary" disabled={certified} onClick={() => openAdd(null)}>Add match</Button>
+        <Button size="sm" variant="secondary" disabled={certified} onClick={() => setPasteOpen(true)}>Paste matches</Button>
+        <Button size="sm" variant="secondary" disabled={certified} onClick={() => setOrderOpen(true)}>Order matches</Button>
         {/* 6.8: the reason a control is dead is printed once, beside the controls it kills,
             rather than waiting for somebody to press one and read a banner. */}
         {certified && <span className="t2 text-gray-10">{CERTIFIED_REFUSAL}</span>}
@@ -602,6 +608,8 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
         onPick={onPicked}
       />
       <AddMatchDialog detail={detail} start={addStart} open={addOpen} onOpenChange={setAddOpen} />
+      <PasteMatchesDialog detail={detail} open={pasteOpen} onOpenChange={setPasteOpen} />
+      <ScheduleDialog detail={detail} open={orderOpen} onOpenChange={setOrderOpen} />
       {/* The one correction dialog, reached from the settled field as well as from the
           Live tab's panel overflow and the Entry tab's ledger. */}
       <ResultDialog detail={detail} match={editing} open={editing !== null} onOpenChange={o => { if (!o) setEditing(null) }} />

@@ -94,6 +94,23 @@ const M1 = 'match 1, Mateo Rivera versus Olivia Kim'
 const M2 = 'match 2, Ava Park versus Noah Tran'
 
 describe('MatchesTab', () => {
+  // Spec 9's toolbar. Both open a dialog of their own, and Order matches asks the server
+  // for the plan before it offers to write it.
+  it('carries the paste and the order beside Add match', async () => {
+    const f = mount(detail, (url, init) => (url === '/api/events/7/schedule' && init?.method === 'POST'
+      ? { json: { order: [], waves: 0, minutes: 0, perMat: [], warnings: [], gaps: [], applied: false } }
+      : { json: {} }))
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Paste matches' }))
+    expect(await screen.findByLabelText('Match text')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+
+    await user.click(screen.getByRole('button', { name: 'Order matches' }))
+    expect(await screen.findByText('Nothing left to order.')).toBeInTheDocument()
+    expect(f.body(f.calls.findIndex(c => c.url === '/api/events/7/schedule'))).toEqual({ apply: false })
+  })
+
   it('splits the queue from the history and keeps the why chip', async () => {
     mount()
     const user = userEvent.setup()
