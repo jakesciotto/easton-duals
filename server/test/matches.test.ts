@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { createTestApp, call } from './helpers.js'
 import { freshDb, seedEvent } from './fixtures.js'
-import { athletes, mats, matches, proposals } from '../src/db/schema.js'
+import { athletes, divisions, mats, matches, proposals } from '../src/db/schema.js'
 import { createMatch } from '../src/match/create.js'
 
 describe('match routes', () => {
@@ -230,5 +230,84 @@ describe('the style of a hand-designed match', () => {
     expect(patched.status).toBe(200)
     expect(patched.body).toMatchObject({ style: 'gi', warnings: ['Already met'] })
     expect((await db.select().from(matches).where(eq(matches.id, again.body.id)).get())?.style).toBe('gi')
+  })
+})
+
+describe('the bulk paste', () => {
+  it('creates the pairs and the divisions of one body, with their warnings', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0, thirdTeam: true })
+    const extra = await call(app, 'POST', `/api/events/${s.eventId}/athletes`, {
+      manual: { firstName: 'Ines', lastName: 'Baptista', age: 9, weightLbs: 66, teamId: s.teamC },
+    }, adminToken)
+    const ines = extra.body.find((a: any) => a.lastName === 'Baptista').id
+
+    const posted = await call(app, 'POST', `/api/events/${s.eventId}/matches/bulk`, {
+      matches: [{ athleteAId: s.a1, athleteBId: s.b1, style: 'nogi' }],
+      divisions: [{ name: 'Novice', format: 'round_robin', styles: 'gi', athleteIds: [s.a2, s.b2, ines] }],
+    }, adminToken)
+    expect(posted.status).toBe(201)
+    expect(posted.body.matches).toHaveLength(1)
+    expect(posted.body.matches[0]).toMatchObject({ athleteAId: s.a1, athleteBId: s.b1, style: 'nogi', source: 'designed', number: 1 })
+    expect(posted.body.divisions).toHaveLength(1)
+    expect(posted.body.divisions[0]).toMatchObject({ name: 'Novice', format: 'round_robin', styles: 'gi' })
+    expect(posted.body.warnings).toEqual([])
+    const rows = await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()
+    expect(rows).toHaveLength(4)
+    expect(rows.filter(m => m.source === 'generated')).toHaveLength(3)
+  })
+
+  it('carries the pair warnings and the division warnings of the whole body', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    expect((await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: s.a1, athleteBId: s.b1 }, adminToken)).status).toBe(201)
+    const posted = await call(app, 'POST', `/api/events/${s.eventId}/matches/bulk`, {
+      matches: [{ athleteAId: s.a1, athleteBId: s.b1 }],
+      divisions: [{ name: 'Novice', format: 'single_elim', styles: 'gi', athleteIds: [s.a1, s.a2] }],
+    }, adminToken)
+    expect(posted.status).toBe(201)
+    expect(posted.body.warnings).toEqual(['Already met', 'Same team: Mateo Rivera and Ava Park'])
+    expect(posted.body.divisions[0].warnings).toEqual(['Same team: Mateo Rivera and Ava Park'])
+  })
+
+  it('reports a pair the roster refuses and writes nothing', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    const refused = await call(app, 'POST', `/api/events/${s.eventId}/matches/bulk`, {
+      matches: [{ athleteAId: s.a1, athleteBId: s.b1 }, { athleteAId: s.a1, athleteBId: s.a2 }],
+      divisions: [],
+    }, adminToken)
+    expect(refused.status).toBe(422)
+    expect(refused.body.error.code).toBe('validation')
+    expect(refused.body.error.message).toBe('matches[1]: athletes must be on different teams')
+    expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toEqual([])
+  })
+
+  it('takes the whole body back out when the second division names a kid off the event', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    const other = await seedEvent(db, { matches: 0 })
+    const refused = await call(app, 'POST', `/api/events/${s.eventId}/matches/bulk`, {
+      matches: [{ athleteAId: s.a1, athleteBId: s.b1 }],
+      divisions: [
+        { name: 'Novice', format: 'round_robin', styles: 'gi', athleteIds: [s.a2, s.b2] },
+        { name: 'Advanced', format: 'round_robin', styles: 'gi', athleteIds: [s.a1, other.b1] },
+      ],
+    }, adminToken)
+    expect(refused.status).toBe(422)
+    expect(refused.body.error.code).toBe('validation')
+    expect(refused.body.error.message).toBe('divisions[1]: every kid must be on this event')
+    expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toEqual([])
+    expect(await db.select().from(divisions).where(eq(divisions.eventId, s.eventId)).all()).toEqual([])
+    expect((await call(app, 'GET', `/api/events/${s.eventId}/divisions`, undefined, adminToken)).body).toEqual([])
+  })
+
+  it('takes an empty body, and 404s an unknown event', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    const empty = await call(app, 'POST', `/api/events/${s.eventId}/matches/bulk`, {}, adminToken)
+    expect(empty.status).toBe(201)
+    expect(empty.body).toEqual({ matches: [], divisions: [], warnings: [] })
+    expect((await call(app, 'POST', '/api/events/9999/matches/bulk', { matches: [], divisions: [] }, adminToken)).status).toBe(404)
   })
 })

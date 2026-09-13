@@ -7,14 +7,16 @@ import { auditLog, events, rulesets, mats, matches, proposals, type MatchRow } f
 import { validate } from '../lib/validate.js'
 import { errorJson, requireAdmin } from '../auth/middleware.js'
 import { eventDetail } from './events.js'
-import { bumpVersion } from '../match/events.js'
+import { divisionSchema } from './divisions.js'
+import { MatchStateError, ValidationError, bumpVersion } from '../match/events.js'
 import { createMatch } from '../match/create.js'
+import { createDivision } from '../formats/divisions.js'
 import { resolvePair } from '../match/pairs.js'
 import { dependentsOf } from '../match/fill.js'
 import { pairWarnings } from '../matchmaker/propose.js'
 import { recordAudit, HISTORY_LIMIT } from '../audit/log.js'
 import { assertNotCertified } from '../audit/certify.js'
-import type { AuditEntry } from '../shared/types.js'
+import type { AuditEntry, DivisionView } from '../shared/types.js'
 import { advanceMat } from '../match/mats.js'
 
 const createSchema = z.object({
@@ -27,12 +29,34 @@ const createSchema = z.object({
 })
 const patchSchema = createSchema.partial()
 
+// One paste. The pairs carry no length, ruleset or mat: those are the row's own controls
+// once the match exists, and a paste is a list of who fights whom.
+const bulkSchema = z.object({
+  matches: z.array(z.object({
+    athleteAId: z.number().int(),
+    athleteBId: z.number().int(),
+    style: z.enum(['gi', 'nogi']).optional(),
+  })).default([]),
+  divisions: z.array(divisionSchema).default([]),
+})
+
 // A bracket match has nothing to warn about until both of its sides are filled, and the
 // pair it ends up with was never anybody's choice.
 const matchWarnings = async (db: DbLike, m: MatchRow) =>
   m.athleteAId === null || m.athleteBId === null
     ? []
     : pairWarnings(db, m.eventId, m.athleteAId, m.athleteBId, { exceptMatchId: m.id, style: m.style })
+
+// A refusal from one line of a paste, carrying the line it came from. The code decides the
+// status the same way a single-match refusal does.
+const labelled = (label: string, r: { code: 'validation' | 'match_state'; message: string }) =>
+  r.code === 'match_state' ? new MatchStateError(`${label}: ${r.message}`) : new ValidationError(`${label}: ${r.message}`)
+
+const relabelled = (label: string, err: unknown) => {
+  if (err instanceof ValidationError) return new ValidationError(`${label}: ${err.message}`)
+  if (err instanceof MatchStateError) return new MatchStateError(`${label}: ${err.message}`)
+  return err
+}
 
 export const matchRoutes = new Hono<Env>()
 
@@ -73,6 +97,44 @@ matchRoutes.post('/events/:eventId/matches', requireAdmin, validate('json', crea
   // organizer knows things the roster does not.
   const warnings = await matchWarnings(db, created.match)
   return c.json({ ...created.match, warnings, removedProposals }, 201)
+})
+
+/**
+ * The whole paste in one transaction. A line the server cannot make sense of takes the
+ * body back out with it, because half a pasted sheet is worse than none: the organizer
+ * would have to work out which lines landed before pasting the rest.
+ *
+ * The refusal names the line by its index in the array it came from, which is what the
+ * dialog needs to point at the row that has to change.
+ */
+matchRoutes.post('/events/:eventId/matches/bulk', requireAdmin, validate('json', bulkSchema), async c => {
+  const { db } = c.get('ctx')
+  const eventId = Number(c.req.param('eventId'))
+  if (!await db.select({ id: events.id }).from(events).where(eq(events.id, eventId)).get()) return errorJson(c, 404, 'not_found', 'event not found')
+  await assertNotCertified(db, eventId)
+  const body = c.req.valid('json')
+  const created = await db.transaction(async tx => {
+    const made: MatchRow[] = []
+    const built: DivisionView[] = []
+    const warnings: string[] = []
+    for (const [i, pair] of body.matches.entries()) {
+      const r = await createMatch(tx, { eventId, ...pair, source: 'designed' })
+      if (!r.ok) throw labelled(`matches[${i}]`, r)
+      made.push(r.match)
+      warnings.push(...await matchWarnings(tx, r.match))
+    }
+    for (const [i, input] of body.divisions.entries()) {
+      try {
+        const r = await createDivision(tx, eventId, input)
+        built.push(r.division)
+        warnings.push(...r.warnings)
+      } catch (err) {
+        throw relabelled(`divisions[${i}]`, err)
+      }
+    }
+    return { matches: made, divisions: built, warnings }
+  })
+  return c.json(created, 201)
 })
 
 matchRoutes.patch('/matches/:matchId', requireAdmin, validate('json', patchSchema), async c => {
