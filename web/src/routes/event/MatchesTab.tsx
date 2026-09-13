@@ -21,8 +21,8 @@ import { ResultDialog } from './ResultDialog'
 import { AddMatchDialog } from './AddMatchDialog'
 import { DivisionsPanel } from './DivisionsPanel'
 import { PasteMatchesDialog } from './PasteMatchesDialog'
-import { ScheduleDialog } from './ScheduleDialog'
 import { ProposalsPanel } from './ProposalsPanel'
+import { ScheduleDialog } from './ScheduleDialog'
 import {
   endedLabel, liveReason, matchLabel, matchLines, readyNote, skipNote, type MatchLine,
 } from './matches-view'
@@ -200,6 +200,7 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
   const b = sideOf(m, 'b')
   const attend = doubleBooked || line.state === 'skipped'
   const ready = line.state === 'ready' ? readyNote(line) : null
+  const noted = line.state === 'skipped' || doubleBooked || warnings.length > 0 || ready !== null
   // Every control below is otherwise named the same on all fourteen rows.
   const row = matchLabel(m.number, a.name, b.name)
 
@@ -252,15 +253,18 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
             onPick={() => { if (a.team && b.athleteId !== null) onPick({ matchId: m.id, side: 'b', exclude: a.team.id, held: b.athleteId }) }}
           />
           {/* What the row has to attend to. It sat beside the "why" chip until the chip
-              went; it belongs against the pair it is about. */}
-          <span className="flex h-4 min-w-0 items-center gap-3 overflow-hidden whitespace-nowrap">
-            {line.state === 'skipped' && <span className="t2 text-attend">{skipNote(line)}</span>}
-            {doubleBooked && <span className="t2 text-attend">Double booked</span>}
-            {/* A swap never blocks, so what the server noticed about the new pair is
-                reported on the row it changed, the picker that made it having closed. */}
-            {warnings.map(w => <span key={w} className="t2 text-attend">{w}</span>)}
-            {ready && <span className="t2 text-gray-10">{ready}</span>}
-          </span>
+              went; it belongs against the pair it is about, and it takes a line only on
+              the rows that have something to say, so a quiet queue keeps its rhythm. */}
+          {noted && (
+            <span className="flex h-4 min-w-0 items-center gap-3 overflow-hidden whitespace-nowrap">
+              {line.state === 'skipped' && <span className="t2 text-attend">{skipNote(line)}</span>}
+              {doubleBooked && <span className="t2 text-attend">Double booked</span>}
+              {/* A swap never blocks, so what the server noticed about the new pair is
+                  reported on the row it changed, the picker that made it having closed. */}
+              {warnings.map(w => <span key={w} className="t2 text-attend">{w}</span>)}
+              {ready && <span className="t2 text-gray-10">{ready}</span>}
+            </span>
+          )}
         </div>
       </TableCell>
       <TableCell className="w-[168px]">

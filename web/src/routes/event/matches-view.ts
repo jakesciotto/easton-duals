@@ -11,8 +11,6 @@ export interface MatchLine {
   status: MatchStatus
   state: MatchState
   lane: MatchLane
-  /** 1-based place in the whole running order, so a number means the same thing in every field. */
-  position: number
   matNumber: number | null
   clock: ClockState | null
   endedAt: string | null
@@ -38,7 +36,7 @@ export function matchLines(detail: EventDetail, snapshot: Snapshot | null): Matc
   const matNumbers = new Map(detail.mats.map(m => [m.id, m.number]))
   const ready = new Set((snapshot?.mats ?? []).flatMap(m => (m.onDeck.length > 0 ? [m.onDeck[0].id] : [])))
 
-  return [...detail.matches].sort(byOrder).map((row, i) => {
+  return [...detail.matches].sort(byOrder).map(row => {
     const view = views.get(row.id)
     const status = view?.status ?? row.status
     // A skip is filed as an admin event and hands the match back to the pending queue at
@@ -55,7 +53,6 @@ export function matchLines(detail: EventDetail, snapshot: Snapshot | null): Matc
       status,
       state,
       lane: status === 'live' ? 'live' : status === 'done' ? 'settled' : 'pending',
-      position: i + 1,
       matNumber: row.matId === null ? null : matNumbers.get(row.matId) ?? null,
       clock: view?.clock ?? null,
       endedAt: view?.endedAt ?? row.endedAt ?? null,
