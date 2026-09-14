@@ -289,3 +289,36 @@ describe('athletes', () => {
     })
   })
 })
+
+describe('scoring flag on a move, and duplicate ids', () => {
+  it('unmarks a kid a PATCH moves to another team, so a stale flag never carries a team past the cap', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    await call(app, 'PATCH', `/api/athletes/${s.a1}`, { scoring: true }, adminToken)
+    const moved = await call(app, 'PATCH', `/api/athletes/${s.a1}`, { teamId: s.teamB }, adminToken)
+    expect(moved.status).toBe(200)
+    expect(moved.body).toMatchObject({ teamId: s.teamB, scoring: false })
+    const same = await call(app, 'PATCH', `/api/athletes/${s.a2}`, { teamId: s.teamA, scoring: true }, adminToken)
+    expect(same.body).toMatchObject({ teamId: s.teamA, scoring: true })
+  })
+
+  it('checks the cap of the destination team when a move and a mark travel together', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    await db.insert(athletes).values(extraKids(s.eventId, s.teamB, 8).map(k => ({ ...k, scoring: true }))).returning().all()
+    await db.update(athletes).set({ scoring: true }).where(eq(athletes.id, s.b1)).run()
+    await db.update(athletes).set({ scoring: true }).where(eq(athletes.id, s.b2)).run()
+    const refused = await call(app, 'PATCH', `/api/athletes/${s.a1}`, { teamId: s.teamB, scoring: true }, adminToken)
+    expect(refused.status).toBe(422)
+    expect(refused.body.error.message).toBe('a team scores with at most ten athletes')
+    expect((await db.select().from(athletes).where(eq(athletes.id, s.a1)).get())?.teamId).toBe(s.teamA)
+  })
+
+  it('takes a duplicate id in the bulk body as one kid', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    const r = await call(app, 'POST', `/api/events/${s.eventId}/athletes/scoring`, { ids: [s.a1, s.a1], scoring: true }, adminToken)
+    expect(r.status).toBe(200)
+    expect(r.body.map((a: any) => [a.id, a.scoring])).toEqual([[s.a1, true]])
+  })
+})

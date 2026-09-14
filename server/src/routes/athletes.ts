@@ -147,6 +147,9 @@ athleteRoutes.patch('/athletes/:athleteId', requireAdmin, validate('json', patch
   if (p.age !== undefined) Object.assign(update, { age: p.age, ageSource: p.age === null ? null : 'manual' })
   if (p.weightLbs !== undefined) Object.assign(update, { weightLbs: p.weightLbs, weightSource: p.weightLbs === null ? null : 'manual' })
   if (p.scoring !== undefined) update.scoring = p.scoring
+  // A new team is a new designation: a move that says nothing about scoring unmarks the kid,
+  // as the assign route does, so a stale flag can never carry a team past the cap.
+  if (p.teamId !== undefined && p.teamId !== existing.teamId && p.scoring === undefined) update.scoring = false
   await db.transaction(async tx => {
     if (Object.keys(update).length > 0) await tx.update(athletes).set(update).where(eq(athletes.id, id)).run()
     await recordAudit(tx, {
@@ -239,7 +242,7 @@ athleteRoutes.post('/events/:eventId/athletes/scoring', requireAdmin, validate('
   const { ids, scoring } = c.req.valid('json')
   await assertNotCertified(db, eventId)
   const rows = await db.select().from(athletes).where(and(eq(athletes.eventId, eventId), inArray(athletes.id, ids))).all()
-  if (rows.length !== ids.length) return errorJson(c, 404, 'not_found', 'athlete not found')
+  if (rows.length !== new Set(ids).size) return errorJson(c, 404, 'not_found', 'athlete not found')
   if (scoring) {
     if (rows.some(r => r.teamId === null)) return errorJson(c, 422, 'validation', 'a kid needs a team to score')
     const idSet = new Set(ids)
@@ -262,7 +265,7 @@ athleteRoutes.post('/events/:eventId/athletes/scoring', requireAdmin, validate('
     await bumpVersion(tx, eventId)
   })
   const updated = new Map((await db.select().from(athletes).where(inArray(athletes.id, ids)).all()).map(a => [a.id, a]))
-  return c.json(ids.map(id => updated.get(id)))
+  return c.json([...new Set(ids)].map(id => updated.get(id)))
 })
 
 athleteRoutes.delete('/athletes/:athleteId', requireAdmin, async c => {
