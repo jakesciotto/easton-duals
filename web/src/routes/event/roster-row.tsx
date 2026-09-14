@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Chip } from '@/components/ui/chip'
 import { FieldRow } from '@/components/ui/field-set'
+import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
 /**
@@ -117,6 +118,47 @@ export function looksLikeLine(candidate: { firstName: string; lastName: string; 
   return `Looks like ${athleteName(candidate)}, ${candidate.wlLocation}`
 }
 
+// The server's own refusal, printed before the write rather than after it. It hangs on the
+// chip rather than on the control, because a disabled control takes no pointer events and
+// so can never show a title of its own.
+export const SCORING_FULL = 'a team scores with at most ten athletes'
+
+/**
+ * Spec 4's designation, on the rows where it means something. A team inside the cap scores
+ * with every competitor and the pool scores with nobody, so neither offers it at all; the
+ * column head says which of the two a column is.
+ */
+function ScoringToggle({ id, name, scoring, full, onChange }: {
+  id: number
+  name: string
+  scoring: boolean
+  /** The team has its ten, so an unmarked competitor cannot join them until one lets go. */
+  full: boolean
+  onChange: (v: boolean) => void
+}) {
+  const refused = full && !scoring
+  return (
+    <Chip
+      size="t1"
+      title={refused ? SCORING_FULL : undefined}
+      className={cn('shrink-0 gap-1.5', scoring && 'text-gray-12')}
+    >
+      <Checkbox
+        id={`scoring-${id}`}
+        checked={scoring}
+        disabled={refused}
+        onCheckedChange={onChange}
+        className="size-3.5 data-disabled:opacity-50"
+      />
+      {/* base-ui names the control from this label, so the competitor goes in it: eleven
+          rows of a control called "Scoring" say nothing about which child they are. */}
+      <Label htmlFor={`scoring-${id}`} className="t1 text-inherit">
+        Scoring<span className="sr-only"> for {name}</span>
+      </Label>
+    </Chip>
+  )
+}
+
 /**
  * Spec A. What the pool holds for a linked row wherever it disagrees, so an organizer
  * editing a cell by hand can see WellnessLiving would write something else. A field the
@@ -132,7 +174,7 @@ export function wlMismatchTitle(kid: AthleteRow, record: RosterCandidate): strin
   return diffs.length === 0 ? null : `WellnessLiving: ${diffs.join(', ')}`
 }
 
-export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlRecord, onSelect, onPatch, onRemove, onUnassign, onLink, onConfirm, onDismiss, onProfile, onDragStart }: {
+export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlRecord, scoringToggle, scoringFull, onSelect, onPatch, onRemove, onUnassign, onLink, onConfirm, onDismiss, onProfile, onDragStart }: {
   kid: AthleteRow
   selected: boolean
   fault: boolean
@@ -148,6 +190,10 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
   suggestion: RosterCandidate | undefined
   /** Spec A. The same pool, read by the row's own wlUid rather than a pending suggestion's. */
   wlRecord: RosterCandidate | undefined
+  /** Spec 4. Whether this column designates its scorers at all: a team past the cap does. */
+  scoringToggle: boolean
+  /** Spec 4. Whether the team already has its ten marked. */
+  scoringFull: boolean
   onSelect: (v: boolean, range: boolean) => void
   onPatch: (body: Partial<AthleteRow>) => void
   onRemove: () => void
@@ -224,13 +270,27 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
             <span aria-label={mismatch} title={mismatch} className="size-1.5 shrink-0 rounded-full bg-attend" />
           )}
         </span>
-        <span className="block truncate t2 font-normal! leading-4! text-gray-10">
-          {metaParts.map((part, i) => (
-            <Fragment key={i}>
-              {i > 0 && ' · '}
-              {part}
-            </Fragment>
-          ))}
+        {/* The toggle rides the name cell rather than a track of its own: the Ledger Grid
+            is already 227px of fixed tracks against a 400px column, and a ninth would be
+            reserved on every row of every column for a control most events never show. */}
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate t2 font-normal! leading-4! text-gray-10">
+            {metaParts.map((part, i) => (
+              <Fragment key={i}>
+                {i > 0 && ' · '}
+                {part}
+              </Fragment>
+            ))}
+          </span>
+          {scoringToggle && (
+            <ScoringToggle
+              id={kid.id}
+              name={name}
+              scoring={kid.scoring}
+              full={scoringFull}
+              onChange={scoring => onPatch({ scoring })}
+            />
+          )}
         </span>
       </span>
       <EditableCell

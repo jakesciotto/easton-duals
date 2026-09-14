@@ -1,6 +1,8 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import { SCORING_CAP } from '@shared/types'
 import type { AthleteRow, RosterCandidate } from '@/lib/types'
 import { TeamPlate } from '@/components/TeamPlate'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FieldHead, FieldSet } from '@/components/ui/field-set'
@@ -18,6 +20,32 @@ import { ROSTER_COLS, RosterRow } from './roster-row'
  * padding each side of a 32px control row, plus its 1px bottom rule.
  */
 const SUBHEAD_STICKY = 'sticky top-[var(--app-header-h,57px)] z-1'
+
+export interface ScoringState {
+  /** True when the cap is moot: the team fits inside it and every competitor scores. */
+  everyone: boolean
+  /** Whether the team has its ten, so an unmarked competitor cannot join them. */
+  full: boolean
+  line: string
+  /** How many marks the team is still short, as the column says it. Null when it is not. */
+  shortfall: string | null
+}
+
+/**
+ * Spec 1. A team inside the cap scores with every competitor whatever the flags say, so
+ * its column states that and offers no toggle; a larger one counts its marks and asks for
+ * the rest. The pool is not a team and scores nothing, so it has no state at all.
+ */
+export function scoringState(kids: AthleteRow[]): ScoringState {
+  const marked = kids.filter(k => k.scoring).length
+  if (kids.length <= SCORING_CAP) return { everyone: true, full: false, line: 'Every athlete scores', shortfall: null }
+  return {
+    everyone: false,
+    full: marked >= SCORING_CAP,
+    line: `${marked} of ${SCORING_CAP} scoring`,
+    shortfall: marked < SCORING_CAP ? `Pick ${SCORING_CAP - marked} more scoring athletes` : null,
+  }
+}
 
 export function RosterGroup({
   title, color, teamId, kids, selected, faults, inMatch, pendingOrLive, suggestions, dragging, over,
@@ -48,14 +76,19 @@ export function RosterGroup({
   onDragStart: (e: ReactPointerEvent, id: number) => void
   onAdd?: () => void
 }) {
+  const scoring = teamId === null ? null : scoringState(kids)
   return (
     <section aria-label={title} className="min-w-0" {...{ [DROP_ATTR]: dropZoneValue(teamId) }}>
       {/* The columns fall to one field on a narrow window, so the group head pins itself
           as a subhead over the ground rather than sitting beside its neighbours. */}
       <div className={cn(SUBHEAD_STICKY, 'flex h-10 items-center gap-3 bg-background xl:static xl:h-8 xl:bg-transparent')}>
         {color
-          ? <TeamPlate color={color} name={title} />
+          ? <TeamPlate color={color} name={title} className="min-w-0" />
           : <span className="t2 font-medium! text-gray-11">{title}</span>}
+        {/* The state and the shortfall keep their width and the team name yields, because
+            a truncated name is still legible and a truncated count is a wrong number. */}
+        {scoring && <span className="shrink-0 whitespace-nowrap t2 text-gray-10">{scoring.line}</span>}
+        {scoring?.shortfall && <Badge variant="warn">{scoring.shortfall}</Badge>}
         <span className="ml-auto fig t2 text-gray-10">{kids.length}</span>
       </div>
       <FieldSet
@@ -98,6 +131,8 @@ export function RosterGroup({
                   busy={pendingOrLive.has(k.id)}
                   suggestion={k.suggestedWlUid === null ? undefined : suggestions.get(k.suggestedWlUid)}
                   wlRecord={k.wlUid === null ? undefined : suggestions.get(k.wlUid)}
+                  scoringToggle={scoring !== null && !scoring.everyone}
+                  scoringFull={scoring?.full ?? false}
                   onSelect={(v, range) => onSelect(k.id, v, range)}
                   onPatch={body => onPatch(k.id, body)}
                   onRemove={() => onRemove(k)}

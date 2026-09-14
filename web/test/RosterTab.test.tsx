@@ -1155,3 +1155,105 @@ describe('RosterTab, the WellnessLiving mismatch dot', () => {
     expect(screen.queryByTitle(/WellnessLiving:/)).not.toBeInTheDocument()
   })
 })
+
+// Spec 4's designation. A team inside the cap scores with every competitor and says so;
+// a larger one counts its marks, asks for the rest, and refuses the eleventh.
+describe('RosterTab scoring', () => {
+  const NAMES = ['Mateo', 'Olivia', 'Noah', 'Zoe', 'Luca', 'Priya', 'Owen', 'Nadia', 'Rafa', 'Ines', 'Theo', 'Anya']
+  const squad = (size: number, marked: number): EventDetail => ({
+    ...detail,
+    athletes: [
+      ...Array.from({ length: size }, (_, i) => kid(100 + i, 1, NAMES[i], { scoring: i < marked })),
+      kid(900, null, 'Sasha'),
+    ],
+  })
+  const head = (team: string) => screen.getByRole('region', { name: team })
+  const toggle = (first: string) => screen.getByRole('checkbox', { name: `Scoring for ${first} Kid` })
+
+  it('says every competitor scores on a team inside the cap, and offers no toggle', () => {
+    fakeFetch(() => ({ json: [] }))
+    mount(squad(10, 0))
+    expect(within(head('Ridgeline')).getByText('Every athlete scores')).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: /^Scoring for / })).not.toBeInTheDocument()
+  })
+
+  it('counts the marks on a larger team and asks for the rest in the warning tone', () => {
+    fakeFetch(() => ({ json: [] }))
+    mount(squad(11, 6))
+    const column = head('Ridgeline')
+    expect(within(column).getByText('6 of 10 scoring')).toBeInTheDocument()
+    const warning = within(column).getByText('Pick 4 more scoring athletes')
+    expect(warning).toHaveAttribute('data-variant', 'warn')
+    expect(within(column).getAllByRole('checkbox', { name: /^Scoring for / })).toHaveLength(11)
+  })
+
+  it('drops the warning once the team has its ten', () => {
+    fakeFetch(() => ({ json: [] }))
+    mount(squad(11, 10))
+    const column = head('Ridgeline')
+    expect(within(column).getByText('10 of 10 scoring')).toBeInTheDocument()
+    expect(within(column).queryByText(/more scoring athletes/)).not.toBeInTheDocument()
+  })
+
+  it('refuses the eleventh mark on the control, and still lets a marked competitor go', () => {
+    fakeFetch(() => ({ json: [] }))
+    mount(squad(11, 10))
+    const eleventh = toggle('Theo')
+    expect(eleventh).toHaveAttribute('aria-disabled', 'true')
+    expect(eleventh.closest('[data-slot="chip"]')).toHaveAttribute('title', 'a team scores with at most ten athletes')
+    expect(toggle('Mateo')).not.toHaveAttribute('aria-disabled')
+    expect(toggle('Mateo').closest('[data-slot="chip"]')).not.toHaveAttribute('title')
+  })
+
+  it('marks one competitor through the row the other roster cells are edited through', async () => {
+    const user = userEvent.setup()
+    const { calls, body } = fakeFetch(() => ({ json: {} }))
+    mount(squad(11, 2))
+    await user.click(toggle('Rafa'))
+    const write = calls.findIndex(c => c.init?.method === 'PATCH')
+    expect(calls[write].url).toBe('/api/athletes/108')
+    expect(body(write)).toEqual({ scoring: true })
+  })
+
+  it('leaves the pool without a designation of any kind', () => {
+    fakeFetch(() => ({ json: [] }))
+    mount(squad(11, 0))
+    const pool = head('Unassigned')
+    expect(within(pool).queryByRole('checkbox', { name: /^Scoring for / })).not.toBeInTheDocument()
+    expect(within(pool).queryByText(/scoring/)).not.toBeInTheDocument()
+  })
+
+  it('marks and unmarks the whole selection through the bulk route, then lets it go', async () => {
+    const user = userEvent.setup()
+    const { calls, body } = fakeFetch(() => ({ json: [] }))
+    mount(squad(11, 0))
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    await user.click(screen.getByRole('button', { name: 'Mark scoring' }))
+    const write = calls.findIndex(c => c.init?.method === 'POST' && c.url.endsWith('/athletes/scoring'))
+    expect(calls[write].url).toBe('/api/events/7/athletes/scoring')
+    expect(body(write)).toEqual({ ids: [100, 101], scoring: true })
+    await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Mark scoring' })).not.toBeInTheDocument())
+  })
+
+  it('sends the unmark as the same call with the flag turned around', async () => {
+    const user = userEvent.setup()
+    const { calls, body } = fakeFetch(() => ({ json: [] }))
+    mount(squad(11, 11))
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    await user.click(screen.getByRole('button', { name: 'Unmark scoring' }))
+    const write = calls.findIndex(c => c.init?.method === 'POST' && c.url.endsWith('/athletes/scoring'))
+    expect(body(write)).toEqual({ ids: [100, 101], scoring: false })
+  })
+
+  it('prints the server refusal for the whole press rather than per competitor', async () => {
+    const user = userEvent.setup()
+    fakeFetch(url => (url.endsWith('/athletes/scoring')
+      ? { status: 422, json: { error: { code: 'validation', message: 'a team scores with at most ten athletes' } } }
+      : { json: [] }))
+    mount(squad(11, 9))
+    await selectPair(user, 'Mateo Kid', 'Olivia Kid')
+    await user.click(screen.getByRole('button', { name: 'Mark scoring' }))
+    expect(await screen.findByText('The scoring change was not saved')).toBeInTheDocument()
+    expect(screen.getByText('a team scores with at most ten athletes')).toBeInTheDocument()
+  })
+})

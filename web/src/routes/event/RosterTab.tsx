@@ -44,6 +44,10 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   const assign = useAdminMutation(eventId, (v: { ids: number[]; teamId: number | null }) => adminApi(`/api/events/${eventId}/athletes/assign`, { method: 'POST', body: v }))
   const patch = useAdminMutation(eventId, (v: { id: number; body: Partial<AthleteRow> }) => adminApi(`/api/athletes/${v.id}`, { method: 'PATCH', body: v.body }))
   const remove = useAdminMutation(eventId, (id: number) => adminApi(`/api/athletes/${id}`, { method: 'DELETE' }))
+  // Spec 4's bar actions. The server takes the whole selection or none of it, so the
+  // refusal is one message about one press rather than a row-by-row account.
+  const mark = useAdminMutation(eventId, (v: { ids: number[]; scoring: boolean }) =>
+    adminApi(`/api/events/${eventId}/athletes/scoring`, { method: 'POST', body: v }))
   const confirm = useAdminMutation(eventId, (v: { id: number; wlUid: string }) => adminApi(`/api/athletes/${v.id}/link`, { method: 'POST', body: { wlUid: v.wlUid } }))
   const dismiss = useAdminMutation(eventId, (v: { id: number; wlUid: string }) => adminApi(`/api/athletes/${v.id}/dismiss`, { method: 'POST', body: { wlUid: v.wlUid } }))
   // A hand-designed match can drop a proposal on either competitor, so this write
@@ -104,6 +108,10 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
 
   const clearSelection = () => setSelected(new Set())
   const clearMessages = () => { setReport(null); setMatchNotice(null) }
+  const markScoring = (scoring: boolean) => {
+    clearMessages()
+    mark.mutate({ ids: [...selected], scoring }, { onSuccess: clearSelection })
+  }
   const moveTo = (ids: number[], teamId: number | null) => {
     clearMessages()
     const moving = ids.filter(id => detail.athletes.find(a => a.id === id)?.teamId !== teamId)
@@ -221,6 +229,7 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
     patch.error ? { title: 'The edit was not saved', message: writeErrorMessage(patch.error), at: patch.submittedAt } : null,
     confirm.error ? { title: 'That competitor was not linked', message: writeErrorMessage(confirm.error), at: confirm.submittedAt } : null,
     dismiss.error ? { title: 'That candidate was not dismissed', message: writeErrorMessage(dismiss.error), at: dismiss.submittedAt } : null,
+    mark.error ? { title: 'The scoring change was not saved', message: writeErrorMessage(mark.error), at: mark.submittedAt } : null,
   ].filter((f): f is { title: string; message: string; at: number } => f !== null)
     .sort((x, y) => y.at - x.at)[0] ?? null
   // 7.12: one polite region per screen, phrased as a sentence, present and empty from
@@ -244,6 +253,8 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
               { key: 'none', label: 'Move to Unassigned', disabled: false, onSelect: () => moveTo([...selected], null) },
             ]}
           />
+          <Button size="sm" variant="ghost" disabled={mark.isPending} onClick={() => markScoring(true)}>Mark scoring</Button>
+          <Button size="sm" variant="ghost" disabled={mark.isPending} onClick={() => markScoring(false)}>Unmark scoring</Button>
           {selectedRows.length === 2 && (
             <Button size="sm" variant="ghost" disabled={matchDisabledTitle !== undefined || createMatch.isPending} title={matchDisabledTitle} onClick={runCreateMatch}>
               Create match
