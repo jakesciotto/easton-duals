@@ -112,6 +112,28 @@ describe('endMatch', () => {
     expect(r.match.winnerAthleteId).toBe(s.a1)
   })
 
+  it('takes a chosen win type on a tie', async () => {
+    const { db, s, matchId } = await liveMatch()
+    const r = await endMatch(db, { id: 'end1', matchId, lastSeq: 0, winnerAthleteId: s.a1, winType: 'dq' })
+    expect(r.match.winType).toBe('dq')
+    expect(r.match.winnerAthleteId).toBe(s.a1)
+  })
+
+  it('ignores a client win type once a terminal already decided it', async () => {
+    const { db, s, matchId } = await liveMatch()
+    await appendMatchEvent(db, { id: 't1', matchId, type: 'terminal', athleteId: s.a1, actionKey: 'submission', lastSeq: 0 })
+    const r = await endMatch(db, { id: 'end1', matchId, lastSeq: 1, winType: 'walkover' })
+    expect(r.match.winType).toBe('submission')
+  })
+
+  it('ignores a client win type once the points already decided it', async () => {
+    const { db, s, matchId } = await liveMatch()
+    await appendMatchEvent(db, { id: 'e1', matchId, type: 'score', athleteId: s.b1, actionKey: 'mount', lastSeq: 0 })
+    const r = await endMatch(db, { id: 'end1', matchId, lastSeq: 1, winType: 'dq' })
+    expect(r.match.winType).toBe('points')
+    expect(r.match.winnerAthleteId).toBe(s.b1)
+  })
+
   it('pauses a running clock before the end event', async () => {
     const { db, s, matchId } = await liveMatch()
     await appendMatchEvent(db, { id: 'c1', matchId, type: 'clock_start', lastSeq: 0, at: T(0) })

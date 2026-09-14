@@ -55,6 +55,8 @@ export interface EndInput {
   matchId: number
   lastSeq: number
   winnerAthleteId?: number
+  /** Read only when the outcome is undecided; a terminal or a points lead keeps its own type. */
+  winType?: 'decision' | 'walkover' | 'dq'
   at?: string
   /** Who the fill this end triggers is recorded under. The mat that ended it, usually. */
   actor?: AuditActor
@@ -245,7 +247,7 @@ export async function endMatch(db: DbLike, input: EndInput): Promise<AppendResul
       result = { winnerAthleteId: outcome.winnerAthleteId, winType: outcome.winType }
     } else {
       if (input.winnerAthleteId === undefined) throw new DecisionRequired()
-      result = { winnerAthleteId: assertAthlete(match, input.winnerAthleteId), winType: 'decision' }
+      result = { winnerAthleteId: assertAthlete(match, input.winnerAthleteId), winType: input.winType ?? 'decision' }
     }
     let seq = match.lastSeq
     const rows: Insert[] = []

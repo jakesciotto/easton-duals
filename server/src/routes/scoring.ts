@@ -214,7 +214,12 @@ scoringRoutes.delete('/matches/:matchId/events/last', requireMatOrAdmin(matIdFro
   }
 })
 
-scoringRoutes.post('/matches/:matchId/end', requireMatOrAdmin(matIdFromMatch), validate('json', z.object({ id: clientEventId, lastSeq: z.number().int().min(0), winnerAthleteId: z.number().int().optional() })), async c => {
+scoringRoutes.post('/matches/:matchId/end', requireMatOrAdmin(matIdFromMatch), validate('json', z.object({
+  id: clientEventId, lastSeq: z.number().int().min(0), winnerAthleteId: z.number().int().optional(),
+  // Only meaningful on a tie: a terminal or a points lead already carries its own type,
+  // and endMatch ignores this field in that case.
+  winType: z.enum(['decision', 'walkover', 'dq']).optional(),
+})), async c => {
   const { db } = c.get('ctx')
   const matchId = Number(c.req.param('matchId'))
   const actor = await actorFor(c)

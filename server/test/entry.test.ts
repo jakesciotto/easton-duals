@@ -155,6 +155,17 @@ describe('entry routes', () => {
     expect((await call(app, 'POST', `/api/matches/${r.body.match.id}/entry`, { entryId: 'short', pointsA: 0, pointsB: 0, winnerAthleteId: s.a1, winType: 'points' }, adminToken)).status).toBe(422)
   })
 
+  it('takes walkover and dq as entry win types', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    const walkover = await call(app, 'POST', `/api/events/${s.eventId}/entries`, { entryId: 'entry-0001', athleteAId: s.a1, athleteBId: s.b1, pointsA: 0, pointsB: 0, winnerAthleteId: s.a1, winType: 'walkover' }, adminToken)
+    expect(walkover.status).toBe(201)
+    expect(walkover.body.match.result).toEqual({ winnerAthleteId: s.a1, winType: 'walkover' })
+    const dq = await call(app, 'POST', `/api/matches/${walkover.body.match.id}/entry`, { entryId: 'entry-0002', pointsA: 0, pointsB: 0, winnerAthleteId: s.b1, winType: 'dq', reason: 'illegal technique' }, adminToken)
+    expect(dq.status).toBe(200)
+    expect(dq.body.match.result).toEqual({ winnerAthleteId: s.b1, winType: 'dq' })
+  })
+
   // Finish closes the afternoon to new results, not to fixing the ones it produced. The
   // lock that stops a correction too is certification.
   it('refuses a new entry once the event is done, and still takes a correction', async () => {

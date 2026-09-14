@@ -230,8 +230,10 @@ try {
   const pattern = JSON.stringify(ranks)
   if (pattern !== '[1,2,2]' && pattern !== '[1,2,3]') fail('leaderboard ranks', { body: final.leaderboard })
   const winnerRow = final.leaderboard.find(r => r.teamId === winnerTeamId)
-  if (!winnerRow || winnerRow.rank !== 1 || winnerRow.wins !== 1) fail('winner rank', { body: final.leaderboard })
-  ok('leaderboard', `ranks ${pattern}, winner team ${winnerTeamId} rank 1 wins 1`)
+  // The mount score, uncountered, decides the match on points: two team points, since
+  // every team here has four kids, well inside the cap, so the win pays out in full.
+  if (!winnerRow || winnerRow.rank !== 1 || winnerRow.wins !== 1 || winnerRow.teamPoints !== 2) fail('winner rank', { body: final.leaderboard })
+  ok('leaderboard', `ranks ${pattern}, winner team ${winnerTeamId} rank 1 wins 1 teamPoints 2`)
   console.log(`leaderboard: ${JSON.stringify(final.leaderboard)}`)
 } catch (e) {
   failed = true

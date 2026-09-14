@@ -18,7 +18,7 @@ const entrySchema = z.object({
   pointsA: z.number().int().min(0).max(99),
   pointsB: z.number().int().min(0).max(99),
   winnerAthleteId: z.number().int(),
-  winType: z.enum(['submission', 'points', 'decision']),
+  winType: z.enum(['submission', 'points', 'decision', 'walkover', 'dq']),
   // Why the result was changed. Empty reads as absent rather than as a validation error:
   // the field is optional on the dialog and a blank one is the common case.
   reason: z.string().trim().max(CORRECTION_REASON_MAX).optional(),

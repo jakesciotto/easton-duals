@@ -38,4 +38,13 @@ describe('rulesets', () => {
     expect((await call(app, 'POST', `/api/events/${s.eventId}/rulesets`, dup, adminToken)).status).toBe(422)
     expect((await call(app, 'POST', `/api/events/${s.eventId}/rulesets`, { ...rs, defaultLengthSec: 5 }, adminToken)).status).toBe(422)
   })
+
+  it('takes dq and walkover as terminal win types', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    const withDq = { ...rs, terminals: [{ key: 'dq', label: 'Disqualification', winType: 'dq' }, { key: 'wo', label: 'Walkover', winType: 'walkover' }] }
+    const created = await call(app, 'POST', `/api/events/${s.eventId}/rulesets`, withDq, adminToken)
+    expect(created.status).toBe(201)
+    expect(created.body.terminals.map((t: any) => t.winType)).toEqual(['dq', 'walkover'])
+  })
 })

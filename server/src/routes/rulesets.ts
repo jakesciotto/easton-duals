@@ -13,7 +13,7 @@ const key = z.string().regex(/^[a-z0-9_]{1,20}$/)
 const label = z.string().trim().min(1).max(20)
 const uniqueKeys = (arr: { key: string }[]) => new Set(arr.map(a => a.key)).size === arr.length
 const actionSchema = z.object({ key, label, points: z.number().int().min(-20).max(20) })
-const terminalSchema = z.object({ key, label, winType: z.enum(['submission', 'points', 'decision']) })
+const terminalSchema = z.object({ key, label, winType: z.enum(['submission', 'points', 'decision', 'walkover', 'dq']) })
 const rulesetSchema = z.object({
   name: z.string().trim().min(1).max(40),
   defaultLengthSec: z.number().int().min(30).max(1800),

@@ -167,6 +167,24 @@ describe('scoring flow', () => {
     expect(r.body.match.result).toEqual({ winnerAthleteId: s.b1, winType: 'submission' })
   })
 
+  it('records a chosen win type on a tie, feeding the leaderboard, and ignores one once a terminal decided', async () => {
+    const { app, db } = await createTestApp()
+    const s = await seedEvent(db, { live: true })
+    const tied = await call(app, 'POST', `/api/matches/${s.matchIds[0]}/end`, { id: 'end-0001', lastSeq: 0, winnerAthleteId: s.a1, winType: 'dq' }, matToken(s.eventId, s.matIds[0]))
+    expect(tied.status).toBe(200)
+    expect(tied.body.match.result).toEqual({ winnerAthleteId: s.a1, winType: 'dq' })
+    const board = await call(app, 'GET', `/api/events/${s.eventId}/snapshot`)
+    // Team A has two kids, well inside the cap, so every win of theirs pays out in full.
+    expect(board.body.snapshot.teams.find((t: any) => t.id === s.teamA).teamPoints).toBe(1)
+
+    const token2 = matToken(s.eventId, s.matIds[1])
+    const base2 = `/api/matches/${s.matchIds[1]}`
+    await call(app, 'POST', `${base2}/events`, { id: 'evt-0001', type: 'terminal', athleteId: s.b2, actionKey: 'pin', lastSeq: 0 }, token2)
+    const decided = await call(app, 'POST', `${base2}/end`, { id: 'end-0002', lastSeq: 1, winType: 'walkover' }, token2)
+    expect(decided.status).toBe(200)
+    expect(decided.body.match.result).toEqual({ winnerAthleteId: s.b2, winType: 'submission' })
+  })
+
   it('runs the clock and lets clock_pause stop it', async () => {
     const { app, db } = await createTestApp()
     const s = await seedEvent(db, { live: true })
