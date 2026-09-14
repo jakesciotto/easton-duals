@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { and, eq, inArray, or } from 'drizzle-orm'
+import { and, eq, inArray, ne, or } from 'drizzle-orm'
 import type { Env } from '../context.js'
 import type { DbLike } from '../db/client.js'
 import { events, teams, athletes, matches, rosterCandidates } from '../db/schema.js'
@@ -12,7 +12,7 @@ import { recordAudit } from '../audit/log.js'
 import { assertNotCertified } from '../audit/certify.js'
 import { fullName, linkUpdate } from '../roster/link.js'
 import { profileChanges } from '../roster/sync.js'
-import { KIDS_BELTS } from '../shared/types.js'
+import { KIDS_BELTS, SCORING_CAP } from '../shared/types.js'
 import type { RosterCandidate } from '../roster/types.js'
 
 const name = z.string().trim().min(1).max(40)
@@ -42,7 +42,16 @@ const addSchema = z.union([
   z.object({ candidates: z.array(candidateSchema).min(1).max(500), teamId: z.number().int().nullable().optional() }),
 ])
 
-const patchSchema = manualSchema.partial()
+const patchSchema = manualSchema.partial().extend({ scoring: z.boolean().optional() })
+
+// How many kids on the team are already marked, other than the one this write is about.
+// A team scores with at most SCORING_CAP kids, so marking one more only passes when
+// fewer than the cap are already carrying the flag.
+async function otherMarkedCount(db: DbLike, teamId: number, excludeAthleteId: number): Promise<number> {
+  const rows = await db.select({ id: athletes.id }).from(athletes)
+    .where(and(eq(athletes.teamId, teamId), eq(athletes.scoring, true), ne(athletes.id, excludeAthleteId))).all()
+  return rows.length
+}
 
 async function teamBelongs(db: DbLike, eventId: number, teamId: number | null | undefined): Promise<boolean> {
   if (teamId === null || teamId === undefined) return true
@@ -124,6 +133,11 @@ athleteRoutes.patch('/athletes/:athleteId', requireAdmin, validate('json', patch
   await assertNotCertified(db, existing.eventId)
   const p = c.req.valid('json')
   if (p.teamId !== undefined && !await teamBelongs(db, existing.eventId, p.teamId)) return errorJson(c, 422, 'validation', 'teamId is not on this event')
+  if (p.scoring === true) {
+    const targetTeamId = p.teamId !== undefined ? p.teamId : existing.teamId
+    if (targetTeamId === null) return errorJson(c, 422, 'validation', 'a kid needs a team to score')
+    if (await otherMarkedCount(db, targetTeamId, id) >= SCORING_CAP) return errorJson(c, 422, 'validation', 'a team scores with at most ten athletes')
+  }
   const update: Partial<typeof athletes.$inferInsert> = {}
   if (p.firstName !== undefined) update.firstName = p.firstName
   if (p.lastName !== undefined) update.lastName = p.lastName
@@ -132,6 +146,7 @@ athleteRoutes.patch('/athletes/:athleteId', requireAdmin, validate('json', patch
   if (p.teamId !== undefined) update.teamId = p.teamId
   if (p.age !== undefined) Object.assign(update, { age: p.age, ageSource: p.age === null ? null : 'manual' })
   if (p.weightLbs !== undefined) Object.assign(update, { weightLbs: p.weightLbs, weightSource: p.weightLbs === null ? null : 'manual' })
+  if (p.scoring !== undefined) update.scoring = p.scoring
   await db.transaction(async tx => {
     if (Object.keys(update).length > 0) await tx.update(athletes).set(update).where(eq(athletes.id, id)).run()
     await recordAudit(tx, {
@@ -207,11 +222,47 @@ athleteRoutes.post('/events/:eventId/athletes/assign', requireAdmin, validate('j
   await assertNotCertified(db, eventId)
   if (!await teamBelongs(db, eventId, teamId)) return errorJson(c, 422, 'validation', 'teamId is not on this event')
   await db.transaction(async tx => {
-    await tx.update(athletes).set({ teamId }).where(and(eq(athletes.eventId, eventId), inArray(athletes.id, ids))).run()
+    // A move, wherever it lands the kid, leaves the old team's scoring marks behind: the
+    // flag is meaningless off the roster it was capped against, including Unassigned.
+    await tx.update(athletes).set({ teamId, scoring: false }).where(and(eq(athletes.eventId, eventId), inArray(athletes.id, ids))).run()
     await recordAudit(tx, { eventId, actor: 'admin', action: 'roster_assign', detail: { count: ids.length, teamId } })
     await bumpVersion(tx, eventId)
   })
   return c.json((await eventDetail(db, eventId))!.athletes)
+})
+
+const scoringBulkSchema = z.object({ ids: z.array(z.number().int()).min(1).max(500), scoring: z.boolean() })
+
+athleteRoutes.post('/events/:eventId/athletes/scoring', requireAdmin, validate('json', scoringBulkSchema), async c => {
+  const { db } = c.get('ctx')
+  const eventId = Number(c.req.param('eventId'))
+  const { ids, scoring } = c.req.valid('json')
+  await assertNotCertified(db, eventId)
+  const rows = await db.select().from(athletes).where(and(eq(athletes.eventId, eventId), inArray(athletes.id, ids))).all()
+  if (rows.length !== ids.length) return errorJson(c, 404, 'not_found', 'athlete not found')
+  if (scoring) {
+    if (rows.some(r => r.teamId === null)) return errorJson(c, 422, 'validation', 'a kid needs a team to score')
+    const idSet = new Set(ids)
+    const teamIds = [...new Set(rows.map(r => r.teamId as number))]
+    const teammates = await db.select({ id: athletes.id, teamId: athletes.teamId, scoring: athletes.scoring }).from(athletes)
+      .where(and(eq(athletes.eventId, eventId), inArray(athletes.teamId, teamIds))).all()
+    for (const teamId of teamIds) {
+      const willBeMarked = teammates.filter(a => a.teamId === teamId && (idSet.has(a.id) || a.scoring)).length
+      if (willBeMarked > SCORING_CAP) return errorJson(c, 422, 'validation', 'a team scores with at most ten athletes')
+    }
+  }
+  await db.transaction(async tx => {
+    await tx.update(athletes).set({ scoring }).where(and(eq(athletes.eventId, eventId), inArray(athletes.id, ids))).run()
+    for (const row of rows) {
+      await recordAudit(tx, {
+        eventId, actor: 'admin', action: 'roster_edit',
+        detail: { athleteId: row.id, name: `${row.firstName} ${row.lastName}`, scoring },
+      })
+    }
+    await bumpVersion(tx, eventId)
+  })
+  const updated = new Map((await db.select().from(athletes).where(inArray(athletes.id, ids)).all()).map(a => [a.id, a]))
+  return c.json(ids.map(id => updated.get(id)))
 })
 
 athleteRoutes.delete('/athletes/:athleteId', requireAdmin, async c => {
