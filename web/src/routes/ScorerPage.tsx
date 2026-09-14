@@ -221,7 +221,7 @@ function Scorer({ binding }: { binding: MatBinding }) {
             onTap={k => s.tap(m.b.athleteId, k)}
             onTerminal={k => void s.terminal(m.b.athleteId, k)}
           />
-          <ConfirmSheet sheet={s.sheet} match={m} teams={teams} busy={s.sheetBusy} error={s.error} onPick={s.pickWinner} onConfirm={() => void s.confirm()} onCancel={() => void s.cancel()} />
+          <ConfirmSheet sheet={s.sheet} match={m} teams={teams} busy={s.sheetBusy} error={s.error} onPick={s.pickWinner} onPickType={s.pickWinType} onConfirm={() => void s.confirm()} onCancel={() => void s.cancel()} />
         </div>
       )}
     </main>

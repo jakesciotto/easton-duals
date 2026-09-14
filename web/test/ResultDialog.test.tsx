@@ -77,6 +77,32 @@ describe('ResultDialog', () => {
     expect(String(body.entryId).length).toBeGreaterThan(7)
   })
 
+  // Spec 1.4. A match nobody fought still has a result, and this is the surface the desk
+  // records it on: the entry form is for the result of a match that went to a score.
+  it('offers the walkover and the DQ beside the three scored outcomes', async () => {
+    fakeFetch(() => ({ json: {} }))
+    mount()
+    const dialog = await screen.findByRole('dialog')
+    // The control says the bare outcome and its name says it in a sentence, the way the
+    // ledger and the board will print the result once it is stored.
+    for (const [word, said] of [['Points', 'on points'], ['Submission', 'by submission'], ['Decision', 'by decision'], ['Walkover', 'by walkover'], ['DQ', 'by DQ']]) {
+      expect(within(dialog).getByRole('button', { name: said })).toHaveTextContent(word)
+    }
+  })
+
+  it('records a walkover against the match, scores and all', async () => {
+    const f = fakeFetch(() => ({ json: {} }))
+    mount()
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /Olivia Kim wins/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'by walkover' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Save result' }))
+    await vi.waitFor(() => expect(f.calls.some(c => c.url === '/api/matches/9/entry')).toBe(true))
+    expect(f.body(f.calls.findIndex(c => c.url === '/api/matches/9/entry')))
+      .toMatchObject({ winnerAthleteId: 200, winType: 'walkover' })
+  })
+
   it('refuses a save with no winner marked', async () => {
     fakeFetch(() => ({ json: {} }))
     mount(sampleMatch({ id: 9, orderIndex: 0, matId: null, status: 'live', result: null }))

@@ -146,8 +146,10 @@ describe('EntryTab', () => {
     })
     const score = screen.getByRole('region', { name: 'Running team score' })
     const rows = Array.from(score.children).slice(1)
-    // Ridgeline holds the only win; Lakeside scored 2 in it, so it leads Fernwood on points.
-    expect(rows.map(r => r.textContent)).toEqual(['1RIDRidgeline1', '2LAKLakeside0', '3FERFernwood0'])
+    // Ridgeline holds the only win, on points, by a competitor on a team of two, so every
+    // one of them scores and the win is worth two. Lakeside scored 2 match points in that
+    // match, which is what puts it ahead of Fernwood with neither holding a team point.
+    expect(rows.map(r => r.textContent)).toEqual(['1RIDRidgeline21 wins', '2LAKLakeside00 wins', '3FERFernwood00 wins'])
   })
 
   it('blocks save on a tie until a winner is picked, then sends a decision', async () => {
@@ -874,7 +876,7 @@ describe('EntryTab', () => {
 
   it('keeps every string a person reads off the decoration-only token', () => {
     mount()
-    expect(screen.getByText('Match wins')).toHaveClass('text-gray-10')
+    expect(screen.getByText('Team points')).toHaveClass('text-gray-10')
     const results = screen.getByRole('region', { name: 'Results' })
     expect(results.innerHTML).not.toMatch(/text-gray-9/)
   })
@@ -1451,8 +1453,10 @@ describe('EntryTab', () => {
     await vi.waitFor(() => expect(screen.getByRole('combobox', { name: 'First competitor' })).toHaveFocus())
     const results = screen.getByRole('region', { name: 'Results' })
     await vi.waitFor(() => expect(within(results).getByRole('button', { name: 'Edit Ava Park over Noah Tran' })).toBeInTheDocument())
+    // Ridgeline was on two team points from its one win and the saved entry is a second
+    // points win by the other competitor on the same team of two, so the header reads four.
     const score = screen.getByRole('region', { name: 'Running team score' })
-    await vi.waitFor(() => expect(within(score).getByText('2')).toBeInTheDocument())
+    await vi.waitFor(() => expect(within(score).getByText('4')).toBeInTheDocument())
   })
 })
 

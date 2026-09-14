@@ -7,11 +7,13 @@ import { Fig } from './MatRow'
 /**
  * One standing. The rank numeral sits on the mat numeral's own track, the team colour
  * is a full height edge at the second half of the leading indent, so it costs no column
- * exactly as a mat row's edge does, then the name, the wins figure and the points.
+ * exactly as a mat row's edge does, then the name, the team points and the wins.
  *
- * No three letter plate and no repeated "Wins": at eight rows both are noise, and a
- * plate would take the name track. "pts" stays on the small figure so the pair of
- * numbers cannot be misread as one.
+ * The large figure is what the standings are ordered by, which is the team points; the
+ * wins take the small figure and the match points leave the hero altogether. No three
+ * letter plate and no repeated label: at eight rows both are noise, and a plate would
+ * take the name track. The word stays on the small figure so the pair of numbers cannot
+ * be misread as one.
  */
 function Standing({ team, row }: { team: TeamView; row: LeaderboardRow }) {
   return (
@@ -19,10 +21,10 @@ function Standing({ team, row }: { team: TeamView; row: LeaderboardRow }) {
       <span aria-hidden className="lb-edge" />
       <span className="lb-rank">{row.rank}</span>
       <span className="lb-name font-sans">{team.name}</span>
-      <Fig className="lb-wins" value={row.wins} />
+      <Fig className="lb-wins" value={row.teamPoints} />
       <span className="lb-pts font-sans">
-        <span className="lb-pts-n font-mono">{row.points}</span>
-        <span> pts</span>
+        <span className="lb-pts-n font-mono">{row.wins}</span>
+        <span> wins</span>
       </span>
     </div>
   )
@@ -52,7 +54,7 @@ export function Hero({ teams, leaderboard }: { teams: TeamView[]; leaderboard: L
  * real composition rather than an absence: the rows, their edges and their tracks are
  * already in their final positions and only the values arrive.
  *
- * 6.15 is exact about the count: ONLY the wins numerals are Skeletons. There is no
+ * 6.15 is exact about the count: ONLY the large numerals are Skeletons. There is no
  * snapshot yet to say how many teams the event holds, so the cold hero draws the two an
  * event holds at its minimum, and their edges, names and numerals are empty boxes rather
  * than skeletons: their shape is known, their content is not.
@@ -68,7 +70,7 @@ export function HeroSkeleton() {
           <Skeleton className="lb-wins b-skel-wins" />
           <span className="lb-pts font-sans">
             <span className="lb-pts-n font-mono" />
-            <span> pts</span>
+            <span> wins</span>
           </span>
         </div>
       ))}

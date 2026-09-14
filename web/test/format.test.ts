@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { contactLine, genderLabel } from '@/lib/format'
+import { contactLine, genderLabel, winTypeLabel } from '@/lib/format'
 
 // The column is free text up to ten characters. The roster sync writes "Male", a hand entry
 // writes "M", and the roster row prints the value inside a line that must never wrap, so a
@@ -37,5 +37,17 @@ describe('contactLine', () => {
 
   it('prints nothing at all when the event carries no contact', () => {
     expect(contactLine(null)).toBeNull()
+  })
+})
+
+// One sentence fragment per win type, printed identically by the board, the ledger, the
+// scorer and the mat panel. A walkover and a DQ joined the list in 0.15.0.
+describe('winTypeLabel', () => {
+  it('says how every win was won', () => {
+    expect(winTypeLabel('submission')).toBe('by submission')
+    expect(winTypeLabel('points')).toBe('on points')
+    expect(winTypeLabel('decision')).toBe('by decision')
+    expect(winTypeLabel('walkover')).toBe('by walkover')
+    expect(winTypeLabel('dq')).toBe('by DQ')
   })
 })

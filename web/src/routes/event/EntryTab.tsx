@@ -133,7 +133,7 @@ interface Attempt {
 
 // The standing of every team, on the tracks the Live tab's own table uses, so a score
 // sits in the same register wherever the console prints one.
-const STANDING_COLS = 'grid grid-cols-[var(--col-num-s)_minmax(0,1fr)_62.4px] items-center gap-x-6'
+const STANDING_COLS = 'grid grid-cols-[var(--col-num-s)_minmax(0,1fr)_62.4px_60px] items-center gap-x-6'
 
 export function EntryTab({ detail }: { detail: EventDetail }) {
   const eventId = detail.event.id
@@ -578,7 +578,8 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
         <div className={cn(STANDING_COLS, 'h-6')}>
           <span className="sr-only">Rank</span>
           <span className="t1 text-gray-10 uppercase">Team</span>
-          <span className="tick t1 text-right text-gray-10 uppercase">Match wins</span>
+          <span className="tick t1 text-right text-gray-10 uppercase">Team points</span>
+          <span />
         </div>
         {standings.map(row => {
           const team = teamById.get(row.teamId)
@@ -586,7 +587,8 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
             <div key={row.teamId} className={cn(STANDING_COLS, 'h-10')}>
               <span className="fig t2 text-gray-10">{row.rank}</span>
               {team && <TeamPlate color={team.color} name={team.name} />}
-              <Figure value={row.wins} lead={row.rank === 1} />
+              <Figure value={row.teamPoints} lead={row.rank === 1} />
+              <span className="t2 text-right text-gray-10"><span className="fig">{row.wins}</span> wins</span>
             </div>
           )
         })}

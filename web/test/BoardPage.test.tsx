@@ -494,23 +494,23 @@ describe('Board compositions', () => {
   describe('the final standings', () => {
     const NAMES = ['Ridgeline', 'Lakeside', 'Harbor Park', 'Cedar Ridge']
 
-    function closed(scores: [number, number][]): Snapshot {
+    function closed(scores: [number, number, number][]): Snapshot {
       return sampleSnapshot({
         event: event('done', 'live'),
-        teams: scores.map(([wins, points], i) => ({
-          id: i + 1, name: NAMES[i], color: TEAM_COLOR_KEYS[i], position: i, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins, points,
+        teams: scores.map(([teamPoints, wins, points], i) => ({
+          id: i + 1, name: NAMES[i], color: TEAM_COLOR_KEYS[i], position: i, teamPoints, scoring: { marked: 0, size: 1, everyone: true }, wins, points,
         })),
         matches: [pair(1, 'Ava Park', 'Sofia Diaz', { status: 'done' })],
       })
     }
 
     it('closes on the standings, a result line and nothing else', () => {
-      const { container } = render(<Board snapshot={closed([[7, 41], [5, 33], [4, 30]])} connected />)
+      const { container } = render(<Board snapshot={closed([[16, 7, 41], [11, 5, 33], [9, 4, 30]])} connected />)
 
       expect(safe(container)).toHaveAttribute('data-comp', 'done')
       const standings = screen.getByRole('region', { name: 'Scoreboard' })
-      expect(within(standings).getAllByText(/pts/)).toHaveLength(3)
-      expect(within(standings).getByText('7').closest('.lb-row')).toHaveClass('lb-lead')
+      expect(within(standings).getAllByText(/wins/)).toHaveLength(3)
+      expect(within(standings).getByText('16').closest('.lb-row')).toHaveClass('lb-lead')
       expect(container.querySelector('.b-result')).toHaveTextContent('Ridgeline wins')
       // Pick 3: today's Matches figure is dropped, and the mat band is not drawn at all.
       expect(screen.queryByText('Matches')).not.toBeInTheDocument()
@@ -523,7 +523,7 @@ describe('Board compositions', () => {
       // Pick 1 reaches the close too: the event that used to end on two mirrored halves
       // and a summary now ends on two standings rows and a sentence.
       const certifiedAt = new Date(2026, 9, 3, 15, 42).toISOString()
-      const snapshot = closed([[9, 48], [7, 41]])
+      const snapshot = closed([[19, 9, 48], [15, 7, 41]])
       const { container } = render(
         <Board snapshot={{ ...snapshot, event: { ...snapshot.event, status: 'certified', certifiedAt } }} connected lastSuccessAt={Date.now()} />,
       )
@@ -539,30 +539,30 @@ describe('Board compositions', () => {
     it('keeps every team edge lit, because these are final standings', () => {
       // Today the loser's bar emptied. Every team should still be identifiable at the
       // close: the winner is named by the numeral and by the sentence, not by a blank.
-      const { container } = render(<Board snapshot={closed([[7, 41], [5, 33], [4, 30]])} connected />)
+      const { container } = render(<Board snapshot={closed([[16, 7, 41], [11, 5, 33], [9, 4, 30]])} connected />)
       const edges = [...container.querySelectorAll('.lb-row')].map(r => (r as HTMLElement).style.getPropertyValue('--team'))
       expect(edges.filter(Boolean)).toHaveLength(3)
       expect(container.querySelector('.b-bar-quiet')).toBeNull()
     })
 
     it('names a two way tie and a three way tie', () => {
-      const two = render(<Board snapshot={closed([[7, 41], [7, 41], [4, 30]])} connected />)
+      const two = render(<Board snapshot={closed([[16, 7, 41], [16, 7, 41], [9, 4, 30]])} connected />)
       expect(two.container.querySelector('.b-result')).toHaveTextContent('Ridgeline and Lakeside tie')
       two.unmount()
 
-      const three = render(<Board snapshot={closed([[7, 41], [7, 41], [7, 41]])} connected />)
+      const three = render(<Board snapshot={closed([[16, 7, 41], [16, 7, 41], [16, 7, 41]])} connected />)
       expect(three.container.querySelector('.b-result')).toHaveTextContent('Ridgeline, Lakeside and Harbor Park tie')
     })
 
     it('names every team in a tie of more than three', () => {
-      const { container } = render(<Board snapshot={closed([[2, 8], [2, 8], [2, 8], [2, 8]])} connected />)
+      const { container } = render(<Board snapshot={closed([[5, 2, 8], [5, 2, 8], [5, 2, 8], [5, 2, 8]])} connected />)
       expect(container.querySelector('.b-result'))
         .toHaveTextContent('Ridgeline, Lakeside, Harbor Park and Cedar Ridge tie')
     })
 
     it('spends the whole safe frame on the standings and its two lines', () => {
       const certifiedAt = new Date(2026, 9, 3, 15, 42).toISOString()
-      const snapshot = closed([[9, 48], [7, 41], [6, 37]])
+      const snapshot = closed([[19, 9, 48], [15, 7, 41], [13, 6, 37]])
       const { container } = render(
         <Board snapshot={{ ...snapshot, event: { ...snapshot.event, status: 'certified', certifiedAt } }} connected lastSuccessAt={Date.now()} />,
       )
@@ -639,9 +639,9 @@ describe('Board compositions', () => {
 describe('the leaderboard hero', () => {
   const NAMES = ['Ridgeline', 'Lakeside', 'Harbor Park', 'Cedar Ridge', 'Stonebrook', 'Fairview', 'Northgate', 'Wildflower']
 
-  function standings(scores: [number, number][], over: Partial<Snapshot> = {}): Snapshot {
-    const teams = scores.map(([wins, points], i) => ({
-      id: i + 1, name: NAMES[i], color: TEAM_COLOR_KEYS[i], position: i, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins, points,
+  function standings(scores: [number, number, number][], over: Partial<Snapshot> = {}): Snapshot {
+    const teams = scores.map(([teamPoints, wins, points], i) => ({
+      id: i + 1, name: NAMES[i], color: TEAM_COLOR_KEYS[i], position: i, teamPoints, scoring: { marked: 0, size: 1, everyone: true }, wins, points,
     }))
     return atMode(sampleSnapshot({ teams, mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), bound: true, blocked: null })], matches: [], ...over }), 'live')
   }
@@ -654,15 +654,16 @@ describe('the leaderboard hero', () => {
   }
 
   it('draws a row per team at two teams, where the halves used to be', () => {
-    const { container } = render(<Board snapshot={standings([[12, 71], [10, 64]])} connected />)
+    const { container } = render(<Board snapshot={standings([[24, 12, 71], [20, 10, 64]])} connected />)
     const drawn = rows(container)
     expect(drawn).toHaveLength(2)
     expect(drawn.map(r => cell(r, '.lb-rank'))).toEqual(['1', '2'])
     expect(drawn.map(r => cell(r, '.lb-name'))).toEqual(['Ridgeline', 'Lakeside'])
-    expect(drawn.map(r => cell(r, '.lb-wins'))).toEqual(['12', '10'])
-    expect(drawn.map(r => cell(r, '.lb-pts'))).toEqual(['71 pts', '64 pts'])
+    expect(drawn.map(r => cell(r, '.lb-wins'))).toEqual(['24', '20'])
+    expect(drawn.map(r => cell(r, '.lb-pts'))).toEqual(['12 wins', '10 wins'])
     // Pick 6: no three letter plate and no repeated label. The colour edge and the
-    // full name carry identity, and "pts" alone keeps the pair unambiguous.
+    // full name carry identity, and the word on the small figure alone keeps the pair
+    // unambiguous.
     expect(container.querySelector('.b-code')).toBeNull()
     expect(screen.queryByText('RID')).not.toBeInTheDocument()
     expect(screen.queryByText('Wins')).not.toBeInTheDocument()
@@ -671,8 +672,19 @@ describe('the leaderboard hero', () => {
     expect(container.querySelector('.b-half')).toBeNull()
   })
 
+  it('leads on the team points it prints large, whatever the wins beside them say', () => {
+    // A submission by a scoring competitor is worth three to the team and a points win is
+    // worth two, so the team with fewer wins can be the team that is ahead. The hero is
+    // ordered by the figure it prints large, and the wins ride the small one.
+    const { container } = render(<Board snapshot={standings([[9, 5, 30], [14, 3, 12]])} connected />)
+    const drawn = rows(container)
+    expect(drawn.map(r => cell(r, '.lb-name'))).toEqual(['Lakeside', 'Ridgeline'])
+    expect(drawn.map(r => cell(r, '.lb-wins'))).toEqual(['14', '9'])
+    expect(drawn.map(r => cell(r, '.lb-pts'))).toEqual(['3 wins', '5 wins'])
+  })
+
   it('carries the team colour as a full height edge that costs no column', () => {
-    const { container } = render(<Board snapshot={standings([[3, 9], [1, 4]])} connected />)
+    const { container } = render(<Board snapshot={standings([[6, 3, 9], [2, 1, 4]])} connected />)
     const drawn = rows(container)
     expect(drawn.map(r => r.style.getPropertyValue('--team')))
       .toEqual([TEAM_COLORS[TEAM_COLOR_KEYS[0]], TEAM_COLORS[TEAM_COLOR_KEYS[1]]])
@@ -682,7 +694,7 @@ describe('the leaderboard hero', () => {
   })
 
   it('ranks three teams and holds the mat band exactly where it was', () => {
-    const { container } = render(<Board snapshot={standings([[7, 38], [5, 31], [5, 29]])} connected />)
+    const { container } = render(<Board snapshot={standings([[14, 7, 38], [10, 5, 31], [10, 5, 29]])} connected />)
     expect(rows(container).map(r => cell(r, '.lb-rank'))).toEqual(['1', '2', '3'])
     const layer = safe(container)
     // Frame 1: three rows still fit a 31cqh hero, so the band is byte for byte today's.
@@ -695,14 +707,14 @@ describe('the leaderboard hero', () => {
   it('shares the numeral between tied teams and tones every one of them as the lead', () => {
     // Frame 2: both leaders print 1, the next team prints 3, and the tie is carried by
     // the tone on the figures, never by a background or a rule that would read as a win.
-    const { container } = render(<Board snapshot={standings([[7, 38], [7, 38], [5, 29]])} connected />)
+    const { container } = render(<Board snapshot={standings([[14, 7, 38], [14, 7, 38], [10, 5, 29]])} connected />)
     const drawn = rows(container)
     expect(drawn.map(r => cell(r, '.lb-rank'))).toEqual(['1', '1', '3'])
     expect(drawn.map(r => r.classList.contains('lb-lead'))).toEqual([true, true, false])
   })
 
   it('orders a tie by the position the teams were added at, so a poll never reshuffles', () => {
-    const { container } = render(<Board snapshot={standings([[2, 10], [4, 12], [4, 12]])} connected />)
+    const { container } = render(<Board snapshot={standings([[4, 2, 10], [8, 4, 12], [8, 4, 12]])} connected />)
     expect(rows(container).map(r => cell(r, '.lb-name'))).toEqual(['Lakeside', 'Harbor Park', 'Ridgeline'])
     expect(rows(container).map(r => cell(r, '.lb-rank'))).toEqual(['1', '1', '3'])
   })
@@ -710,7 +722,7 @@ describe('the leaderboard hero', () => {
   it('grows the hero and shrinks the band to one mat row at eight teams', () => {
     // Frame 6A: eight rows at the b3 floor, 78cqh of hero, a 3cqh gap and a 9cqh band.
     // What the room gives up is the rest of the band: no next line and no clock.
-    const scores: [number, number][] = [[9, 51], [8, 47], [7, 44], [6, 38], [5, 33], [4, 26], [3, 19], [2, 14]]
+    const scores: [number, number, number][] = [[18, 9, 51], [16, 8, 47], [14, 7, 44], [12, 6, 38], [10, 5, 33], [8, 4, 26], [6, 3, 19], [4, 2, 14]]
     const queue = [pair(20, 'Ana Bravo', 'Nina Costa', { status: 'pending' })]
     const { container } = render(<Board snapshot={standings(scores, {
       mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), onDeck: queue, bound: true, blocked: null })],
@@ -863,26 +875,27 @@ describe('Board figure change', () => {
     expect(slots[1]).toHaveAttribute('aria-hidden', 'false')
   })
 
-  it('holds the team points figure in its own character slot at every value', () => {
+  it('holds the small hero figure in its own character slot at every value', () => {
     // 2.8: every number gets a fixed slot. This was the one figure on the board without
-    // one, so a team going from 9 points to 11 grew its label box by a whole character
-    // in one frame and shoved the word beside it sideways on a still hero.
-    const withPoints = (points: number) => atMode(sampleSnapshot({
+    // one, so a team going from 9 to 11 grew its label box by a whole character in one
+    // frame and shoved the word beside it sideways on a still hero. The figure is the
+    // wins now; the slot is the same slot.
+    const withWins = (wins: number) => atMode(sampleSnapshot({
       teams: [
-        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 3, points },
-        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 2, points: 7 },
+        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 8, scoring: { marked: 0, size: 1, everyone: true }, wins, points: 22 },
+        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 5, scoring: { marked: 0, size: 1, everyone: true }, wins: 2, points: 7 },
       ],
     }), 'live')
 
-    const { container, rerender } = render(<Board snapshot={withPoints(9)} connected />)
+    const { container, rerender } = render(<Board snapshot={withWins(9)} connected />)
     const slots = () => [...container.querySelectorAll('.lb-pts-n')]
     expect(slots()).toHaveLength(2)
-    // Only the digits are in the slot: " pts" inside it would size the box by the word.
+    // Only the digits are in the slot: " wins" inside it would size the box by the word.
     expect(slots()[0].textContent).toBe('9')
 
-    rerender(<Board snapshot={withPoints(11)} connected />)
+    rerender(<Board snapshot={withWins(11)} connected />)
     expect(slots()[0].textContent).toBe('11')
-    expect(screen.getAllByText(/pts/)).toHaveLength(2)
+    expect(screen.getAllByText(/wins/)).toHaveLength(2)
   })
 })
 
@@ -1115,7 +1128,7 @@ describe('BoardPage route', () => {
     fakeFetch(url => feed.handle(url) ?? { json: {} })
     render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: ['/board/1'] })} />)
     await waitFor(() => expect(screen.getByRole('region', { name: 'Mat 1' })).toBeInTheDocument())
-    expect(within(screen.getByRole('region', { name: 'Scoreboard' })).getAllByText(/pts/)).toHaveLength(2)
+    expect(within(screen.getByRole('region', { name: 'Scoreboard' })).getAllByText(/wins/)).toHaveLength(2)
   })
 
   it('takes a screen wake lock, because a slept panel never recovers on its own', async () => {

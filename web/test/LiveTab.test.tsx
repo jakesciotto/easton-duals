@@ -110,15 +110,17 @@ describe('LiveTab', () => {
     expect(screen.getAllByRole('region').map(r => r.getAttribute('aria-label'))).toEqual(['Leaderboard', 'Mat 1', 'Mat 2'])
   })
 
-  // Spec 5 and 6: wins, then points, then position, with teams level on both sharing a
-  // numeral and the ranks they used up skipped.
+  // Spec 5 and 6: team points, then wins, then match points, then position, with teams
+  // level on the first three sharing a numeral and the ranks they used up skipped. The
+  // match points stay in the tiebreak and leave the header, so Lakeside leads on seven
+  // team points while carrying the fewest of them.
   it('heads the tab with the leaderboard, ties sharing a rank', async () => {
     const feed = snapshotFeed(sampleSnapshot({
       now: SERVER_NOW,
       teams: [
-        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 2, points: 11 },
-        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 3, points: 9 },
-        { id: 3, name: 'Fernwood', color: 'teal', position: 2, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 2, points: 11 },
+        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 5, scoring: { marked: 0, size: 1, everyone: true }, wins: 2, points: 11 },
+        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 7, scoring: { marked: 0, size: 1, everyone: true }, wins: 3, points: 9 },
+        { id: 3, name: 'Fernwood', color: 'teal', position: 2, teamPoints: 5, scoring: { marked: 0, size: 1, everyone: true }, wins: 2, points: 11 },
       ],
       mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true, blocked: null }],
       matches: [],
@@ -126,7 +128,10 @@ describe('LiveTab', () => {
     mount(url => feed.handle(url) ?? connectOnly(url))
     const board = await screen.findByRole('region', { name: 'Leaderboard' })
     const rows = within(board).getAllByRole('generic').filter(el => el.getAttribute('data-slot') === 'field-row')
-    expect(rows.map(r => r.textContent)).toEqual(['1LAKLakeside39', '2RIDRidgeline211', '2FERFernwood211'])
+    expect(rows.map(r => r.textContent)).toEqual(['1LAKLakeside73 wins', '2RIDRidgeline52 wins', '2FERFernwood52 wins'])
+    expect(within(board).getByText('Team points')).toBeInTheDocument()
+    expect(within(board).queryByText('Points')).not.toBeInTheDocument()
+    expect(within(board).queryByText('Wins')).not.toBeInTheDocument()
   })
 
   it('keeps a mat in its place when it goes quiet', async () => {

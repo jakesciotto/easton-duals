@@ -10,8 +10,18 @@ export function athleteName(a: { firstName: string; lastName: string }): string 
   return `${a.firstName} ${a.lastName}`.trim()
 }
 
+// How a win reads in a sentence. Every surface that names an outcome prints one of these,
+// so a walkover is the same words on the board, in the ledger and on the mat.
+const WIN_TYPE_LABELS: Record<WinType, string> = {
+  submission: 'by submission',
+  points: 'on points',
+  decision: 'by decision',
+  walkover: 'by walkover',
+  dq: 'by DQ',
+}
+
 export function winTypeLabel(w: WinType): string {
-  return w === 'submission' ? 'by submission' : w === 'points' ? 'on points' : 'by decision'
+  return WIN_TYPE_LABELS[w]
 }
 
 // The only consumer is teamStyle, which assigns the result to a custom property,

@@ -133,6 +133,23 @@ describe('RulesetDialog', () => {
     expect(body.terminals[0]).toEqual({ key: 'submission', label: 'Tap out', winType: 'submission' })
   })
 
+  // Spec 1.4. A referee can disqualify a competitor mid match, so a terminal may carry it.
+  // A walkover cannot be one: nobody taps a button on a match that was never fought.
+  it('lets a terminal record a DQ, and offers no walkover among them', async () => {
+    const f = fakeFetch(() => ({ json: {} }))
+    mount([match(3, 'pending')])
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getAllByLabelText('Terminal win type')[0])
+    const menu = await screen.findByRole('listbox')
+    expect(within(menu).queryByRole('option', { name: 'walkover' })).not.toBeInTheDocument()
+    await user.click(within(menu).getByRole('option', { name: 'DQ' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Save ruleset' }))
+    await vi.waitFor(() => expect(f.calls.some(c => c.url === '/api/rulesets/3')).toBe(true))
+    expect(f.body(f.calls.findIndex(c => c.url === '/api/rulesets/3')).terminals[0])
+      .toEqual({ key: 'submission', label: 'Submission', winType: 'dq' })
+  })
+
   it('gives a row added in this session a key, without taking one an existing row owns', async () => {
     const f = fakeFetch(() => ({ json: {} }))
     mount([match(3, 'pending')])

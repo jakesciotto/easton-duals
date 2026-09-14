@@ -1,5 +1,6 @@
 import type { MatchSide, MatchView, TeamView, WinType } from '@shared/types'
 import type { Sheet as SheetState } from './useScorer'
+import { DECISION_TYPES, decisionOf, type DecisionType } from '@/lib/scoring'
 import { winTypeLabel } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -21,7 +22,11 @@ function Said({ side, winType, scores }: {
   )
 }
 
-export function ConfirmSheet({ sheet, match, teams, busy, error, onPick, onConfirm, onCancel }: {
+// The three words, as the picker prints them. winTypeLabel says them in a sentence; these
+// are the controls, so they are the bare outcome rather than "by decision".
+const DECISION_WORD: Record<DecisionType, string> = { decision: 'Decision', dq: 'DQ', walkover: 'Walkover' }
+
+export function ConfirmSheet({ sheet, match, teams, busy, error, onPick, onPickType, onConfirm, onCancel }: {
   sheet: SheetState | null
   match: MatchView
   teams: TeamView[]
@@ -30,6 +35,7 @@ export function ConfirmSheet({ sheet, match, teams, busy, error, onPick, onConfi
   busy: boolean
   error: string | null
   onPick: (athleteId: number | null) => void
+  onPickType: (winType: DecisionType) => void
   onConfirm: () => void
   onCancel: () => void
 }) {
@@ -44,22 +50,45 @@ export function ConfirmSheet({ sheet, match, teams, busy, error, onPick, onConfi
     : sheet?.reason === 'terminal' ? 'Match over'
     : 'End the match?'
   const teamOf = (teamId: number | null) => teams.find(t => t.id === teamId)
+  // Whether the match settled itself, which is what the sheet restates rather than asks.
+  // A tie keeps its two questions open after either is answered: naming the winner must
+  // not take the word away, and vice versa, or a walkover picked second is unreachable.
+  const decidedItself = sheet !== null && sheet.shown.winner !== null
+  // The picker opens on Decision, which is what an undecided match is until somebody says
+  // otherwise. A sheet the match itself decided never shows it.
+  const decided = decisionOf(sheet?.winType ?? null)
 
+  // Who won, then how. Nothing on the match decided either, so both are the referee's,
+  // and the second question defaults to the answer that needs no explanation.
   const pickOne = () => (
-    <div className="grid grid-cols-2 gap-4">
-      {[match.a, match.b].map(side => (
-        <Toggle
-          key={side.athleteId}
-          size="mat"
-          pressed={sheet?.winner === side.athleteId}
-          onPressedChange={() => onPick(side.athleteId)}
-          aria-label={`${side.name} wins`}
-          className="flex-col gap-1"
-        >
-          <TeamPlate color={teamOf(side.teamId)?.color ?? 'red'} name={teamOf(side.teamId)?.name ?? 'Unassigned'} size="desk" showName={false} />
-          <span className="max-w-full min-w-0 truncate">{side.name} wins</span>
-        </Toggle>
-      ))}
+    <div className="grid gap-4">
+      <div className="grid grid-cols-2 gap-4">
+        {[match.a, match.b].map(side => (
+          <Toggle
+            key={side.athleteId}
+            size="mat"
+            pressed={sheet?.winner === side.athleteId}
+            onPressedChange={() => onPick(side.athleteId)}
+            aria-label={`${side.name} wins`}
+            className="flex-col gap-1"
+          >
+            <TeamPlate color={teamOf(side.teamId)?.color ?? 'red'} name={teamOf(side.teamId)?.name ?? 'Unassigned'} size="desk" showName={false} />
+            <span className="max-w-full min-w-0 truncate">{side.name} wins</span>
+          </Toggle>
+        ))}
+      </div>
+      <div role="group" aria-label="How it was won" className="grid grid-cols-3 gap-4">
+        {DECISION_TYPES.map(type => (
+          <Toggle
+            key={type}
+            pressed={decided === type}
+            onPressedChange={() => onPickType(type)}
+            className="touch h-16"
+          >
+            {DECISION_WORD[type]}
+          </Toggle>
+        ))}
+      </div>
     </div>
   )
 
@@ -108,7 +137,7 @@ export function ConfirmSheet({ sheet, match, teams, busy, error, onPick, onConfi
                 </Button>
               )}
             </>
-          ) : winner && sheet?.winType ? (
+          ) : decidedItself && winner && sheet?.winType ? (
             // 6.16: name, team, win type and the resulting score, in one line. The score is
             // the one the sheet was raised on, never the live one, so the line can never
             // print a score that contradicts the competitor it names.

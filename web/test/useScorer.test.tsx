@@ -387,7 +387,10 @@ describe('useScorer', () => {
     await settle(result)
     const end = f.calls.findIndex(c => c.url === '/api/matches/10/end')
     expect(end).toBeGreaterThanOrEqual(0)
+    // The server derives both from its own events once the match settled itself, so the
+    // tablet sends neither and cannot contradict the record.
     expect(f.body(end)).not.toHaveProperty('winnerAthleteId')
+    expect(f.body(end)).not.toHaveProperty('winType')
     expect(result.current.sheet).toBeNull()
   })
 

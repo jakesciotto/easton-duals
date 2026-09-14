@@ -1,8 +1,19 @@
 import { api, ApiError } from './api'
 import { newEventId } from './ids'
-import type { MatchView } from '@shared/types'
+import type { MatchView, WinType } from '@shared/types'
 
 export interface ScoreResponse { match: MatchView; version: number }
+
+/**
+ * How a tie can be settled. A terminal carries its own type and a points lead is a points
+ * win, so the end route takes this word only where the match itself decided nothing. The
+ * order is the order the scorer offers them in.
+ */
+export const DECISION_TYPES = ['decision', 'dq', 'walkover'] as const
+export type DecisionType = typeof DECISION_TYPES[number]
+export function decisionOf(winType: WinType | null): DecisionType {
+  return (DECISION_TYPES as readonly (WinType | null)[]).includes(winType) ? winType as DecisionType : 'decision'
+}
 export type ScoringType = 'score' | 'clock_start' | 'clock_pause' | 'terminal'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -30,7 +41,7 @@ export function undoLast(matchId: number, token: string, lastSeq: number): Promi
   return withRetry(() => api<ScoreResponse>(`/api/matches/${matchId}/events/last`, { method: 'DELETE', body: { lastSeq }, token }))
 }
 
-export function endMatch(matchId: number, token: string, input: { lastSeq: number; winnerAthleteId?: number }): Promise<ScoreResponse> {
+export function endMatch(matchId: number, token: string, input: { lastSeq: number; winnerAthleteId?: number; winType?: DecisionType }): Promise<ScoreResponse> {
   const id = newEventId()
   return withRetry(() => api<ScoreResponse>(`/api/matches/${matchId}/end`, { method: 'POST', body: { id, ...input }, token }))
 }

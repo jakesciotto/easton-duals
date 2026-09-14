@@ -16,10 +16,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { clockToSec, maskClock } from './clock-input'
 
+// What a terminal records when a mat taps it. A walkover is not one of them: nobody taps
+// a button on a match that was never fought, and the desk records those in the ledger.
 const WIN_TYPE_ITEMS: { value: WinType; label: string }[] = [
   { value: 'submission', label: 'submission' },
   { value: 'points', label: 'points' },
   { value: 'decision', label: 'decision' },
+  { value: 'dq', label: 'DQ' },
 ]
 
 const KEY_MAX = 20

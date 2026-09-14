@@ -15,10 +15,14 @@ import { Toggle } from '@/components/ui/toggle'
 import { TeamPlate } from '@/components/TeamPlate'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
+// Every outcome the desk can record. A walkover and a DQ end a match that was never
+// fought to a score, so this is the one surface that offers them.
 const WIN_TYPES: { value: WinType; word: string }[] = [
   { value: 'points', word: 'Points' },
   { value: 'submission', word: 'Submission' },
   { value: 'decision', word: 'Decision' },
+  { value: 'walkover', word: 'Walkover' },
+  { value: 'dq', word: 'DQ' },
 ]
 
 /**

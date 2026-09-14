@@ -696,8 +696,11 @@ function MatPanel({ mat, view, mode, paused, lastSuccessAt, pollIntervalMs, busy
 }
 
 /**
- * Wins, then points, then position, with tied teams sharing a numeral. One composition
- * whatever the team count, which is what the board shows the room at the same moment.
+ * Team points, then wins, then match points, then position, with tied teams sharing a
+ * numeral. One composition whatever the team count, and the same two figures in the same
+ * order as the board's own hero, which the room is reading at the same moment: the number
+ * the standing is ordered by, then the wins behind it. The match points stay in the
+ * tiebreak and leave the header.
  */
 function Leaderboard({ teams }: { teams: TeamView[] }) {
   const byId = new Map(teams.map(t => [t.id, t]))
@@ -707,8 +710,8 @@ function Leaderboard({ teams }: { teams: TeamView[] }) {
         <FieldHead className={STANDING_COLS}>
           <span className="font-sans">Rank</span>
           <span className="font-sans">Team</span>
-          <span className="tick text-right font-sans">Wins</span>
-          <span className="tick text-right font-sans">Points</span>
+          <span className="tick text-right font-sans">Team points</span>
+          <span />
         </FieldHead>
         {rankTeams(teams).map(row => {
           const team = byId.get(row.teamId)
@@ -716,8 +719,8 @@ function Leaderboard({ teams }: { teams: TeamView[] }) {
             <FieldRow key={row.teamId} className={cn(STANDING_COLS, 'h-12')}>
               <span className="fig fig-2 t5 text-gray-10">{row.rank}</span>
               {team && <TeamPlate color={team.color} name={team.name} />}
-              <span className="fig fig-2 t5 text-right text-fig-lead">{row.wins}</span>
-              <span className="fig fig-3 t5 text-right text-gray-11">{row.points}</span>
+              <span className="fig fig-2 t5 text-right text-fig-lead">{row.teamPoints}</span>
+              <span className="t2 text-right text-gray-11"><span className="fig">{row.wins}</span> wins</span>
             </FieldRow>
           )
         })}

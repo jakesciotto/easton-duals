@@ -4,7 +4,7 @@ import { formatClock, remainingMs } from '@shared/clock'
 import { ApiError } from '@/lib/api'
 import type { MatBinding } from '@/lib/auth'
 import { bindLossOf, type BindLoss } from '@/lib/matBinding'
-import { endMatch, extendClock, heartbeat, postMatchEvent, undoLast, type ScoreResponse } from '@/lib/scoring'
+import { decisionOf, endMatch, extendClock, heartbeat, postMatchEvent, undoLast, type DecisionType, type ScoreResponse } from '@/lib/scoring'
 import { playRegistered, playRejected } from '@/lib/sounds'
 import {
   ADD_TIME_MS, applyClockExtend, applyClockPause, applyClockStart, applyScore, applyUndo,
@@ -16,6 +16,7 @@ const HEARTBEAT_MS = 20_000
 
 export type SheetReason = 'terminal' | 'end' | 'time'
 export interface Outcome { winner: number | null; winType: WinType | null }
+
 
 /**
  * An outcome AND the scores that produced it, read at one instant. The sheet's restatement
@@ -391,6 +392,12 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     ? { ...s, winner: athleteId, winType: s.winType ?? s.changed?.now.winType ?? 'decision', changed: null }
     : s))
 
+  /**
+   * How the referee settled a tie. It does NOT clear `changed`: only naming a competitor
+   * can, because only that is a new decision about who won.
+   */
+  const pickWinType = (winType: DecisionType) => setSheet(s => (s ? { ...s, winType } : s))
+
   const confirm = async () => {
     // A refusal is not answered by pressing the same button again. Until the operator has
     // acknowledged the new state through pickWinner, there is nothing to record.
@@ -415,8 +422,11 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     }
     setSheetBusy(true)
     try {
+      // The winner and the word both travel only on a tie: with a terminal or a points
+      // lead the server derives both from its own events and ignores whatever is sent.
       const tie = sheet.shown.winner === null
-      const r = await enqueue((matchId, seq) => endMatch(matchId, binding.token, { lastSeq: seq, ...(tie ? { winnerAthleteId: sheet.winner! } : {}) }), null)
+      const settled = tie ? { winnerAthleteId: sheet.winner!, winType: decisionOf(sheet.winType) } : {}
+      const r = await enqueue((matchId, seq) => endMatch(matchId, binding.token, { lastSeq: seq, ...settled }), null)
       if (r) close()
     } finally {
       setSheetBusy(false)
@@ -442,5 +452,5 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     close()
   }
 
-  return { mat, current, ruleset, busy, sheetBusy, error, sheet, lastAction, bindingLost, tap, terminal, clock, addTime, undo, minus, openEnd, pickWinner, confirm, cancel }
+  return { mat, current, ruleset, busy, sheetBusy, error, sheet, lastAction, bindingLost, tap, terminal, clock, addTime, undo, minus, openEnd, pickWinner, pickWinType, confirm, cancel }
 }

@@ -10,6 +10,7 @@ import { EVENT_FINISHED } from '@/routes/scorer/actions'
 import { CenterColumn, nextNote } from '@/routes/scorer/CenterColumn'
 import { ConfirmSheet } from '@/routes/scorer/ConfirmSheet'
 import type { Sheet as SheetState } from '@/routes/scorer/useScorer'
+import type { DecisionType } from '@/lib/scoring'
 import { getMatBinding, setMatBinding } from '@/lib/auth'
 import { playExpired, playRejected } from '@/lib/sounds'
 import { fakeFetch, snapshotFeed, sampleMatch, sampleSnapshot } from './fakes'
@@ -145,6 +146,27 @@ describe('ScorerPage', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Record win by decision' }))
     await vi.waitFor(() => expect(f.calls.some(c => c.url === '/api/matches/10/end')).toBe(true))
     expect(f.body(f.calls.findIndex(c => c.url === '/api/matches/10/end'))).toMatchObject({ lastSeq: 0, winnerAthleteId: 100 })
+  })
+
+  // Spec 1.4. A tie is the one outcome the match itself does not settle, so the mat says
+  // both halves: who won, and which of the three ways it was won.
+  it('records a tie settled as a walkover, the word and the winner both', async () => {
+    const feed = snapshotFeed(sampleSnapshot())
+    const f = fakeFetch(url => feed.handle(url) ?? { json: { match: sampleMatch({ status: 'done' }), version: 3 } })
+    await mount()
+    const user = userEvent.setup()
+    await screen.findByRole('region', { name: 'Mateo Rivera' })
+    await user.click(screen.getByRole('button', { name: 'End match' }))
+    const sheet = await screen.findByRole('dialog')
+    // The competitor first, which is the order the sheet reads in. Naming a winner must
+    // not take the second question away, or a walkover is only reachable by answering
+    // the two in the one order nobody does.
+    await user.click(within(sheet).getByRole('button', { name: 'Mateo Rivera wins' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Walkover' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Record win by walkover' }))
+    await vi.waitFor(() => expect(f.calls.some(c => c.url === '/api/matches/10/end')).toBe(true))
+    expect(f.body(f.calls.findIndex(c => c.url === '/api/matches/10/end')))
+      .toMatchObject({ winnerAthleteId: 100, winType: 'walkover' })
   })
 
   // G05: between bouts and finished for the day are different facts, and the tablet said
@@ -845,17 +867,49 @@ describe('ConfirmSheet', () => {
   const tie = { winner: null, winType: null, scores: { a: 0, b: 0 } }
   const decided = { winner: 200, winType: 'points' as const, scores: { a: 0, b: 3 } }
 
-  function renderSheet(sheet: SheetState, over: Partial<{ match: ReturnType<typeof sampleMatch>; error: string | null; onPick: (id: number | null) => void; onConfirm: () => void }> = {}) {
+  function renderSheet(sheet: SheetState, over: Partial<{ match: ReturnType<typeof sampleMatch>; error: string | null; onPick: (id: number | null) => void; onPickType: (winType: DecisionType) => void; onConfirm: () => void }> = {}) {
     const props = {
       match: sampleMatch({ b: { ...sampleMatch().b, score: 3 } }),
       error: null as string | null,
       onPick: (() => {}) as (athleteId: number | null) => void,
+      onPickType: (() => {}) as (winType: DecisionType) => void,
       onConfirm: () => {},
       ...over,
     }
     render(<ConfirmSheet sheet={sheet} teams={teams} busy={false} onCancel={() => {}} {...props} />)
     return props
   }
+
+  it('asks how a tie was won, on Decision until the referee says otherwise', async () => {
+    const picked: string[] = []
+    renderSheet({ reason: 'end', shown: tie, changed: null, winner: null, winType: null },
+      { onPickType: w => picked.push(w) })
+    const sheet = await screen.findByRole('dialog')
+    const how = within(sheet).getByRole('group', { name: 'How it was won' })
+    expect(within(how).getAllByRole('button').map(b => b.textContent)).toEqual(['Decision', 'DQ', 'Walkover'])
+    expect(within(how).getByRole('button', { name: 'Decision' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.setup().click(within(how).getByRole('button', { name: 'Walkover' }))
+    expect(picked).toEqual(['walkover'])
+  })
+
+  it('keeps both questions open once either is answered', async () => {
+    const picked: string[] = []
+    renderSheet({ reason: 'end', shown: tie, changed: null, winner: 100, winType: 'decision' },
+      { onPickType: w => picked.push(w) })
+    const sheet = await screen.findByRole('dialog')
+    expect(within(sheet).getByRole('button', { name: 'Mateo Rivera wins' })).toHaveAttribute('aria-pressed', 'true')
+    const how = within(sheet).getByRole('group', { name: 'How it was won' })
+    await userEvent.setup().click(within(how).getByRole('button', { name: 'DQ' }))
+    expect(picked).toEqual(['dq'])
+  })
+
+  // A terminal carries its own type and a points lead is a points win. Offering a word
+  // there would invite a referee to contradict the match's own record of itself.
+  it('never asks how a match that settled itself was won', async () => {
+    renderSheet({ reason: 'end', shown: decided, changed: null, winner: 200, winType: 'points' })
+    const sheet = await screen.findByRole('dialog')
+    expect(within(sheet).queryByRole('group', { name: 'How it was won' })).not.toBeInTheDocument()
+  })
 
   // The refusal returned synchronously with the newly derived winner already set and the
   // affirmative still enabled, in place and immediately valid, so the second half of a
