@@ -1,8 +1,9 @@
 import { asc, eq } from 'drizzle-orm'
 import type { DbLike } from '../db/client.js'
 import { events, teams, athletes, rulesets, mats, matches, type MatchRow, type AthleteRow, type EventRow } from '../db/schema.js'
-import { ON_DECK_DEPTH, type Snapshot, type MatchView, type MatchSide, type MatView, type TeamView, type TeamColor, type EventContact, type Feed, type FeedTake } from '../shared/types.js'
+import { ON_DECK_DEPTH, SCORING_CAP, type Snapshot, type MatchView, type MatchSide, type MatView, type TeamView, type TeamColor, type EventContact, type Feed, type FeedTake } from '../shared/types.js'
 import { rankTeams } from '../shared/leaderboard.js'
+import { scoringSet, teamPointsFor } from '../shared/scoring.js'
 import { MatchStateError, endedAtByMatch } from '../match/events.js'
 import { effectiveLengthMs } from '../match/derive.js'
 import type { TokenPayload } from '../auth/tokens.js'
@@ -126,11 +127,15 @@ export async function buildSnapshot(db: DbLike, eventId: number, opts: SnapshotO
   const numberOf = (matchId: number) => numberById.get(matchId) ?? null
   const views = matchRows.map(m => toMatchView(m, athleteById, endedAtById.get(m.id) ?? null, opts.names ?? 'public', numberOf))
 
-  const tally = new Map<number, { wins: number; points: number }>(teamRows.map(t => [t.id, { wins: 0, points: 0 }]))
-  const add = (teamId: number | null, wins: number, points: number) => {
+  const kidsByTeam = new Map<number, AthleteRow[]>(teamRows.map(t => [t.id, []]))
+  for (const a of athleteRows) if (a.teamId !== null) kidsByTeam.get(a.teamId)?.push(a)
+  const scorers = new Map(teamRows.map(t => [t.id, scoringSet(kidsByTeam.get(t.id) ?? [])]))
+  const tally = new Map<number, { teamPoints: number; wins: number; points: number }>(teamRows.map(t => [t.id, { teamPoints: 0, wins: 0, points: 0 }]))
+  const add = (teamId: number | null, wins: number, points: number, teamPoints = 0) => {
     if (teamId === null) return
     const t = tally.get(teamId)
     if (t) {
+      t.teamPoints += teamPoints
       t.wins += wins
       t.points += points
     }
@@ -138,13 +143,22 @@ export async function buildSnapshot(db: DbLike, eventId: number, opts: SnapshotO
   for (const v of views) {
     add(v.a.teamId, 0, v.a.score)
     add(v.b.teamId, 0, v.b.score)
-    if (v.status === 'done' && v.result) add(v.result.winnerAthleteId === v.a.athleteId ? v.a.teamId : v.b.teamId, 1, 0)
+    if (v.status === 'done' && v.result) {
+      // Every win counts as a win; only a win by a scoring kid earns the team points.
+      const winner = v.result.winnerAthleteId === v.a.athleteId ? v.a : v.b
+      const scores = winner.teamId !== null && (scorers.get(winner.teamId)?.has(v.result.winnerAthleteId) ?? false)
+      add(winner.teamId, 1, 0, scores ? teamPointsFor(v.result.winType) : 0)
+    }
   }
 
-  const teamViews: TeamView[] = teamRows.map(t => ({
-    id: t.id, name: t.name, color: t.color as TeamColor, position: t.position,
-    wins: tally.get(t.id)?.wins ?? 0, points: tally.get(t.id)?.points ?? 0,
-  }))
+  const teamViews: TeamView[] = teamRows.map(t => {
+    const kids = kidsByTeam.get(t.id) ?? []
+    return {
+      id: t.id, name: t.name, color: t.color as TeamColor, position: t.position,
+      teamPoints: tally.get(t.id)?.teamPoints ?? 0, wins: tally.get(t.id)?.wins ?? 0, points: tally.get(t.id)?.points ?? 0,
+      scoring: { marked: kids.filter(k => k.scoring).length, size: kids.length, everyone: kids.length <= SCORING_CAP },
+    }
+  })
   // Which mat each kid on a mat right now is on, so an idle mat can say who it is waiting
   // for by name rather than only that something is in the way.
   const matNumberById = new Map(matRows.map(m => [m.id, m.number]))

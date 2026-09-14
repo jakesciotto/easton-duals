@@ -71,6 +71,8 @@ export const athletes = sqliteTable('athletes', {
   suggestedWlUid: text('suggested_wl_uid'),
   suggestedScore: real('suggested_score'),
   dismissedWlUids: text('dismissed_wl_uids', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  // Marked to score for the team. Read only when the team is larger than the cap.
+  scoring: integer('scoring', { mode: 'boolean' }).notNull().default(false),
 }, t => [
   index('athletes_event_idx').on(t.eventId),
   uniqueIndex('athletes_event_wl_uid_idx').on(t.eventId, t.wlUid),
@@ -161,7 +163,7 @@ export const matches = sqliteTable('matches', {
   feedBTake: text('feed_b_take', { enum: ['winner', 'loser'] }).$type<FeedTake>(),
   status: text('status', { enum: ['pending', 'live', 'done'] }).notNull().default('pending'),
   winnerAthleteId: integer('winner_athlete_id'),
-  winType: text('win_type', { enum: ['submission', 'points', 'decision'] }),
+  winType: text('win_type', { enum: ['submission', 'points', 'decision', 'walkover', 'dq'] }),
   pointsA: integer('points_a').notNull().default(0),
   pointsB: integer('points_b').notNull().default(0),
   clockElapsedMs: integer('clock_elapsed_ms').notNull().default(0),

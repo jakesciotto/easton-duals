@@ -1,4 +1,4 @@
-export type WinType = 'submission' | 'points' | 'decision'
+export type WinType = 'submission' | 'points' | 'decision' | 'walkover' | 'dq'
 export type MatchStatus = 'pending' | 'live' | 'done'
 /**
  * 'certified' is the record the organizer signed off on. It reads as done everywhere a
@@ -196,14 +196,17 @@ export interface MatchView {
   lastSeq: number
 }
 
-export interface TeamView { id: number; name: string; color: TeamColor; position: number; wins: number; points: number }
+// How many of the team's kids are marked to score, how many kids it has, and whether the
+// cap is moot because the team fits inside it.
+export interface TeamScoring { marked: number; size: number; everyone: boolean }
+export interface TeamView { id: number; name: string; color: TeamColor; position: number; teamPoints: number; wins: number; points: number; scoring: TeamScoring }
 
 /**
  * One line of the board's hero. Teams are ranked by wins, then points, then the order
  * they were added in; two teams level on both share a rank, and the next team down takes
  * the rank its position in the list gives it (1, 1, 3).
  */
-export interface LeaderboardRow { teamId: number; rank: number; wins: number; points: number }
+export interface LeaderboardRow { teamId: number; rank: number; teamPoints: number; wins: number; points: number }
 export interface RulesetView { id: number; name: string; defaultLengthSec: number; actions: RulesetAction[]; terminals: RulesetTerminal[] }
 /**
  * `blocked` is why an idle mat with a queue is not showing anything: the first match in
@@ -232,6 +235,11 @@ export interface Snapshot {
 // deepest consumer's need, because a shallower cap silently starves a line the
 // board has already reserved room for.
 export const ON_DECK_DEPTH = 5
+
+// A team scores with at most this many kids. A smaller team scores with every kid.
+export const SCORING_CAP = 10
+// What a win by a scoring kid is worth to the team, by how it was won.
+export const TEAM_POINTS: Record<WinType, number> = { submission: 3, points: 2, decision: 1, walkover: 1, dq: 1 }
 
 // An event is a duel between at least two teams and at most the eight colours below.
 export const MIN_TEAMS = 2

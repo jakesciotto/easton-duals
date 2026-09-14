@@ -5,7 +5,7 @@ import { buildSnapshot } from '../src/live/snapshot.js'
 import { rankTeams } from '../src/shared/leaderboard.js'
 import { appendMatchEvent, endMatch, bumpVersion } from '../src/match/events.js'
 import { advanceMat, reopenMatch } from '../src/match/mats.js'
-import { mats, matches } from '../src/db/schema.js'
+import { athletes, mats, matches } from '../src/db/schema.js'
 import { createMatch } from '../src/match/create.js'
 import { ON_DECK_DEPTH } from '../src/shared/types.js'
 
@@ -51,28 +51,33 @@ describe('buildSnapshot', () => {
     const flat = await buildSnapshot(db, s.eventId, opts)
     // Nothing has been fought, so every team is tied at the top.
     expect(flat.leaderboard).toEqual([
-      { teamId: s.teamA, rank: 1, wins: 0, points: 0 },
-      { teamId: s.teamB, rank: 1, wins: 0, points: 0 },
-      { teamId: s.teamC, rank: 1, wins: 0, points: 0 },
+      { teamId: s.teamA, rank: 1, teamPoints: 0, wins: 0, points: 0 },
+      { teamId: s.teamB, rank: 1, teamPoints: 0, wins: 0, points: 0 },
+      { teamId: s.teamC, rank: 1, teamPoints: 0, wins: 0, points: 0 },
     ])
 
     await appendMatchEvent(db, { id: 'e1', matchId: s.matchIds[0], type: 'score', athleteId: s.b1, actionKey: 'mount', lastSeq: 0 })
     await endMatch(db, { id: 'end1', matchId: s.matchIds[0], lastSeq: 1 })
     const won = await buildSnapshot(db, s.eventId, opts)
     expect(won.leaderboard).toEqual([
-      { teamId: s.teamB, rank: 1, wins: 1, points: 4 },
-      { teamId: s.teamA, rank: 2, wins: 0, points: 0 },
-      { teamId: s.teamC, rank: 2, wins: 0, points: 0 },
+      { teamId: s.teamB, rank: 1, teamPoints: 2, wins: 1, points: 4 },
+      { teamId: s.teamA, rank: 2, teamPoints: 0, wins: 0, points: 0 },
+      { teamId: s.teamC, rank: 2, teamPoints: 0, wins: 0, points: 0 },
     ])
-    // The tie above pushes the third team to 3, not to 2.
+    // The tie above pushes the third team to 3, not to 2. Team points rank first, then
+    // wins, then match points, then position.
     expect(rankTeams([
-      { id: 10, wins: 2, points: 9, position: 1 },
-      { id: 11, wins: 2, points: 9, position: 0 },
-      { id: 12, wins: 2, points: 4, position: 2 },
+      { id: 10, teamPoints: 5, wins: 2, points: 9, position: 1 },
+      { id: 11, teamPoints: 5, wins: 2, points: 9, position: 0 },
+      { id: 12, teamPoints: 5, wins: 2, points: 4, position: 2 },
+      { id: 13, teamPoints: 4, wins: 9, points: 40, position: 3 },
+      { id: 14, teamPoints: 5, wins: 1, points: 50, position: 4 },
     ])).toEqual([
-      { teamId: 11, rank: 1, wins: 2, points: 9 },
-      { teamId: 10, rank: 1, wins: 2, points: 9 },
-      { teamId: 12, rank: 3, wins: 2, points: 4 },
+      { teamId: 11, rank: 1, teamPoints: 5, wins: 2, points: 9 },
+      { teamId: 10, rank: 1, teamPoints: 5, wins: 2, points: 9 },
+      { teamId: 12, rank: 3, teamPoints: 5, wins: 2, points: 4 },
+      { teamId: 14, rank: 4, teamPoints: 5, wins: 1, points: 50 },
+      { teamId: 13, rank: 5, teamPoints: 4, wins: 9, points: 40 },
     ])
     expect(rankTeams([])).toEqual([])
   })
@@ -202,5 +207,39 @@ describe('public names', () => {
     expect(publicName('Mateo', 'Rivera')).toBe('Mateo R.')
     expect(publicName('Mateo', '')).toBe('Mateo')
     expect(publicName(' Ava ', ' park')).toBe('Ava P.')
+  })
+})
+
+describe('team points', () => {
+  it('pays a scoring kid\'s win by how it was won, and a team inside the cap scores with everyone', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 1, live: true })
+    await appendMatchEvent(db, { id: 't1', matchId: s.matchIds[0], type: 'terminal', athleteId: s.a1, actionKey: 'submission', lastSeq: 0 })
+    await endMatch(db, { id: 'end1', matchId: s.matchIds[0], lastSeq: 1 })
+    const snap = await buildSnapshot(db, s.eventId, opts)
+    expect(snap.teams.map(t => [t.teamPoints, t.wins, t.scoring])).toEqual([
+      [3, 1, { marked: 0, size: 2, everyone: true }],
+      [0, 0, { marked: 0, size: 2, everyone: true }],
+    ])
+    expect(snap.leaderboard[0]).toEqual({ teamId: s.teamA, rank: 1, teamPoints: 3, wins: 1, points: 0 })
+  })
+
+  it('counts a win by an unmarked kid on a large team as a win with no team points', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 1, live: true })
+    await db.insert(athletes).values(Array.from({ length: 9 }, (_, i) => ({
+      eventId: s.eventId, teamId: s.teamA, firstName: `Kid${i}`, lastName: 'Ridge', source: 'manual' as const,
+    }))).run()
+    await db.update(athletes).set({ scoring: true }).where(eq(athletes.id, s.a2)).run()
+    await appendMatchEvent(db, { id: 'e1', matchId: s.matchIds[0], type: 'score', athleteId: s.a1, actionKey: 'mount', lastSeq: 0 })
+    await endMatch(db, { id: 'end1', matchId: s.matchIds[0], lastSeq: 1 })
+    let snap = await buildSnapshot(db, s.eventId, opts)
+    expect(snap.teams[0]).toMatchObject({ teamPoints: 0, wins: 1, scoring: { marked: 1, size: 11, everyone: false } })
+
+    await advanceMat(db, s.matIds[0], 'admin')
+    await endMatch(db, { id: 'end2', matchId: s.matchIds[1], lastSeq: 0, winnerAthleteId: s.a2 })
+    snap = await buildSnapshot(db, s.eventId, opts)
+    expect(snap.teams[0]).toMatchObject({ teamPoints: 1, wins: 2 })
+    expect(snap.matches.find(m => m.id === s.matchIds[1])?.result?.winType).toBe('decision')
   })
 })

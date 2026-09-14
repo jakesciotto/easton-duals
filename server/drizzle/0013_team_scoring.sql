@@ -1,0 +1,1 @@
+ALTER TABLE `athletes` ADD `scoring` integer DEFAULT false NOT NULL;
