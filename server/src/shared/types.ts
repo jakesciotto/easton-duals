@@ -202,9 +202,9 @@ export interface TeamScoring { marked: number; size: number; everyone: boolean }
 export interface TeamView { id: number; name: string; color: TeamColor; position: number; teamPoints: number; wins: number; points: number; scoring: TeamScoring }
 
 /**
- * One line of the board's hero. Teams are ranked by wins, then points, then the order
- * they were added in; two teams level on both share a rank, and the next team down takes
- * the rank its position in the list gives it (1, 1, 3).
+ * One line of the board's hero. Teams are ranked by team points, then wins, then match
+ * points, then the order they were added in; teams level on the first three share a rank,
+ * and the next team down takes the rank its position in the list gives it (1, 1, 3).
  */
 export interface LeaderboardRow { teamId: number; rank: number; teamPoints: number; wins: number; points: number }
 export interface RulesetView { id: number; name: string; defaultLengthSec: number; actions: RulesetAction[]; terminals: RulesetTerminal[] }
