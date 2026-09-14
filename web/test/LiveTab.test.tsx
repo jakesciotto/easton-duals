@@ -18,7 +18,7 @@ afterEach(() => vi.unstubAllGlobals())
 const SERVER_NOW = '2026-10-03T16:00:00.000Z'
 
 const detail: EventDetail = {
-  event: { id: 1, name: 'Fall Duels', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'live', mode: 'live', sameGender: false, createdAt: 'x' },
+  event: { id: 1, name: 'Fall Duals', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'live', mode: 'live', sameGender: false, createdAt: 'x' },
   teams: [{ id: 1, eventId: 1, name: 'Ridgeline', color: 'red', position: 0 }, { id: 2, eventId: 1, name: 'Lakeside', color: 'blue', position: 1 }],
   athletes: [], rulesets: [], mats: [{ id: 1, eventId: 1, number: 1, currentMatchId: 10 }], matches: [], divisions: [], candidateCount: 0,
 }
@@ -564,7 +564,7 @@ describe('LiveTab', () => {
   it('replaces the rack with the record once the event is finished', async () => {
     const feed = snapshotFeed(sampleSnapshot({
       now: SERVER_NOW,
-      event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
+      event: { id: 1, name: 'Fall Duals', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
       teams: [
         { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 42 },
         { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 31 },
@@ -588,7 +588,7 @@ describe('LiveTab', () => {
   it('lands the final result head and rows on the same fixed track', async () => {
     const feed = snapshotFeed(sampleSnapshot({
       now: SERVER_NOW,
-      event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
+      event: { id: 1, name: 'Fall Duals', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
       teams: [
         { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 42 },
         { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 31 },
@@ -622,7 +622,7 @@ describe('LiveTab certification', () => {
 
   const record = (status: EventStatus, over: Partial<Snapshot['event']> = {}) => snapshotFeed(sampleSnapshot({
     now: SERVER_NOW,
-    event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status, mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null, ...over },
+    event: { id: 1, name: 'Fall Duals', date: '2026-10-03', status, mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null, ...over },
     teams: [
       { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 42 },
       { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 31 },
@@ -745,7 +745,7 @@ describe('LiveTab certification', () => {
     // certified on the stream. It still moves, which is what releases the pin.
     feed.push(sampleSnapshot({
       now: SERVER_NOW,
-      event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
+      event: { id: 1, name: 'Fall Duals', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
       teams: [
         { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 42 },
         { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 31 },
@@ -773,7 +773,7 @@ describe('LiveTab certification', () => {
 
     feed.push(sampleSnapshot({
       now: SERVER_NOW,
-      event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'certified', mode: 'live', matCount: 1, contact: null, certifiedAt, far: null },
+      event: { id: 1, name: 'Fall Duals', date: '2026-10-03', status: 'certified', mode: 'live', matCount: 1, contact: null, certifiedAt, far: null },
       teams: [
         { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 42 },
         { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 31 },

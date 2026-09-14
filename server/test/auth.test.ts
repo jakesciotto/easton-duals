@@ -56,7 +56,7 @@ describe('clientIp', () => {
   }
 
   it('cloud mode (publicUrl set): prefers the leftmost x-forwarded-for entry, then x-real-ip', async () => {
-    const app = build('https://duels.example.com')
+    const app = build('https://duals.example.com')
     const forwarded = await app.request('/ip', { headers: { 'x-forwarded-for': ' 203.0.113.7 , 70.41.3.18 ', 'x-real-ip': '198.51.100.5' } })
     expect(await forwarded.json()).toEqual({ ip: '203.0.113.7' })
     const real = await app.request('/ip', { headers: { 'x-real-ip': ' 198.51.100.5 ' } })
@@ -64,7 +64,7 @@ describe('clientIp', () => {
   })
 
   it('cloud mode (publicUrl set): falls back when no proxy header is present', async () => {
-    const app = build('https://duels.example.com')
+    const app = build('https://duals.example.com')
     const r = await app.request('/ip')
     expect((await r.json()).ip).toBe('unknown')
   })

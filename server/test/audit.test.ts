@@ -173,25 +173,25 @@ describe('audit log, the event', () => {
   it('records the create, and one row per concern a patch changes', async () => {
     const { app, db, adminToken } = await createTestApp()
     const created = await call(app, 'POST', '/api/events', {
-      name: 'Fall Duels', date: '2026-10-03', matCount: 2,
+      name: 'Fall Duals', date: '2026-10-03', matCount: 2,
       teams: [{ name: 'Ridgeline', color: 'red' }, { name: 'Lakeside', color: 'blue' }],
     }, adminToken)
     expect(created.status).toBe(201)
     const eventId = created.body.event.id
     expect(await last(db, eventId)).toMatchObject({
       actor: 'admin', action: 'create',
-      detail: { name: 'Fall Duels', date: '2026-10-03', matCount: 2, mode: 'live', teams: ['Ridgeline', 'Lakeside'] },
+      detail: { name: 'Fall Duals', date: '2026-10-03', matCount: 2, mode: 'live', teams: ['Ridgeline', 'Lakeside'] },
     })
 
     await call(app, 'PATCH', `/api/events/${eventId}`, {
-      name: 'Fall Duels 2026', mode: 'entry', matCount: 3, contactName: 'Dana Vale', contactPhone: '555 0147',
+      name: 'Fall Duals 2026', mode: 'entry', matCount: 3, contactName: 'Dana Vale', contactPhone: '555 0147',
     }, adminToken)
     expect(await actions(db, eventId)).toEqual([
       'admin create', 'admin mat_count', 'admin event_edit', 'admin mode', 'admin contact',
     ])
     const all = await rows(db, eventId)
     expect(all[1].detail).toEqual({ from: 2, to: 3 })
-    expect(all[2].detail).toEqual({ name: 'Fall Duels 2026' })
+    expect(all[2].detail).toEqual({ name: 'Fall Duals 2026' })
     expect(all[3].detail).toEqual({ from: 'live', to: 'entry' })
     expect(all[4].detail).toEqual({ name: 'Dana Vale', phone: '555 0147' })
   })
@@ -201,11 +201,11 @@ describe('audit log, the event', () => {
     const s = await seedEvent(db)
     const url = `/api/events/${s.eventId}`
     // The console posts the whole form, so the date repeats what is stored.
-    await call(app, 'PATCH', url, { name: 'Fall Duels 2026', date: '2026-10-03' }, adminToken)
+    await call(app, 'PATCH', url, { name: 'Fall Duals 2026', date: '2026-10-03' }, adminToken)
     const edits = (await rows(db, s.eventId)).filter(r => r.action === 'event_edit')
-    expect(edits.map(r => r.detail)).toEqual([{ name: 'Fall Duels 2026' }])
+    expect(edits.map(r => r.detail)).toEqual([{ name: 'Fall Duals 2026' }])
 
-    await call(app, 'PATCH', url, { name: 'Fall Duels 2026', date: '2026-10-03', sameGender: false }, adminToken)
+    await call(app, 'PATCH', url, { name: 'Fall Duals 2026', date: '2026-10-03', sameGender: false }, adminToken)
     expect((await rows(db, s.eventId)).filter(r => r.action === 'event_edit')).toHaveLength(1)
   })
 
@@ -242,7 +242,7 @@ describe('audit log, the event', () => {
     const other = await seedEvent(db)
     expect((await call(app, 'DELETE', `/api/events/${other.eventId}`, undefined, adminToken)).status).toBe(204)
     expect(await db.select().from(events).where(eq(events.id, other.eventId)).get()).toBeUndefined()
-    expect(await last(db, other.eventId)).toMatchObject({ action: 'delete', detail: { name: 'Fall Duels', date: '2026-10-03' } })
+    expect(await last(db, other.eventId)).toMatchObject({ action: 'delete', detail: { name: 'Fall Duals', date: '2026-10-03' } })
   })
 })
 

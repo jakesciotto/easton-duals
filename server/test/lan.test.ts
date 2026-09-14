@@ -11,10 +11,10 @@ describe('GET /api/lan', () => {
   })
 
   it('serves the public url instead when the context sets one', async () => {
-    const { app } = await createTestApp({ port: 8422, publicUrl: 'https://www.eastonduels.com' })
+    const { app } = await createTestApp({ port: 8422, publicUrl: 'https://www.eastonduals.com' })
     const r = await call(app, 'GET', '/api/lan')
     expect(r.status).toBe(200)
-    expect(r.body.url).toBe('https://www.eastonduels.com')
+    expect(r.body.url).toBe('https://www.eastonduals.com')
   })
 })
 
@@ -29,11 +29,11 @@ describe('GET /api/events/:eventId/connect', () => {
   })
 
   it('hands out the public url instead when the context sets one', async () => {
-    const { app, db, adminToken } = await createTestApp({ port: 8422, publicUrl: 'https://www.eastonduels.com' })
+    const { app, db, adminToken } = await createTestApp({ port: 8422, publicUrl: 'https://www.eastonduals.com' })
     const s = await seedEvent(db)
     const r = await call(app, 'GET', `/api/events/${s.eventId}/connect`, undefined, adminToken)
     expect(r.status).toBe(200)
-    expect(r.body.url).toBe('https://www.eastonduels.com')
+    expect(r.body.url).toBe('https://www.eastonduals.com')
     expect(r.body.matCode).toBe('0420')
   })
 })

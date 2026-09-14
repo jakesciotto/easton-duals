@@ -12,7 +12,7 @@ const DRIZZLE = path.join(import.meta.dirname, '../drizzle')
 // last sync found. Migrated to 0009 first, where none of the columns exist yet, so the
 // adds run against real rows rather than an empty table.
 async function dbAt0009() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duels-mig-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-mig-'))
   const folder = path.join(dir, 'drizzle')
   fs.cpSync(DRIZZLE, folder, { recursive: true })
   const journal = JSON.parse(fs.readFileSync(path.join(DRIZZLE, 'meta/_journal.json'), 'utf8'))
@@ -32,7 +32,7 @@ async function dbAt0009() {
 async function seedAt0009(db: Awaited<ReturnType<typeof dbAt0009>>['db']) {
   await db.run(sql`insert into events
     (id, name, date, mat_count, mat_code, status, mode, same_gender, created_at)
-    values (1, 'Fall Duels', '2026-10-03', 2, '0420', 'setup', 'live', 0, '2026-10-03T15:00:00.000Z')`)
+    values (1, 'Fall Duals', '2026-10-03', 2, '0420', 'setup', 'live', 0, '2026-10-03T15:00:00.000Z')`)
   await db.run(sql`insert into athletes
     (id, event_id, first_name, last_name, belt, source, wl_uid)
     values (1, 1, 'Mateo', 'Rivera', 'grey', 'wl', 'w1')`)
@@ -57,7 +57,7 @@ describe('migration 0010 adds the profile sync columns', () => {
       expect((await db.all<{ name: string }>(sql`pragma table_info(roster_candidates)`)).map(c => c.name)).toContain('promoted_at')
 
       const ev = await db.get<Record<string, unknown>>(sql`select * from events where id = 1`)
-      expect(ev).toMatchObject({ id: 1, name: 'Fall Duels', mat_code: '0420', wl_locations: null })
+      expect(ev).toMatchObject({ id: 1, name: 'Fall Duals', mat_code: '0420', wl_locations: null })
       const kid = await db.get<Record<string, unknown>>(sql`select * from athletes where id = 1`)
       expect(kid).toMatchObject({
         id: 1, first_name: 'Mateo', last_name: 'Rivera', belt: 'grey', wl_uid: 'w1',

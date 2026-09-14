@@ -40,7 +40,7 @@ const match = (id: number, rulesetId: number, status: MatchRow['status'] = 'pend
 })
 
 const detail: EventDetail = {
-  event: { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 1, matCode: '0420', mode: 'live', status: 'setup', sameGender: false, createdAt: 'x' },
+  event: { id: 7, name: 'Fall Duals', date: '2026-10-03', matCount: 1, matCode: '0420', mode: 'live', status: 'setup', sameGender: false, createdAt: 'x' },
   teams: [], athletes: [], mats: [], matches: [], divisions: [], candidateCount: 0,
   rulesets: [ruleset],
 }

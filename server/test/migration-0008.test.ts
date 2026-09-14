@@ -12,7 +12,7 @@ const DRIZZLE = path.join(import.meta.dirname, '../drizzle')
 // go. Migrated to 0007 first, where max_age_gap and max_weight_gap still exist, so the
 // drop is exercised against a real event row rather than an empty table.
 async function dbAt0007() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duels-mig-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-mig-'))
   const folder = path.join(dir, 'drizzle')
   fs.cpSync(DRIZZLE, folder, { recursive: true })
   const journal = JSON.parse(fs.readFileSync(path.join(DRIZZLE, 'meta/_journal.json'), 'utf8'))
@@ -35,7 +35,7 @@ describe('migration 0008 drops the age and weight gap columns', () => {
     try {
       await db.run(sql`insert into events
         (id, name, date, mat_count, mat_code, status, mode, max_age_gap, max_weight_gap, same_gender, created_at)
-        values (1, 'Fall Duels', '2026-10-03', 2, '0420', 'setup', 'live', 2, 15, 1, '2026-10-03T15:00:00.000Z')`)
+        values (1, 'Fall Duals', '2026-10-03', 2, '0420', 'setup', 'live', 2, 15, 1, '2026-10-03T15:00:00.000Z')`)
 
       await to0008()
 
@@ -47,7 +47,7 @@ describe('migration 0008 drops the age and weight gap columns', () => {
       const row = await db.get<Record<string, unknown>>(sql`select * from events where id = 1`)
       expect(row).toMatchObject({
         id: 1,
-        name: 'Fall Duels',
+        name: 'Fall Duals',
         date: '2026-10-03',
         mat_count: 2,
         mat_code: '0420',

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { DEV_DB_PATH, applyDevDefaults, loadDotEnv } from '../src/lib/env.js'
 
-const dir = mkdtempSync(path.join(tmpdir(), 'duels-env-test-'))
+const dir = mkdtempSync(path.join(tmpdir(), 'duals-env-test-'))
 const file = path.join(dir, '.env')
 writeFileSync(file, 'ADMIN_PIN=654321\n')
 
@@ -35,7 +35,7 @@ describe('loadDotEnv', () => {
 
 describe('applyDevDefaults', () => {
   it('points the dev server at a local file when nothing says otherwise', () => {
-    const env: Record<string, string | undefined> = { TURSO_DATABASE_URL: 'libsql://duels-example.turso.io' }
+    const env: Record<string, string | undefined> = { TURSO_DATABASE_URL: 'libsql://duals-example.turso.io' }
     expect(applyDevDefaults(env)).toBe(DEV_DB_PATH)
     expect(env.DB_PATH).toBe(DEV_DB_PATH)
   })
@@ -44,8 +44,15 @@ describe('applyDevDefaults', () => {
     expect(applyDevDefaults(env)).toBe('./data/other.db')
   })
   it('keeps the remote target only when the operator opts in', () => {
-    const env: Record<string, string | undefined> = { DUELS_DEV_REMOTE: '1', TURSO_DATABASE_URL: 'libsql://duels-example.turso.io' }
+    const env: Record<string, string | undefined> = { DUALS_DEV_REMOTE: '1', TURSO_DATABASE_URL: 'libsql://duals-example.turso.io' }
     expect(applyDevDefaults(env)).toBeNull()
     expect(env.DB_PATH).toBeUndefined()
+  })
+})
+
+describe('the old spelling of the dev switch', () => {
+  it('still keeps the remote target for one release', () => {
+    const env: Record<string, string | undefined> = { DUELS_DEV_REMOTE: '1', TURSO_DATABASE_URL: 'libsql://duals-example.turso.io' }
+    expect(applyDevDefaults(env)).toBeNull()
   })
 })

@@ -31,7 +31,7 @@ const main = async () => {
   app.use('*', serveStatic({ root: './public' }))
   app.use('*', serveStatic({ root: './public', rewriteRequestPath: () => '/index.html' }))
 
-  serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, () => console.log(`duels on http://${lanIp()}:${port}`))
+  serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, () => console.log(`duals on http://${lanIp()}:${port}`))
 }
 
 void main()

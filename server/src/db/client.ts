@@ -12,12 +12,18 @@ export type Db = ReturnType<typeof createDb>
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 export type DbLike = Db | Tx
 
+const DB_FILE = 'duals.db'
+const OLD_DB_FILE = 'duels.db'
+
 // An explicit DB_PATH wins over Turso: e2e and any local run that names its own file must
 // never be redirected to the remote database just because .env carries cloud credentials.
 export function dbUrlFromEnv(env: Record<string, string | undefined>): { url: string; authToken?: string } {
   if (env.DB_PATH) return { url: `file:${env.DB_PATH}` }
   if (env.TURSO_DATABASE_URL) return { url: env.TURSO_DATABASE_URL, authToken: env.TURSO_AUTH_TOKEN }
-  return { url: `file:${path.join(env.DATA_DIR ?? './data', 'duels.db')}` }
+  // The file was named duels.db before the rename; a box that already holds one keeps it.
+  const dir = env.DATA_DIR ?? './data'
+  const file = !fs.existsSync(path.join(dir, DB_FILE)) && fs.existsSync(path.join(dir, OLD_DB_FILE)) ? OLD_DB_FILE : DB_FILE
+  return { url: `file:${path.join(dir, file)}` }
 }
 
 // Turso intermittently rejects correctly-authorized requests with 401 from serverless

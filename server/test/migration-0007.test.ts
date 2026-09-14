@@ -13,7 +13,7 @@ const DRIZZLE = path.join(import.meta.dirname, '../drizzle')
 // way that proves anything: migrate to 0006, write the match events an afternoon would
 // have left there, then let 0007 run for real.
 async function dbAt0006() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duels-mig-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-mig-'))
   const folder = path.join(dir, 'drizzle')
   fs.cpSync(DRIZZLE, folder, { recursive: true })
   const journal = JSON.parse(fs.readFileSync(path.join(DRIZZLE, 'meta/_journal.json'), 'utf8'))
@@ -34,7 +34,7 @@ describe('migration 0007 backfill', () => {
   it('writes one audit row per match event, with the actor read off the id prefix', async () => {
     const { db, to0007, cleanup } = await dbAt0006()
     try {
-      await db.run(sql`insert into events (id, name, date, mat_count, mat_code, created_at) values (1, 'Fall Duels', '2026-10-03', 2, '0420', '2026-10-03T15:00:00.000Z')`)
+      await db.run(sql`insert into events (id, name, date, mat_count, mat_code, created_at) values (1, 'Fall Duals', '2026-10-03', 2, '0420', '2026-10-03T15:00:00.000Z')`)
       await db.run(sql`insert into athletes (id, event_id, first_name, last_name, source) values (1, 1, 'Mateo', 'Rivera', 'manual'), (2, 1, 'Olivia', 'Kim', 'manual')`)
       await db.run(sql`insert into rulesets (id, event_id, name, default_length_sec, actions, terminals) values (1, 1, 'Default', 300, '[]', '[]')`)
       await db.run(sql`insert into mats (id, event_id, number) values (1, 1, 3)`)
@@ -70,7 +70,7 @@ describe('migration 0007 backfill', () => {
   it('leaves the certified_at column empty and every event status untouched', async () => {
     const { db, to0007, cleanup } = await dbAt0006()
     try {
-      await db.run(sql`insert into events (id, name, date, mat_count, mat_code, status, created_at) values (1, 'Fall Duels', '2026-10-03', 1, '0420', 'done', '2026-10-03T15:00:00.000Z')`)
+      await db.run(sql`insert into events (id, name, date, mat_count, mat_code, status, created_at) values (1, 'Fall Duals', '2026-10-03', 1, '0420', 'done', '2026-10-03T15:00:00.000Z')`)
       await to0007()
       const row = await db.get<{ status: string; certified_at: string | null }>(sql`select status, certified_at from events where id = 1`)
       expect(row).toEqual({ status: 'done', certified_at: null })

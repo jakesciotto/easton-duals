@@ -11,7 +11,7 @@ vi.mock('@/lib/sounds', () => ({
   playRegistered: vi.fn(), playExpired: vi.fn(), playRejected: vi.fn(), unlockAudio: vi.fn(),
 }))
 
-const binding: MatBinding = { eventId: 1, matId: 1, matNumber: 1, eventName: 'Fall Duels', token: 'mat-tok' }
+const binding: MatBinding = { eventId: 1, matId: 1, matNumber: 1, eventName: 'Fall Duals', token: 'mat-tok' }
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 

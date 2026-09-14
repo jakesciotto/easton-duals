@@ -72,7 +72,7 @@ describe('MatPickPage', () => {
     const f = fakeFetch((url, init) => {
       if (url === '/api/events/1/snapshot') return { json: { version: 1, snapshot: sampleSnapshot({ mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }, { id: 2, number: 2, current: null, onDeck: [], bound: false, blocked: null }] }) } }
       if (url === '/api/events/1/mats/2/bind') return JSON.parse(String(init?.body)).code === '0420'
-        ? { json: { token: 'mat-tok', mat: { id: 2, number: 2 }, event: { id: 1, name: 'Fall Duels' } } }
+        ? { json: { token: 'mat-tok', mat: { id: 2, number: 2 }, event: { id: 1, name: 'Fall Duals' } } }
         : { status: 401, json: { error: { code: 'bad_code', message: 'wrong mat code' } } }
       return { json: {} }
     })
@@ -85,13 +85,13 @@ describe('MatPickPage', () => {
     await typeMatCode(user, '0420')
     await user.click(screen.getByRole('button', { name: 'Bind this iPad' }))
     await vi.waitFor(() => expect(router.state.location.pathname).toBe('/mat/2'))
-    expect(getMatBinding()).toEqual({ eventId: 1, matId: 2, matNumber: 2, eventName: 'Fall Duels', token: 'mat-tok' })
+    expect(getMatBinding()).toEqual({ eventId: 1, matId: 2, matNumber: 2, eventName: 'Fall Duals', token: 'mat-tok' })
     expect(f.calls.some(c => c.url === '/api/events/1/mats/2/bind')).toBe(true)
   })
 
   it('offers to open or unbind an existing binding, and tells the server about the unbind', async () => {
     const f = fakeFetch(() => ({ json: {} }))
-    setMatBinding({ eventId: 1, matId: 2, matNumber: 2, eventName: 'Fall Duels', token: 'mat-tok' })
+    setMatBinding({ eventId: 1, matId: 2, matNumber: 2, eventName: 'Fall Duals', token: 'mat-tok' })
     mount('/mat')
     expect(await screen.findByText(/bound to Mat 2/)).toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Unbind this device' }))
@@ -105,16 +105,16 @@ describe('MatPickPage', () => {
     fakeFetch(url => {
       if (url === '/api/events/5/snapshot') {
         return { json: { version: 1, snapshot: sampleSnapshot({
-          event: { id: 5, name: 'Winter Duels', date: '2026-11-01', status: 'live', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
+          event: { id: 5, name: 'Winter Duals', date: '2026-11-01', status: 'live', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
           mats: [{ id: 3, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
         }) } }
       }
       return { json: {} }
     })
-    setMatBinding({ eventId: 1, matId: 2, matNumber: 2, eventName: 'Fall Duels', token: 'mat-tok' })
+    setMatBinding({ eventId: 1, matId: 2, matNumber: 2, eventName: 'Fall Duals', token: 'mat-tok' })
     mount('/mat?event=5')
     expect(await screen.findByRole('button', { name: 'Mat 1' })).toBeInTheDocument()
-    expect(screen.getByText(/bound to Fall Duels, mat 2/)).toBeInTheDocument()
+    expect(screen.getByText(/bound to Fall Duals, mat 2/)).toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Unbind this device' }))
     expect(getMatBinding()).toBeNull()
   })
@@ -123,7 +123,7 @@ describe('MatPickPage', () => {
     fakeFetch(url => {
       if (url === '/api/events/9/snapshot') {
         return { json: { version: 1, snapshot: sampleSnapshot({
-          event: { id: 9, name: 'Empty Duels', date: '2026-12-01', status: 'setup', mode: 'live', matCount: 0, contact: null, certifiedAt: null, far: null },
+          event: { id: 9, name: 'Empty Duals', date: '2026-12-01', status: 'setup', mode: 'live', matCount: 0, contact: null, certifiedAt: null, far: null },
           mats: [],
         }) } }
       }
@@ -227,11 +227,11 @@ describe('MatPickPage', () => {
     fakeFetch(url => {
       if (url === '/api/events/1/snapshot') {
         return { json: { version: 1, snapshot: sampleSnapshot({
-          event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'live', mode: 'live', matCount: 6, contact: null, certifiedAt: null, far: null },
+          event: { id: 1, name: 'Fall Duals', date: '2026-10-03', status: 'live', mode: 'live', matCount: 6, contact: null, certifiedAt: null, far: null },
           mats: Array.from({ length: 6 }, (_, i) => ({ id: i + 1, number: i + 1, current: null, onDeck: [], bound: false, blocked: null })),
         }) } }
       }
-      if (url === '/api/events/1/mats/6/bind') return { json: { token: 'mat-tok', mat: { id: 6, number: 6 }, event: { id: 1, name: 'Fall Duels' } } }
+      if (url === '/api/events/1/mats/6/bind') return { json: { token: 'mat-tok', mat: { id: 6, number: 6 }, event: { id: 1, name: 'Fall Duals' } } }
       return { json: {} }
     })
     mount('/mat?event=1')
@@ -259,7 +259,7 @@ describe('MatPickPage', () => {
     const f = fakeFetch(url => {
       if (url === '/api/events/3/snapshot') {
         return { json: { version: 1, snapshot: sampleSnapshot({
-          event: { id: 3, name: 'Fall Duels', date: '2026-10-03', status: 'live', mode: 'entry', matCount: 1, contact: null, certifiedAt: null, far: null },
+          event: { id: 3, name: 'Fall Duals', date: '2026-10-03', status: 'live', mode: 'entry', matCount: 1, contact: null, certifiedAt: null, far: null },
           mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
         }) } }
       }
@@ -291,11 +291,11 @@ describe('MatPickPage', () => {
     const f = fakeFetch(url => {
       if (url === '/api/events/3/snapshot') {
         return { json: { version: 1, snapshot: sampleSnapshot({
-          event: { id: 3, name: 'Fall Duels', date: '2026-10-03', status: 'live', mode, matCount: 1, contact: null, certifiedAt: null, far: null },
+          event: { id: 3, name: 'Fall Duals', date: '2026-10-03', status: 'live', mode, matCount: 1, contact: null, certifiedAt: null, far: null },
           mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
         }) } }
       }
-      return { json: { token: 'mat-tok', mat: { id: 1, number: 1 }, event: { id: 3, name: 'Fall Duels' } } }
+      return { json: { token: 'mat-tok', mat: { id: 1, number: 1 }, event: { id: 3, name: 'Fall Duals' } } }
     })
     mountEager('/mat?event=3')
     await flush()
@@ -351,7 +351,7 @@ describe('MatPickPage', () => {
         if (!body.takeOver) {
           return { status: 409, json: { error: { code: 'mat_bound', message: 'This mat already has an iPad scoring it. Take it over to score from here instead.' } } }
         }
-        return { json: { token: 'mat-tok', mat: { id: 2, number: 2 }, event: { id: 1, name: 'Fall Duels' } } }
+        return { json: { token: 'mat-tok', mat: { id: 2, number: 2 }, event: { id: 1, name: 'Fall Duals' } } }
       })
       const router = mount('/mat?event=1')
       const user = userEvent.setup()

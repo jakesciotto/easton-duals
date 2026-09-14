@@ -6,7 +6,7 @@ import { enterResult } from '../src/match/entry.js'
 import { auditLog, athletes, events, mats, matches, rosterCandidates } from '../src/db/schema.js'
 import { TEAM_COLOR_KEYS } from '../src/shared/types.js'
 
-const body = { name: 'Fall Duels', date: '2026-10-03', matCount: 2, teams: [{ name: 'Ridgeline', color: 'red' }, { name: 'Lakeside', color: 'blue' }] }
+const body = { name: 'Fall Duals', date: '2026-10-03', matCount: 2, teams: [{ name: 'Ridgeline', color: 'red' }, { name: 'Lakeside', color: 'blue' }] }
 
 describe('events', () => {
   it('requires an admin token', async () => {
@@ -266,7 +266,7 @@ describe('events', () => {
       expect(await db.select().from(rosterCandidates).where(eq(rosterCandidates.eventId, s.eventId)).all()).toEqual([])
       const rows = await db.select().from(auditLog).where(eq(auditLog.eventId, s.eventId)).all()
       const row = rows.find(r2 => r2.action === 'delete')
-      expect(row?.detail).toMatchObject({ name: 'Fall Duels', date: '2026-10-03', status: 'setup', athletes: 4, matches: 2, results: 0 })
+      expect(row?.detail).toMatchObject({ name: 'Fall Duals', date: '2026-10-03', status: 'setup', athletes: 4, matches: 2, results: 0 })
     })
 
     it('422s pin_required on a live event with {}, then 401s a wrong PIN, then 204s the right one', async () => {

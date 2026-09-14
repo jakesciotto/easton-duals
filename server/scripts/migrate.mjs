@@ -32,7 +32,7 @@ if (upTo !== null) {
     process.exit(2)
   }
   const kept = journal.entries.slice(0, stop + 1)
-  folder = fs.mkdtempSync(path.join(os.tmpdir(), 'duels-migrate-'))
+  folder = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-migrate-'))
   fs.mkdirSync(path.join(folder, 'meta'))
   fs.writeFileSync(path.join(folder, 'meta/_journal.json'), JSON.stringify({ ...journal, entries: kept }))
   for (const entry of kept) fs.copyFileSync(path.join(source, `${entry.tag}.sql`), path.join(folder, `${entry.tag}.sql`))

@@ -3,11 +3,14 @@ import { autoMigrates, createDb, dbUrlFromEnv, getOrCreateSecret } from '../src/
 import { events, teams, athletes, settings } from '../src/db/schema.js'
 import { eq } from 'drizzle-orm'
 import { freshDb } from './fixtures.js'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 describe('db', () => {
   it('migrates and round-trips an event with teams', async () => {
     const db = await freshDb()
-    const ev = await db.insert(events).values({ name: 'Fall Duels', date: '2026-10-03', matCount: 2, matCode: '0420', createdAt: '2026-08-27T00:00:00.000Z' }).returning().get()
+    const ev = await db.insert(events).values({ name: 'Fall Duals', date: '2026-10-03', matCount: 2, matCode: '0420', createdAt: '2026-08-27T00:00:00.000Z' }).returning().get()
     await db.insert(teams).values([
       { eventId: ev.id, name: 'Ridgeline', color: 'red', position: 0 },
       { eventId: ev.id, name: 'Lakeside', color: 'blue', position: 1 },
@@ -54,7 +57,7 @@ describe('dbUrlFromEnv', () => {
     expect(r).toEqual({ url: 'libsql://example.invalid', authToken: 't' })
   })
   it('falls back to the DATA_DIR file', () => {
-    expect(dbUrlFromEnv({ DATA_DIR: './d' }).url).toBe('file:d/duels.db')
+    expect(dbUrlFromEnv({ DATA_DIR: './d' }).url).toBe('file:d/duals.db')
   })
 })
 
@@ -76,11 +79,26 @@ describe('createDb retry wiring', () => {
 // production hours before the release that stopped reading them is why this exists.
 describe('autoMigrates', () => {
   it('migrates a file database at boot', () => {
-    expect(autoMigrates('file:./data/duels.db')).toBe(true)
+    expect(autoMigrates('file:./data/duals.db')).toBe(true)
     expect(autoMigrates('file::memory:')).toBe(true)
   })
   it('never migrates a remote database at boot', () => {
-    expect(autoMigrates('libsql://duels-example.turso.io')).toBe(false)
-    expect(autoMigrates('https://duels-example.turso.io')).toBe(false)
+    expect(autoMigrates('libsql://duals-example.turso.io')).toBe(false)
+    expect(autoMigrates('https://duals-example.turso.io')).toBe(false)
+  })
+})
+
+describe('the file database keeps its old name on a box that already has one', () => {
+  it('prefers duals.db, falls back to an existing duels.db, and names duals.db on a fresh box', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-name-'))
+    try {
+      expect(dbUrlFromEnv({ DATA_DIR: dir }).url).toBe(`file:${path.join(dir, 'duals.db')}`)
+      fs.writeFileSync(path.join(dir, 'duels.db'), '')
+      expect(dbUrlFromEnv({ DATA_DIR: dir }).url).toBe(`file:${path.join(dir, 'duels.db')}`)
+      fs.writeFileSync(path.join(dir, 'duals.db'), '')
+      expect(dbUrlFromEnv({ DATA_DIR: dir }).url).toBe(`file:${path.join(dir, 'duals.db')}`)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

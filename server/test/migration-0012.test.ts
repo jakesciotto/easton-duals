@@ -11,7 +11,7 @@ const DRIZZLE = path.join(import.meta.dirname, '../drizzle')
 // Match progression rebuilds `matches`, and `match_events` cascades from it. Migrated to
 // 0011 first so the rebuild runs against real scoring events rather than an empty table.
 async function dbAt0011() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duels-mig-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-mig-'))
   const folder = path.join(dir, 'drizzle')
   fs.cpSync(DRIZZLE, folder, { recursive: true })
   const journal = JSON.parse(fs.readFileSync(path.join(DRIZZLE, 'meta/_journal.json'), 'utf8'))
@@ -31,9 +31,9 @@ async function dbAt0011() {
 // order index 1, because the number is backfilled by order index and only then by id.
 async function seedAt0011(db: Awaited<ReturnType<typeof dbAt0011>>['db']) {
   await db.run(sql`insert into events (id, name, date, mat_count, mat_code, status, mode, same_gender, created_at)
-    values (1, 'Fall Duels', '2026-10-03', 1, '0420', 'live', 'live', 0, '2026-10-03T15:00:00.000Z')`)
+    values (1, 'Fall Duals', '2026-10-03', 1, '0420', 'live', 'live', 0, '2026-10-03T15:00:00.000Z')`)
   await db.run(sql`insert into events (id, name, date, mat_count, mat_code, status, mode, same_gender, created_at)
-    values (2, 'Winter Duels', '2026-12-05', 1, '0421', 'setup', 'live', 0, '2026-12-05T15:00:00.000Z')`)
+    values (2, 'Winter Duals', '2026-12-05', 1, '0421', 'setup', 'live', 0, '2026-12-05T15:00:00.000Z')`)
   await db.run(sql`insert into teams (id, event_id, name, color, position) values (1, 1, 'Ridgeline', 'red', 0)`)
   await db.run(sql`insert into teams (id, event_id, name, color, position) values (2, 1, 'Lakeside', 'blue', 1)`)
   await db.run(sql`insert into athletes (id, event_id, team_id, first_name, last_name, source) values (1, 1, 1, 'Mateo', 'Rivera', 'manual')`)

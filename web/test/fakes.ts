@@ -64,7 +64,7 @@ export function sampleSnapshot(over: Partial<Snapshot> = {}): Snapshot {
   const match = sampleMatch()
   const snapshot: Snapshot = {
     version: 1, now: '2026-10-03T16:00:00.000Z',
-    event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'live', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
+    event: { id: 1, name: 'Fall Duals', date: '2026-10-03', status: 'live', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
     teams: [
       { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, wins: 0, points: 0, scoring: TEAM_SCORING },
       { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, wins: 0, points: 0, scoring: TEAM_SCORING },

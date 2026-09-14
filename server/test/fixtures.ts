@@ -34,7 +34,7 @@ export interface Seeded {
 // anonymous database process-wide (so unrelated tests collide). A unique temp file
 // per db avoids both: reopening the same path reconnects to the same data, and every
 // freshDb() call gets its own file.
-const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'duels-test-'))
+const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-test-'))
 process.on('exit', () => fs.rmSync(TMP_DIR, { recursive: true, force: true }))
 
 export async function freshDb(): Promise<Db> {
@@ -54,7 +54,7 @@ export async function freshDb(): Promise<Db> {
 export async function seedEvent(db: Db, opts: { matCount?: number; live?: boolean; matches?: number; mode?: EventMode; thirdTeam?: boolean; divisions?: boolean } = {}): Promise<Seeded> {
   const matCount = opts.matCount ?? 2
   const ev = await db.insert(events).values({
-    name: 'Fall Duels', date: '2026-10-03', matCount, matCode: '0420',
+    name: 'Fall Duals', date: '2026-10-03', matCount, matCode: '0420',
     status: opts.live ? 'live' : 'setup', mode: opts.mode ?? 'live', createdAt: '2026-08-27T00:00:00.000Z',
   }).returning().get()
   const [ta, tb] = await db.insert(teams).values([

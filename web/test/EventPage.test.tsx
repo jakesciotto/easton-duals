@@ -41,7 +41,7 @@ const REORDERED = [match(1, 1, 100, 200), match(2, 2, 101, 201), match(3, 0, 102
 
 function detailWith(matches: MatchRow[], athletes = ROSTER): EventDetail {
   return {
-    event: { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'setup', mode: 'live', sameGender: false, createdAt: 'x' },
+    event: { id: 7, name: 'Fall Duals', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'setup', mode: 'live', sameGender: false, createdAt: 'x' },
     teams: [{ id: 1, eventId: 7, name: 'Ridgeline', color: 'red', position: 0 }, { id: 2, eventId: 7, name: 'Lakeside', color: 'blue', position: 1 }],
     athletes,
     rulesets: [{ id: 1, eventId: 7, name: 'Default', defaultLengthSec: 300, actions: [], terminals: [] }],
@@ -60,7 +60,7 @@ function detailWith(matches: MatchRow[], athletes = ROSTER): EventDetail {
 const slowSnapshot = (over: Partial<Snapshot['event']> = {}) => sampleSnapshot({
   mats: [],
   matches: [],
-  event: { id: 7, name: 'Fall Duels', date: '2026-10-03', status: 'setup', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null, ...over },
+  event: { id: 7, name: 'Fall Duals', date: '2026-10-03', status: 'setup', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null, ...over },
 })
 const SLOW_SNAPSHOT = slowSnapshot()
 
@@ -299,7 +299,7 @@ describe('EventPage: how the event runs is one stored setting on the shell', () 
     let mode: EventMode = 'live'
     // One mat and no clock is the 3s rung, so the switch lands on the next tick.
     const idle = (m: EventMode) => sampleSnapshot({
-      event: { id: 7, name: 'Fall Duels', date: '2026-10-03', status: 'setup', mode: m, matCount: 1, contact: null, certifiedAt: null, far: null },
+      event: { id: 7, name: 'Fall Duals', date: '2026-10-03', status: 'setup', mode: m, matCount: 1, contact: null, certifiedAt: null, far: null },
       mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       matches: [],
     })
@@ -814,7 +814,7 @@ describe('EventPage: deleting the event', () => {
     const user = userEvent.setup()
     const dialog = await openDialog(user)
     expect(within(dialog).getByText('Delete this event?')).toBeInTheDocument()
-    expect(within(dialog).getByText('Fall Duels, 2026-10-03: 6 competitors, 2 matches, 1 result. This cannot be undone.')).toBeInTheDocument()
+    expect(within(dialog).getByText('Fall Duals, 2026-10-03: 6 competitors, 2 matches, 1 result. This cannot be undone.')).toBeInTheDocument()
   })
 
   it('asks for no PIN on a setup event', async () => {

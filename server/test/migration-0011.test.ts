@@ -11,7 +11,7 @@ const DRIZZLE = path.join(import.meta.dirname, '../drizzle')
 // Multi-team: proposals get their own table and every match says where it came from.
 // Migrated to 0010 first, where neither exists, so the add runs against real rows.
 async function dbAt0010() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duels-mig-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-mig-'))
   const folder = path.join(dir, 'drizzle')
   fs.cpSync(DRIZZLE, folder, { recursive: true })
   const journal = JSON.parse(fs.readFileSync(path.join(DRIZZLE, 'meta/_journal.json'), 'utf8'))
@@ -30,7 +30,7 @@ async function dbAt0010() {
 async function seedAt0010(db: Awaited<ReturnType<typeof dbAt0010>>['db']) {
   await db.run(sql`insert into events
     (id, name, date, mat_count, mat_code, status, mode, same_gender, created_at)
-    values (1, 'Fall Duels', '2026-10-03', 1, '0420', 'setup', 'live', 0, '2026-10-03T15:00:00.000Z')`)
+    values (1, 'Fall Duals', '2026-10-03', 1, '0420', 'setup', 'live', 0, '2026-10-03T15:00:00.000Z')`)
   await db.run(sql`insert into teams (id, event_id, name, color, position) values (1, 1, 'Ridgeline', 'red', 0)`)
   await db.run(sql`insert into teams (id, event_id, name, color, position) values (2, 1, 'Lakeside', 'blue', 1)`)
   await db.run(sql`insert into athletes (id, event_id, team_id, first_name, last_name, source) values (1, 1, 1, 'Mateo', 'Rivera', 'manual')`)

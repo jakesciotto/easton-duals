@@ -17,7 +17,7 @@ const kid = (over: Partial<AthleteRow> = {}): AthleteRow => ({
 })
 
 const detail: EventDetail = {
-  event: { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'setup', mode: 'live', sameGender: false, createdAt: 'x' },
+  event: { id: 7, name: 'Fall Duals', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'setup', mode: 'live', sameGender: false, createdAt: 'x' },
   teams: [{ id: 1, eventId: 7, name: 'Ridgeline', color: 'red', position: 0 }, { id: 2, eventId: 7, name: 'Lakeside', color: 'blue', position: 1 }],
   athletes: [], rulesets: [], mats: [], matches: [], divisions: [], candidateCount: 0,
 }

@@ -1,4 +1,4 @@
-# Easton Duels
+# Easton Duals
 
 Scores a two-team kids jiu jitsu and wrestling duel. iPads at the mat tables score matches, and a
 TV shows team wins and points live. One codebase runs in two modes: LAN, where one laptop runs the
@@ -13,11 +13,11 @@ deploys to Vercel against a Turso database and serves the whole event from a pub
 3. Open `http://<laptop-ip>:8422/admin` on the laptop. The Live tab shows the URL, a QR code, and
    the mat code for the iPads.
 4. iPads open `/mat`, pick a mat, and enter the mat code. The TV opens `/board/<event id>`.
-5. Back up the event: under `npm start` the database is `server/data/duels.db`, because `DATA_DIR`
+5. Back up the event: under `npm start` the database is `server/data/duals.db`, because `DATA_DIR`
    defaults to `./data` and resolves from the `server` directory. SQLite runs in WAL mode, so a
-   backup must copy all three of `duels.db`, `duels.db-wal`, and `duels.db-shm`, and the server has
+   backup must copy all three of `duals.db`, `duals.db-wal`, and `duals.db-shm`, and the server has
    to be stopped while you copy. Under `docker compose` the same three files live next to
-   `./data/duels.db` on the host.
+   `./data/duals.db` on the host.
 
 Only roster sync needs internet. Everything else works on the gym wifi alone.
 
@@ -33,7 +33,7 @@ Set these as Vercel project environment variables:
 - `ADMIN_PIN`: the same 6-digit PIN as LAN mode.
 - `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`: the Turso database the function opens instead of a
   local file.
-- `PUBLIC_URL`: the deployment's public origin, for example `https://www.eastonduels.com`.
+- `PUBLIC_URL`: the deployment's public origin, for example `https://www.eastonduals.com`.
   Returned by `/api/lan` so the Connect page and QR codes point at it instead of a LAN address.
 - `WL_CLIENT_ID`, `WL_CLIENT_SECRET`, `WL_REGION`, `WL_BUSINESS`: WellnessLiving credentials for
   roster sync, same as LAN mode. Leave all four empty to run without roster sync.
@@ -66,7 +66,7 @@ It checks health, PIN auth, event creation, a snapshot poll, and cleanup, and pr
 ## Develop
 
 - `npm run dev` starts the server with reload against a local file, `server/data/dev.db`. Set
-  `DUELS_DEV_REMOTE=1` to read the remote database named in `.env` instead; an explicit `DB_PATH`
+  `DUALS_DEV_REMOTE=1` to read the remote database named in `.env` instead; an explicit `DB_PATH`
   always wins. Migrations never run at boot against a remote database. `npm test` runs the server tests.
 - `npm run db:migrate` applies every pending migration to the database in `.env`. `npm run db:migrate -- --to 0007`
   stops after that migration, for a release whose newest migration drops a column the running build

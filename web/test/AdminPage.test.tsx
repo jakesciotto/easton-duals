@@ -18,21 +18,21 @@ function mount(path = '/admin') {
   return router
 }
 
-const summary = { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 2, matCode: '0420', status: 'setup', mode: 'live', sameGender: false, createdAt: 'x',
+const summary = { id: 7, name: 'Fall Duals', date: '2026-10-03', matCount: 2, matCode: '0420', status: 'setup', mode: 'live', sameGender: false, createdAt: 'x',
   teams: [{ id: 1, eventId: 7, name: 'Ridgeline', color: 'red', position: 0 }, { id: 2, eventId: 7, name: 'Lakeside', color: 'blue', position: 1 }] }
 
 describe('AdminPage', () => {
   it('lists events with their teams and opens one from the event name link', async () => {
     fakeFetch(url => url === '/api/events' ? { json: [summary] } : { json: { event: summary, teams: summary.teams, athletes: [], rulesets: [], mats: [], matches: [] } })
     const router = mount()
-    expect(await screen.findByText('Fall Duels')).toBeInTheDocument()
+    expect(await screen.findByText('Fall Duals')).toBeInTheDocument()
     expect(screen.getByText('Ridgeline')).toBeInTheDocument()
     expect(screen.getByText('Lakeside')).toBeInTheDocument()
     // 6.2: the event name is the row's own link target, so "Open" no longer exists --
     // only "Board" remains as a separate action.
     expect(screen.queryByRole('link', { name: /open/i })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Board' })).toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('link', { name: 'Fall Duels' }))
+    await userEvent.setup().click(screen.getByRole('link', { name: 'Fall Duals' }))
     expect(router.state.location.pathname).toBe('/events/7')
   })
 
@@ -49,7 +49,7 @@ describe('AdminPage', () => {
     }
     fakeFetch(url => url === '/api/events' ? { json: [many] } : { json: {} })
     mount()
-    expect(await screen.findByText('Fall Duels')).toBeInTheDocument()
+    expect(await screen.findByText('Fall Duals')).toBeInTheDocument()
     expect(screen.getByText('Ridgeline')).toBeInTheDocument()
     expect(screen.getByText('Lakeside')).toBeInTheDocument()
     expect(screen.queryByText('Fernwood')).not.toBeInTheDocument()
@@ -65,7 +65,7 @@ describe('AdminPage', () => {
   it('gives the whole row to the event link and keeps Board reachable', async () => {
     fakeFetch(url => url === '/api/events' ? { json: [summary] } : { json: {} })
     const router = mount()
-    const name = await screen.findByRole('link', { name: 'Fall Duels' })
+    const name = await screen.findByRole('link', { name: 'Fall Duals' })
     const row = name.closest('[data-slot="field-row"]')
     expect(row).not.toBeNull()
     expect(row).toHaveClass('relative')
@@ -99,7 +99,7 @@ describe('AdminPage', () => {
    * and the event shell cannot drift into three ways of naming the same setting.
    */
   it('says how each event runs, in the shared words', async () => {
-    const desk = { ...summary, id: 8, name: 'Winter Duels', mode: 'entry' }
+    const desk = { ...summary, id: 8, name: 'Winter Duals', mode: 'entry' }
     fakeFetch(url => url === '/api/events' ? { json: [summary, desk] } : { json: {} })
     mount()
     expect(await screen.findByText(MODE_LABEL.live)).toBeInTheDocument()
@@ -131,7 +131,7 @@ describe('AdminPage', () => {
     const router = mount()
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'New event' }))
-    await user.type(screen.getByLabelText('Event name'), 'Fall Duels')
+    await user.type(screen.getByLabelText('Event name'), 'Fall Duals')
     await user.clear(screen.getByLabelText('Date'))
     await user.type(screen.getByLabelText('Date'), '2026-10-03')
     await user.type(screen.getByLabelText('Team 1 name'), 'Ridgeline')
@@ -140,7 +140,7 @@ describe('AdminPage', () => {
     await vi.waitFor(() => expect(router.state.location.pathname).toBe('/events/9'))
     expect(router.state.location.search).toBe('?setup=roster')
     const posted = f.body(f.calls.findIndex(c => c.init?.method === 'POST'))
-    expect(posted).toMatchObject({ name: 'Fall Duels', date: '2026-10-03', matCount: 1, teams: [{ name: 'Ridgeline', color: 'red' }, { name: 'Lakeside', color: 'blue' }] })
+    expect(posted).toMatchObject({ name: 'Fall Duals', date: '2026-10-03', matCount: 1, teams: [{ name: 'Ridgeline', color: 'red' }, { name: 'Lakeside', color: 'blue' }] })
   })
 
   it('resets the new event form when reopened after cancel', async () => {
@@ -148,8 +148,8 @@ describe('AdminPage', () => {
     mount()
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'New event' }))
-    await user.type(screen.getByLabelText('Event name'), 'Fall Duels')
-    expect(screen.getByLabelText('Event name')).toHaveValue('Fall Duels')
+    await user.type(screen.getByLabelText('Event name'), 'Fall Duals')
+    expect(screen.getByLabelText('Event name')).toHaveValue('Fall Duals')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     await user.click(screen.getByRole('button', { name: 'New event' }))
     expect(await screen.findByLabelText('Event name')).toHaveValue('')
@@ -164,7 +164,7 @@ describe('AdminPage', () => {
     const router = mount()
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'New event' }))
-    await user.type(screen.getByLabelText('Event name'), 'Fall Duels')
+    await user.type(screen.getByLabelText('Event name'), 'Fall Duals')
     await user.type(screen.getByLabelText('Team 1 name'), 'Ridgeline')
     await user.type(screen.getByLabelText('Team 2 name'), 'Lakeside')
     await user.click(screen.getByRole('button', { name: 'Continue' }))

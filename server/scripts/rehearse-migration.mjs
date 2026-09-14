@@ -49,7 +49,7 @@ if (stop === journal.entries.length - 1) {
   process.exit(2)
 }
 
-const work = fs.mkdtempSync(path.join(os.tmpdir(), 'duels-rehearse-'))
+const work = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-rehearse-'))
 const folder = path.join(work, 'drizzle')
 fs.cpSync(drizzleDir, folder, { recursive: true })
 const cutJournal = entries => fs.writeFileSync(path.join(folder, 'meta/_journal.json'), JSON.stringify({ ...journal, entries }))

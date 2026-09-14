@@ -234,7 +234,7 @@ describe('historyRows', () => {
 })
 
 const detail = {
-  event: { id: 7, name: 'Fall Duels' },
+  event: { id: 7, name: 'Fall Duals' },
   athletes: [
     { id: 100, firstName: 'Mateo', lastName: 'Rivera' },
     { id: 200, firstName: 'Olivia', lastName: 'Kim' },

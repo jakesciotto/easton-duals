@@ -20,7 +20,7 @@ const T0 = Date.parse('2026-10-03T16:00:00.000Z')
 vi.mock('@/lib/sounds', () => ({
   playRegistered: vi.fn(), playExpired: vi.fn(), playRejected: vi.fn(), unlockAudio: vi.fn(),
 }))
-beforeEach(() => { localStorage.clear(); setMatBinding({ eventId: 1, matId: 1, matNumber: 1, eventName: 'Fall Duels', token: 'mat-tok' }) })
+beforeEach(() => { localStorage.clear(); setMatBinding({ eventId: 1, matId: 1, matNumber: 1, eventName: 'Fall Duals', token: 'mat-tok' }) })
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 
 // The scorer route is lazy-loaded, so mounting needs to flush until the chunk resolves.
@@ -562,7 +562,7 @@ describe('ScorerPage', () => {
    */
   describe('after the desk finishes the event', () => {
     const finished = (over = {}) => sampleSnapshot({
-      event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null, ...over },
+      event: { id: 1, name: 'Fall Duals', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null, ...over },
     })
 
     it('states the fact, drops every scoring control, and offers the board and the desk', async () => {
@@ -613,7 +613,7 @@ describe('ScorerPage', () => {
    * for the failure: the screen looks right.
    */
   it('unbinds and goes back for the mat code when the server refuses its token', async () => {
-    setMatBinding({ eventId: 1, matId: 1, matNumber: 1, eventName: 'Fall Duels', token: 'stale-tok' })
+    setMatBinding({ eventId: 1, matId: 1, matNumber: 1, eventName: 'Fall Duals', token: 'stale-tok' })
     const feed = snapshotFeed(sampleSnapshot())
     fakeFetch(url => feed.handle(url) ?? {
       status: 401,
@@ -635,7 +635,7 @@ describe('ScorerPage', () => {
   it('prints the desk contact beside the match, and nothing when the event carries none', async () => {
     const feed = snapshotFeed(sampleSnapshot({
       event: {
-        id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'live', mode: 'live', matCount: 1,
+        id: 1, name: 'Fall Duals', date: '2026-10-03', status: 'live', mode: 'live', matCount: 1,
         contact: { name: 'Dana Whitfield', phone: '555 0147' },
         certifiedAt: null, far: null,
       },

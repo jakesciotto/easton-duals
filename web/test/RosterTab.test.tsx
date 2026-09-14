@@ -21,7 +21,7 @@ const kid = (id: number, teamId: number | null, first: string, over: Partial<Eve
   promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [], scoring: false, ...over,
 })
 const detail: EventDetail = {
-  event: { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'setup', mode: 'live', sameGender: false, createdAt: 'x' },
+  event: { id: 7, name: 'Fall Duals', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'setup', mode: 'live', sameGender: false, createdAt: 'x' },
   teams: [{ id: 1, eventId: 7, name: 'Ridgeline', color: 'red', position: 0 }, { id: 2, eventId: 7, name: 'Lakeside', color: 'blue', position: 1 }],
   athletes: [kid(100, 1, 'Mateo'), kid(200, 2, 'Olivia'), kid(300, null, 'Noah', { age: null, ageSource: null }), kid(400, null, 'Zoe', { weightSource: 'leaderboard', erp: 5.2 })],
   rulesets: [], mats: [], matches: [], divisions: [], candidateCount: 0,
@@ -525,7 +525,7 @@ describe('RosterTab', () => {
     render(
       <QueryClientProvider client={qc}>
         <MemoryRouter>
-          <AdminShell title="Fall Duels"><RosterTab detail={detail} /></AdminShell>
+          <AdminShell title="Fall Duals"><RosterTab detail={detail} /></AdminShell>
         </MemoryRouter>
       </QueryClientProvider>,
     )

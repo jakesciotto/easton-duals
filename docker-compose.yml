@@ -1,5 +1,5 @@
 services:
-  duels:
+  duals:
     build: .
     ports:
       - "8422:8422"
@@ -7,7 +7,7 @@ services:
       - ./data:/data
     environment:
       - TZ=America/Denver
-      - DB_PATH=/data/duels.db
+      - DB_PATH=/data/duals.db
       - PORT=8422
     env_file: .env
     restart: unless-stopped

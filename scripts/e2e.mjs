@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-const dir = mkdtempSync(path.join(tmpdir(), 'duels-e2e-'))
+const dir = mkdtempSync(path.join(tmpdir(), 'duals-e2e-'))
 const port = 8499
 const base = `http://127.0.0.1:${port}`
 const server = spawn('node', ['dist/index.js'], {

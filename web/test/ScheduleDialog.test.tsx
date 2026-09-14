@@ -11,7 +11,7 @@ beforeEach(() => { localStorage.clear(); setAdminToken('tok') })
 afterEach(() => vi.unstubAllGlobals())
 
 const detail: EventDetail = {
-  event: { id: 7, name: 'Fall Duels', date: '2026-10-03', matCount: 2, matCode: '0420', mode: 'live', status: 'setup', sameGender: false, createdAt: 'x' },
+  event: { id: 7, name: 'Fall Duals', date: '2026-10-03', matCount: 2, matCode: '0420', mode: 'live', status: 'setup', sameGender: false, createdAt: 'x' },
   teams: [], athletes: [], rulesets: [],
   mats: [{ id: 1, eventId: 7, number: 1, currentMatchId: null }, { id: 2, eventId: 7, number: 2, currentMatchId: null }],
   matches: [], divisions: [], candidateCount: 0,
