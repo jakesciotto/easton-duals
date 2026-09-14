@@ -367,7 +367,7 @@ describe('SyncRosterDialog', () => {
         athletes: [{
           id: 1, eventId: 7, teamId: null, firstName: 'Zoe', lastName: 'Martin', age: 8, ageSource: 'wl', weightLbs: 60, weightSource: 'manual',
           belt: 'grey', gender: 'F', source: 'wl', wlUid: '9', wlLocation: 'Ridgeline', leaderboardId: null, erp: null,
-          promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [],
+          promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [], scoring: false,
         }],
       })
       const user = userEvent.setup()

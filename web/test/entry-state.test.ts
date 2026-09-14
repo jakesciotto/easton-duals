@@ -3,20 +3,21 @@ import { ApiError } from '@/lib/api'
 import { CERTIFIED_REFUSAL_BODY, CERTIFIED_REFUSAL_TITLE } from '@/lib/eventMode'
 import {
   SAME_PAIR_WINDOW_MS, clearDraft, clockLabel, draftKey, isRepeatPair, ledgerTime, loadDraft, pairKey, restoreDraft,
-  DRAFT_VERSION, RETRYING_LINE, retriesItself, saveDraft, saveErrorCopy, seedPairLog, serverRefused, teamWins,
+  DRAFT_VERSION, RETRYING_LINE, retriesItself, saveDraft, saveErrorCopy, seedPairLog, serverRefused, teamPoints, teamWins,
   type EntryDraft,
 } from '@/routes/event/entry-state'
 import type { AthleteRow, MatchRow } from '@/lib/types'
+import type { WinType } from '@shared/types'
 
 const draft: EntryDraft = {
   v: DRAFT_VERSION, entryId: 'e1234567-aaaa', aId: '101', bId: '201', pointsA: '5', pointsB: '2',
   winner: 'a', winType: 'points', editingId: null, reason: '',
 }
 
-const kid = (id: number, teamId: number | null): AthleteRow => ({
+const kid = (id: number, teamId: number | null, scoring = false): AthleteRow => ({
   id, eventId: 7, teamId, firstName: 'A', lastName: 'B', age: null, ageSource: null, weightLbs: null, weightSource: null,
   belt: null, gender: null, source: 'manual', wlUid: null, wlLocation: null, leaderboardId: null, erp: null,
-  promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [],
+  promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [], scoring,
 })
 const match = (id: number, over: Partial<MatchRow>): MatchRow => ({
   id, eventId: 7, matId: null, orderIndex: id, rulesetId: 1, lengthSec: 300, athleteAId: 100, athleteBId: 200,
@@ -153,6 +154,56 @@ describe('team wins', () => {
     ], athletes)
     expect(wins.get(1)).toBe(2)
     expect(wins.get(2)).toBe(1)
+  })
+})
+
+describe('team points', () => {
+  // Eleven competitors puts a team past the cap, so only the ones an admin marked earn.
+  const crowded = (teamId: number, marked: number[]) =>
+    Array.from({ length: 11 }, (_, i) => kid(teamId * 100 + i, teamId, marked.includes(teamId * 100 + i)))
+  const roster = (size: number) => Array.from({ length: size }, (_, i) => kid(100 + i, 1))
+
+  it('pays a scoring win and leaves a win by an unmarked competitor at nothing', () => {
+    const athletes = [...crowded(1, [100]), ...crowded(2, [])]
+    const earned = teamPoints([
+      match(1, { status: 'done', winnerAthleteId: 100, winType: 'submission' }),
+      match(2, { status: 'done', winnerAthleteId: 101, winType: 'submission' }),
+    ], athletes)
+    expect(earned.get(1)).toBe(3)
+    expect(earned.get(2)).toBeUndefined()
+  })
+
+  it('pays three for a submission, two on points, one for a decision, a walkover and a DQ', () => {
+    const athletes = [kid(100, 1), kid(200, 2)]
+    const paid = (winType: WinType) =>
+      teamPoints([match(1, { status: 'done', winnerAthleteId: 100, winType })], athletes).get(1)
+    expect(paid('submission')).toBe(3)
+    expect(paid('points')).toBe(2)
+    expect(paid('decision')).toBe(1)
+    expect(paid('walkover')).toBe(1)
+    expect(paid('dq')).toBe(1)
+  })
+
+  it('scores with every competitor up to the cap and with the marked ones past it', () => {
+    const won = match(1, { status: 'done', winnerAthleteId: 100, winType: 'points' })
+    expect(teamPoints([won], roster(10)).get(1)).toBe(2)
+    expect(teamPoints([won], roster(11)).get(1)).toBeUndefined()
+  })
+
+  it('reads a marking as it stands rather than as it stood when the match was won', () => {
+    const won = match(1, { status: 'done', winnerAthleteId: 100, winType: 'points' })
+    expect(teamPoints([won], crowded(1, [])).get(1)).toBeUndefined()
+    expect(teamPoints([won], crowded(1, [100])).get(1)).toBe(2)
+  })
+
+  it('counts nothing for an unfinished match, a result-less one, or an unassigned competitor', () => {
+    const athletes = [kid(100, 1), kid(300, null)]
+    const earned = teamPoints([
+      match(1, { status: 'pending', winnerAthleteId: 100, winType: 'submission' }),
+      match(2, { status: 'done', winnerAthleteId: 100, winType: null }),
+      match(3, { status: 'done', winnerAthleteId: 300, winType: 'submission' }),
+    ], athletes)
+    expect(earned.get(1)).toBeUndefined()
   })
 })
 

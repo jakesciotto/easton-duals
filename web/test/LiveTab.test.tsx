@@ -28,8 +28,8 @@ const detail: EventDetail = {
 const withLiveMat: EventDetail = {
   ...detail,
   athletes: [
-    { id: 100, eventId: 1, teamId: 1, firstName: 'Mateo', lastName: 'Rivera', age: 9, ageSource: 'manual', weightLbs: 62, weightSource: 'manual', belt: 'grey', gender: 'M', source: 'manual', wlUid: null, wlLocation: null, leaderboardId: null, erp: null, promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [] },
-    { id: 200, eventId: 1, teamId: 2, firstName: 'Olivia', lastName: 'Kim', age: 9, ageSource: 'manual', weightLbs: 60, weightSource: 'manual', belt: 'grey-white', gender: 'F', source: 'manual', wlUid: null, wlLocation: null, leaderboardId: null, erp: null, promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [] },
+    { id: 100, eventId: 1, teamId: 1, firstName: 'Mateo', lastName: 'Rivera', age: 9, ageSource: 'manual', weightLbs: 62, weightSource: 'manual', belt: 'grey', gender: 'M', source: 'manual', wlUid: null, wlLocation: null, leaderboardId: null, erp: null, promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [], scoring: false },
+    { id: 200, eventId: 1, teamId: 2, firstName: 'Olivia', lastName: 'Kim', age: 9, ageSource: 'manual', weightLbs: 60, weightSource: 'manual', belt: 'grey-white', gender: 'F', source: 'manual', wlUid: null, wlLocation: null, leaderboardId: null, erp: null, promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [], scoring: false },
   ],
   matches: [{
     id: 10, eventId: 1, matId: 1, orderIndex: 1, rulesetId: 1, lengthSec: 300, athleteAId: 100, athleteBId: 200,
@@ -116,9 +116,9 @@ describe('LiveTab', () => {
     const feed = snapshotFeed(sampleSnapshot({
       now: SERVER_NOW,
       teams: [
-        { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 2, points: 11 },
-        { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 3, points: 9 },
-        { id: 3, name: 'Fernwood', color: 'teal', position: 2, wins: 2, points: 11 },
+        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 2, points: 11 },
+        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 3, points: 9 },
+        { id: 3, name: 'Fernwood', color: 'teal', position: 2, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 2, points: 11 },
       ],
       mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: true, blocked: null }],
       matches: [],
@@ -561,8 +561,8 @@ describe('LiveTab', () => {
       now: SERVER_NOW,
       event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
       teams: [
-        { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 42 },
-        { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 31 },
+        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 42 },
+        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 31 },
       ],
       mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       matches: [settled],
@@ -585,8 +585,8 @@ describe('LiveTab', () => {
       now: SERVER_NOW,
       event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
       teams: [
-        { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 42 },
-        { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 31 },
+        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 42 },
+        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 31 },
       ],
       mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       matches: [settled],
@@ -619,8 +619,8 @@ describe('LiveTab certification', () => {
     now: SERVER_NOW,
     event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status, mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null, ...over },
     teams: [
-      { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 42 },
-      { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 31 },
+      { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 42 },
+      { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 31 },
     ],
     mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
     matches: [settled],
@@ -742,8 +742,8 @@ describe('LiveTab certification', () => {
       now: SERVER_NOW,
       event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'done', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
       teams: [
-        { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 42 },
-        { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 31 },
+        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 42 },
+        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 31 },
       ],
       mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       matches: [settled],
@@ -770,8 +770,8 @@ describe('LiveTab certification', () => {
       now: SERVER_NOW,
       event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'certified', mode: 'live', matCount: 1, contact: null, certifiedAt, far: null },
       teams: [
-        { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 42 },
-        { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 31 },
+        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 42 },
+        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 31 },
       ],
       mats: [{ id: 1, number: 1, current: null, onDeck: [], bound: false, blocked: null }],
       matches: [settled],

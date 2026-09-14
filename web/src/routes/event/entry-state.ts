@@ -2,6 +2,7 @@ import { ApiError } from '@/lib/api'
 import { CERTIFIED_REFUSAL_BODY, CERTIFIED_REFUSAL_TITLE, isCertifiedRefusal } from '@/lib/eventMode'
 import { athleteName, winTypeLabel } from '@/lib/format'
 import type { AthleteRow, MatchRow } from '@/lib/types'
+import { scoringSet, teamPointsFor } from '@shared/scoring'
 import { CORRECTION_REASON_MAX, type WinType } from '@shared/types'
 
 export const SAME_PAIR_WINDOW_MS = 60_000
@@ -284,10 +285,13 @@ export function teamWins(matches: MatchRow[], athletes: AthleteRow[]): Map<numbe
 }
 
 /**
- * Points scored by each team, from the results already on file. The leaderboard breaks a
- * tie on wins with them, so the running header needs both to put the teams in order.
+ * Match points scored by each team, from the results already on file. The leaderboard
+ * breaks a tie on team points and wins with these, so the desk's tally needs all three
+ * to put the teams in the order the board is showing the room.
+ *
+ * Named for what it counts: "team points" is the standing itself, below.
  */
-export function teamPoints(matches: MatchRow[], athletes: AthleteRow[]): Map<number, number> {
+export function matchPoints(matches: MatchRow[], athletes: AthleteRow[]): Map<number, number> {
   const teamOf = new Map(athletes.map(a => [a.id, a.teamId]))
   const points = new Map<number, number>()
   const add = (athleteId: number | null, scored: number) => {
@@ -301,6 +305,34 @@ export function teamPoints(matches: MatchRow[], athletes: AthleteRow[]): Map<num
     add(m.athleteBId, m.pointsB)
   }
   return points
+}
+
+/**
+ * What each team has earned: a win by one of its scoring kids is worth what its win type
+ * is worth, and every other win is worth nothing. Desk mode has no snapshot tally to read,
+ * so this is the same arithmetic the server does in `buildSnapshot`, over the detail the
+ * tab already holds. The flags are read as they stand, so marking a kid restates the
+ * standing without touching a result.
+ */
+export function teamPoints(matches: MatchRow[], athletes: AthleteRow[]): Map<number, number> {
+  const teamOf = new Map(athletes.map(a => [a.id, a.teamId]))
+  const kidsByTeam = new Map<number, AthleteRow[]>()
+  for (const a of athletes) {
+    if (a.teamId === null) continue
+    const kids = kidsByTeam.get(a.teamId)
+    if (kids) kids.push(a)
+    else kidsByTeam.set(a.teamId, [a])
+  }
+  const scorers = new Map([...kidsByTeam].map(([teamId, kids]) => [teamId, scoringSet(kids)]))
+  const earned = new Map<number, number>()
+  for (const m of matches) {
+    if (m.status !== 'done' || m.winnerAthleteId === null || m.winType === null) continue
+    const teamId = teamOf.get(m.winnerAthleteId)
+    if (teamId === null || teamId === undefined) continue
+    if (!scorers.get(teamId)?.has(m.winnerAthleteId)) continue
+    earned.set(teamId, (earned.get(teamId) ?? 0) + teamPointsFor(m.winType))
+  }
+  return earned
 }
 
 export interface SaveErrorCopy { title: string; body: string }

@@ -498,7 +498,7 @@ describe('Board compositions', () => {
       return sampleSnapshot({
         event: event('done', 'live'),
         teams: scores.map(([wins, points], i) => ({
-          id: i + 1, name: NAMES[i], color: TEAM_COLOR_KEYS[i], position: i, wins, points,
+          id: i + 1, name: NAMES[i], color: TEAM_COLOR_KEYS[i], position: i, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins, points,
         })),
         matches: [pair(1, 'Ava Park', 'Sofia Diaz', { status: 'done' })],
       })
@@ -580,8 +580,8 @@ describe('Board compositions', () => {
     const finished = (over: Partial<Snapshot['event']> = {}) => sampleSnapshot({
       event: { ...event('done', 'live'), ...over },
       teams: [
-        { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 7, points: 41 },
-        { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 5, points: 33 },
+        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 7, points: 41 },
+        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 5, points: 33 },
       ],
       matches: [pair(1, 'Ava Park', 'Sofia Diaz', { status: 'done' })],
     })
@@ -641,7 +641,7 @@ describe('the leaderboard hero', () => {
 
   function standings(scores: [number, number][], over: Partial<Snapshot> = {}): Snapshot {
     const teams = scores.map(([wins, points], i) => ({
-      id: i + 1, name: NAMES[i], color: TEAM_COLOR_KEYS[i], position: i, wins, points,
+      id: i + 1, name: NAMES[i], color: TEAM_COLOR_KEYS[i], position: i, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins, points,
     }))
     return atMode(sampleSnapshot({ teams, mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira', { clock: RUNNING }), bound: true, blocked: null })], matches: [], ...over }), 'live')
   }
@@ -822,7 +822,7 @@ describe('Board calibration', () => {
     // The knob is clamped where the count cannot hold it rather than reported afterwards.
     const board = (count: number) => {
       const teams = Array.from({ length: count }, (_, i) => ({
-        id: i + 1, name: `Team ${i + 1}`, color: TEAM_COLOR_KEYS[i], position: i, wins: 0, points: 0,
+        id: i + 1, name: `Team ${i + 1}`, color: TEAM_COLOR_KEYS[i], position: i, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 0, points: 0,
       }))
       return atMode(sampleSnapshot({ teams, mats: [mat(1, { current: pair(10, 'Mateo Rivera', 'Lucas Ferreira'), bound: true, blocked: null })], matches: [] }), 'live')
     }
@@ -869,8 +869,8 @@ describe('Board figure change', () => {
     // in one frame and shoved the word beside it sideways on a still hero.
     const withPoints = (points: number) => atMode(sampleSnapshot({
       teams: [
-        { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 3, points },
-        { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 2, points: 7 },
+        { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 3, points },
+        { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 2, points: 7 },
       ],
     }), 'live')
 

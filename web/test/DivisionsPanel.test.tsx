@@ -19,7 +19,7 @@ const kid = (i: number): AthleteRow => ({
   id: 100 + i, eventId: 7, teamId: 1 + (i % 3), firstName: NAMES[i][0], lastName: NAMES[i][1],
   age: 9, ageSource: 'manual', weightLbs: 60, weightSource: 'manual', belt: 'grey', gender: 'M',
   source: 'manual', wlUid: null, wlLocation: null, leaderboardId: null, erp: null, promotedAt: null,
-  syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [],
+  syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [], scoring: false,
 })
 
 const ATHLETES = NAMES.map((_, i) => kid(i))

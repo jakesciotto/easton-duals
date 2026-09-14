@@ -16,9 +16,9 @@ import { cn } from '@/lib/utils'
 import { defaultOutcome } from './entry-defaults'
 import {
   CUE_MS, DRAFT_VERSION, LEDGER_LIMIT, RESTORED_NEW_ENTRY, RETRY_INTERVAL_MS, SAVED_LABEL_MS, SAVE_TIMEOUT_MS,
-  clearDraft, clockLabel, duplicateCopy, entryShape, isRepeatPair, ledgerTime, loadDraft, outcomeMatches,
-  pairKey, restoreDraft, restoredBannerCopy, retriesItself, saveDraft, saveErrorCopy, seedPairLog, serverRefused,
-  storedOutcome, teamPoints, teamWins,
+  clearDraft, clockLabel, duplicateCopy, entryShape, isRepeatPair, ledgerTime, loadDraft, matchPoints,
+  outcomeMatches, pairKey, restoreDraft, restoredBannerCopy, retriesItself, saveDraft, saveErrorCopy,
+  seedPairLog, serverRefused, storedOutcome, teamPoints, teamWins,
   type EntryDraft, type EntryMatch, type SaveErrorCopy,
 } from './entry-state'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -61,12 +61,18 @@ const STYLE_OPTIONS: { value: Style; label: string }[] = [
   { value: 'nogi', label: styleLabel('nogi') },
 ]
 
+// The three outcomes a match played to its end can have. A walkover and a DQ are recorded
+// against a match that already exists, in the Result dialog, so they are not offered here:
+// the form's job is the result of a match that was fought.
 const WIN_TYPES: { value: WinType; label: string; hint: string }[] = [
   { value: 'points', label: 'On points', hint: 'P' },
   { value: 'submission', label: 'By submission', hint: 'S' },
   { value: 'decision', label: 'By decision', hint: 'D' },
 ]
-const WIN_TYPE_WORD: Record<WinType, string> = { points: 'Points', submission: 'Submission', decision: 'Decision' }
+// Every win type the ledger can be asked to print, which is wider than what the form offers.
+const WIN_TYPE_WORD: Record<WinType, string> = {
+  points: 'Points', submission: 'Submission', decision: 'Decision', walkover: 'Walkover', dq: 'DQ',
+}
 
 /**
  * G36 / 7.1's meta line, in the field order the whole product uses: belt word, age,
@@ -247,8 +253,11 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     && (winner === 'a' ? pA < pB : pB < pA)
   const standings = useMemo(() => {
     const wins = teamWins(detail.matches, detail.athletes)
-    const points = teamPoints(detail.matches, detail.athletes)
-    return rankTeams(detail.teams.map(t => ({ id: t.id, wins: wins.get(t.id) ?? 0, points: points.get(t.id) ?? 0, position: t.position })))
+    const points = matchPoints(detail.matches, detail.athletes)
+    const earned = teamPoints(detail.matches, detail.athletes)
+    return rankTeams(detail.teams.map(t => ({
+      id: t.id, teamPoints: earned.get(t.id) ?? 0, wins: wins.get(t.id) ?? 0, points: points.get(t.id) ?? 0, position: t.position,
+    })))
   }, [detail.matches, detail.athletes, detail.teams])
 
   // A points edit alone never resets touched: auto-derivation from points only

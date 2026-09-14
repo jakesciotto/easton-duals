@@ -42,6 +42,10 @@ export function snapshotFeed(initial: Snapshot): SnapshotFeed {
   }
 }
 
+// The sample event holds one competitor per team, so both teams sit inside the scoring
+// cap and every one of their wins earns team points. A test about the cap states its own.
+const TEAM_SCORING = { marked: 0, size: 1, everyone: true }
+
 export function sampleMatch(over: Partial<MatchView> = {}): MatchView {
   return {
     id: 10, number: 1, orderIndex: 0, matId: 1, status: 'live', rulesetId: 1, lengthSec: 300, why: null, source: 'designed',
@@ -62,8 +66,8 @@ export function sampleSnapshot(over: Partial<Snapshot> = {}): Snapshot {
     version: 1, now: '2026-10-03T16:00:00.000Z',
     event: { id: 1, name: 'Fall Duels', date: '2026-10-03', status: 'live', mode: 'live', matCount: 1, contact: null, certifiedAt: null, far: null },
     teams: [
-      { id: 1, name: 'Ridgeline', color: 'red', position: 0, wins: 0, points: 0 },
-      { id: 2, name: 'Lakeside', color: 'blue', position: 1, wins: 0, points: 0 },
+      { id: 1, name: 'Ridgeline', color: 'red', position: 0, teamPoints: 0, wins: 0, points: 0, scoring: TEAM_SCORING },
+      { id: 2, name: 'Lakeside', color: 'blue', position: 1, teamPoints: 0, wins: 0, points: 0, scoring: TEAM_SCORING },
     ],
     rulesets: [{ id: 1, name: 'Default', defaultLengthSec: 300,
       actions: [{ key: 'takedown', label: 'Takedown', points: 2 }, { key: 'mount', label: 'Mount', points: 4 }, { key: 'penalty', label: 'Penalty', points: -1 }],

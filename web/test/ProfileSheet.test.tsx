@@ -13,7 +13,7 @@ const kid = (over: Partial<AthleteRow> = {}): AthleteRow => ({
   leaderboardId: 'mateo-rivera', erp: 3.4,
   promotedAt: '2026-03-14', syncedAt: SYNCED_AT,
   syncChanges: { belt: { from: 'grey', to: 'grey-white' }, erp: { from: 3.1, to: 3.4 } },
-  suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [], ...over,
+  suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [], scoring: false, ...over,
 })
 
 const detail: EventDetail = {

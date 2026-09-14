@@ -62,7 +62,7 @@ describe('boardPlan', () => {
   })
 
   it('carries the team count, because the hero is a row per team', () => {
-    const teams = [1, 2, 3, 4, 5].map(i => ({ id: i, name: `Team ${i}`, color: 'red' as const, position: i - 1, wins: 0, points: 0 }))
+    const teams = [1, 2, 3, 4, 5].map(i => ({ id: i, name: `Team ${i}`, color: 'red' as const, position: i - 1, teamPoints: 0, scoring: { marked: 0, size: 1, everyone: true }, wins: 0, points: 0 }))
     const five = sampleSnapshot({ teams })
     expect(boardPlan(atMode(five, 'live')).teams).toBe(5)
     expect(boardPlan({ ...five, event: event('done', 'live') }).teams).toBe(5)

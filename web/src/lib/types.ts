@@ -71,6 +71,12 @@ export interface AthleteRow {
   suggestedScore: number | null
   /** Candidates a person has already said are not this child. */
   dismissedWlUids: string[]
+  /**
+   * Whether a win by this competitor earns their team points. A team inside `SCORING_CAP`
+   * scores with every kid and the flag is moot for it; a larger one scores only with the
+   * kids an admin marked.
+   */
+  scoring: boolean
 }
 export interface RulesetRow { id: number; eventId: number; name: string; defaultLengthSec: number; actions: RulesetAction[]; terminals: RulesetTerminal[] }
 export interface MatRow { id: number; eventId: number; number: number; currentMatchId: number | null }
@@ -144,7 +150,7 @@ export interface ProposalSide {
   erp: number | null
 }
 export interface Proposal { id: number; eventId: number; cost: number; why: string; style: Style; a: ProposalSide; b: ProposalSide }
-export interface LeaderboardRow { teamId: number; rank: number; wins: number; points: number }
+export interface LeaderboardRow { teamId: number; rank: number; teamPoints: number; wins: number; points: number }
 
 export interface ManualKid {
   firstName: string

@@ -14,7 +14,7 @@ afterEach(() => vi.unstubAllGlobals())
 const kid = (id: number, teamId: number, first: string, last: string): AthleteRow => ({
   id, eventId: 7, teamId, firstName: first, lastName: last, age: 9, ageSource: 'manual', weightLbs: 58, weightSource: 'manual',
   belt: 'grey', gender: 'M', source: 'manual', wlUid: null, wlLocation: null, leaderboardId: null, erp: null,
-  promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [],
+  promotedAt: null, syncedAt: null, syncChanges: null, suggestedWlUid: null, suggestedScore: null, dismissedWlUids: [], scoring: false,
 })
 
 // Three teams, because a proposal exists to pair across more than two of them.

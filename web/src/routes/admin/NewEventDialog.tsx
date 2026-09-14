@@ -61,7 +61,7 @@ function CountField({ id, label, value, min, max, onChange }: {
 // The room's view, at the type step the console reads at. Nothing here is a board token:
 // the board is sized in cqh against its own stage and this is a still life of it.
 function LeaderboardPreview({ teams }: { teams: TeamDraft[] }) {
-  const rows = rankTeams(teams.map((_, i) => ({ id: i, wins: 0, points: 0, position: i })))
+  const rows = rankTeams(teams.map((_, i) => ({ id: i, teamPoints: 0, wins: 0, points: 0, position: i })))
   return (
     <div className="grid gap-2">
       <span className="t1 uppercase text-gray-10">The room's view</span>
