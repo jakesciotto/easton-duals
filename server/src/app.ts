@@ -15,6 +15,7 @@ import { divisionRoutes } from './routes/divisions.js'
 import { scheduleRoutes } from './routes/schedule.js'
 import { proposalRoutes } from './routes/proposals.js'
 import { rosterRoutes } from './routes/roster.js'
+import { smoothcompRoutes } from './routes/smoothcomp.js'
 
 // Kept beside the package version by health.test.ts, so a release that bumps one and
 // forgets the other fails a test instead of reporting the wrong build in production.
@@ -46,6 +47,7 @@ export function createApp(ctx: AppContext) {
   app.route('/api', scheduleRoutes)
   app.route('/api', proposalRoutes)
   app.route('/api', rosterRoutes)
+  app.route('/api', smoothcompRoutes)
   app.onError((err, c) => {
     if (err instanceof SeqConflict) return errorJson(c, 409, 'sequence', 'stale sequence', { currentSeq: err.currentSeq })
     if (err instanceof DecisionRequired) return errorJson(c, 422, 'decision_required', 'scores are tied; pick a winner')

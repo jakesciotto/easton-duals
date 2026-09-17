@@ -6,7 +6,7 @@ import type { Env } from '../context.js'
 import { mats } from '../db/schema.js'
 import { verifyToken } from './tokens.js'
 
-type Status = 401 | 403 | 404 | 409 | 422 | 429 | 503
+type Status = 401 | 403 | 404 | 409 | 422 | 429 | 502 | 503 | 504
 
 export function errorJson(c: Context, status: Status, code: string, message: string, extra: Record<string, unknown> = {}) {
   return c.json({ error: { code, message, ...extra } }, status)

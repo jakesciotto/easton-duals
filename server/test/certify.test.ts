@@ -41,12 +41,14 @@ interface Write { name: string; method: string; path: (s: Certified) => string; 
 
 // The write routes certification deliberately leaves alone. Heartbeat and unbind stay open
 // so a bound tablet can keep saying it is there and can always hand its mat back; the two
-// certification routes are the lock itself; signing in is not a write on an event; and a
-// new event has nothing to certify yet.
+// certification routes are the lock itself; signing in is not a write on an event; a new
+// event has nothing to certify yet; and Smoothcomp standings reads an external service and
+// writes only its own audit row, so a certified event's results are not at risk from it.
 const EXCLUDED = new Set([
   'POST /api/auth/admin',
   'POST /api/events',
   'POST /api/events/:eventId/certify',
+  'POST /api/events/:eventId/smoothcomp/standings',
   'POST /api/events/:eventId/uncertify',
   'POST /api/mats/:matId/heartbeat',
   'POST /api/mats/:matId/unbind',
@@ -182,6 +184,17 @@ describe('certification locks the event', () => {
     const token = matToken(s.eventId, s.matIds[0])
     expect((await call(app, 'POST', `/api/mats/${s.matIds[0]}/heartbeat`, {}, token)).status).toBe(200)
     expect((await call(app, 'POST', `/api/mats/${s.matIds[0]}/unbind`, {}, token)).status).toBe(200)
+  })
+
+  it('still runs Smoothcomp standings on a certified event', async () => {
+    const { db, adminToken, s } = await certified()
+    await db.update(events).set({ smoothcompUrl: 'https://smoothcomp.com/en/event/29499' }).where(eq(events.id, s.eventId)).run()
+    const fetchFn = (async () => new Response(JSON.stringify({ brackets: [] }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
+    // The db carries the certified event; a fresh app on the same db swaps in a fake fetch,
+    // since the certified() fixture builds its own app with no Smoothcomp config.
+    const { app } = await createTestApp({ db, smoothcomp: { fetchFn, backoffMs: 0 } })
+    const r = await call(app, 'POST', `/api/events/${s.eventId}/smoothcomp/standings`, undefined, adminToken)
+    expect(r.status).toBe(200)
   })
 })
 
