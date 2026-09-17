@@ -16,6 +16,7 @@ import { recordAudit, HISTORY_LIMIT } from '../audit/log.js'
 import { assertNotCertified } from '../audit/certify.js'
 import { eventContact } from '../live/snapshot.js'
 import { loadDivisions } from '../formats/divisions.js'
+import { parseSmoothcompUrl } from '../smoothcomp/url.js'
 import { CORRECTION_REASON_MAX, DEFAULT_ACTIONS, DEFAULT_TERMINALS, DEFAULT_LENGTH_SEC, FAR_MIN, FAR_MAX, MIN_TEAMS, MAX_TEAMS, TEAM_COLOR_KEYS, type AuditAction, type AuditEntry, type TeamColor } from '../shared/types.js'
 
 const colorSchema = z.enum(TEAM_COLOR_KEYS as [TeamColor, ...TeamColor[]])
@@ -50,6 +51,7 @@ const patchEventSchema = z.object({
   contactPhone: contactPhone.optional(),
   sameGender: sameGender.optional(),
   far: z.number().min(FAR_MIN).max(FAR_MAX).nullable().optional(),
+  smoothcompUrl: z.string().trim().max(300).nullable().optional(),
 })
 
 const blankToNull = (v: string | undefined) => v === undefined || v === '' ? null : v
@@ -133,12 +135,12 @@ eventRoutes.patch('/events/:eventId', requireAdmin, validate('json', patchEventS
   const ev = await db.select().from(events).where(eq(events.id, eventId)).get()
   if (!ev) return errorJson(c, 404, 'not_found', 'event not found')
   await assertNotCertified(db, eventId)
-  const { status, matCount, contactName: name, contactPhone: phone, mode, far, ...rest } = c.req.valid('json')
+  const { status, matCount, contactName: name, contactPhone: phone, mode, far, smoothcompUrl, ...rest } = c.req.valid('json')
   // The console sends the whole form back, so most of `rest` usually repeats what is
   // already stored. Only the fields that differ belong in the history: a row saying an
   // event was edited when nothing about it moved is noise in the one place that has to be
   // trustworthy.
-  const changed = Object.fromEntries(
+  const changed: Record<string, unknown> = Object.fromEntries(
     Object.entries(rest).filter(([key, value]) => value !== ev[key as keyof typeof ev]),
   )
   const fields: Partial<typeof events.$inferInsert> = { ...rest }
@@ -146,6 +148,15 @@ eventRoutes.patch('/events/:eventId', requireAdmin, validate('json', patchEventS
   if (name !== undefined) fields.contactName = blankToNull(name)
   if (phone !== undefined) fields.contactPhone = blankToNull(phone)
   if (far !== undefined) fields.far = far
+  if (smoothcompUrl !== undefined) {
+    const url = blankToNull(smoothcompUrl ?? '')
+    if (url !== null) {
+      const parsed = parseSmoothcompUrl(url)
+      if (!parsed.ok) return errorJson(c, 422, 'validation', parsed.message)
+    }
+    fields.smoothcompUrl = url
+    if (url !== ev.smoothcompUrl) changed.smoothcompUrl = url
+  }
   // One PATCH can carry several unrelated changes, and the history is read a line at a
   // time, so each concern the body actually changes gets its own row.
   await db.transaction(async tx => {

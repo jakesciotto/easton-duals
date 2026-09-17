@@ -112,6 +112,27 @@ describe('events', () => {
     expect((await call(app, 'PATCH', `/api/events/${eventId}`, { far: 1.21 }, adminToken)).status).toBe(422)
   })
 
+  it('saves, clears, and validates the Smoothcomp URL through PATCH', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db)
+
+    const saved = await call(app, 'PATCH', `/api/events/${s.eventId}`, { smoothcompUrl: 'https://smoothcomp.com/en/event/29499' }, adminToken)
+    expect(saved.status).toBe(200)
+    expect(saved.body.event.smoothcompUrl).toBe('https://smoothcomp.com/en/event/29499')
+    const rows = await db.select().from(auditLog).where(eq(auditLog.eventId, s.eventId)).all()
+    const edit = rows.find(r => r.action === 'event_edit')
+    expect(edit?.detail).toEqual({ smoothcompUrl: 'https://smoothcomp.com/en/event/29499' })
+
+    const cleared = await call(app, 'PATCH', `/api/events/${s.eventId}`, { smoothcompUrl: '' }, adminToken)
+    expect(cleared.status).toBe(200)
+    expect(cleared.body.event.smoothcompUrl).toBeNull()
+
+    const bad = await call(app, 'PATCH', `/api/events/${s.eventId}`, { smoothcompUrl: 'https://example.com/event/1' }, adminToken)
+    expect(bad.status).toBe(422)
+    expect(bad.body.error.message).toBe('Not a smoothcomp.com URL: example.com')
+    expect((await call(app, 'GET', `/api/events/${s.eventId}`, undefined, adminToken)).body.event.smoothcompUrl).toBeNull()
+  })
+
   it('loads every idle mat when a running desk event switches to the mats', async () => {
     const { app, db, adminToken } = await createTestApp()
     const s = await seedEvent(db, { matCount: 2, mode: 'entry' })
