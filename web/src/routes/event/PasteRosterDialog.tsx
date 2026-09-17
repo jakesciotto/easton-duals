@@ -51,7 +51,7 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
       <DialogContent className={dialogSurface(672)}>
         <DialogHeader><DialogTitle>Paste roster</DialogTitle></DialogHeader>
         <DialogBody className={cn(dialogBody, 'gap-4')}>
-          <p className="t2 text-gray-11">One competitor per line. Paste from a spreadsheet with a header row, or type <code className="fig text-gray-10">First Last, age, weight, belt, gender, Team, Scoring</code>.</p>
+          <p className="t2 text-gray-11">One competitor per line. Paste from a spreadsheet with a header row, which can carry Team and Scoring columns, or type <code className="fig text-gray-10">First Last, age, weight, belt, gender</code>.</p>
           <Textarea
             aria-label="Roster text"
             value={text}
