@@ -1,0 +1,1 @@
+ALTER TABLE `events` ADD `smoothcomp_url` text;

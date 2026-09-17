@@ -99,6 +99,13 @@
       "when": 1789399127757,
       "tag": "0013_team_scoring",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1789593578313,
+      "tag": "0014_smoothcomp_url",
+      "breakpoints": true
     }
   ]
 }

@@ -32,6 +32,9 @@ export const events = sqliteTable('events', {
   // The WellnessLiving locations this event syncs, as kBusiness ids. Null until the first
   // sync stores the pick, so every later sync runs on one press.
   wlLocations: text('wl_locations', { mode: 'json' }).$type<string[]>(),
+  // The Smoothcomp event whose finished matches the standings read. Null until an admin saves
+  // one; the dialog saves it before its first run so a re-run and a second admin find it.
+  smoothcompUrl: text('smoothcomp_url'),
   createdAt: text('created_at').notNull(),
   version: integer('version').notNull().default(0),
 })

@@ -3,6 +3,7 @@ import type { DivisionView, EventContact, EventMode, EventStatus, FeedTake, Matc
 // The sync answers one shape, and the two screens that print it read it from here rather
 // than each reaching into the server's own module.
 export type { SyncReport, SyncSuggestion } from '@shared/types'
+export type { StandingsAthlete, StandingsCounts, StandingsReport, StandingsTeam, StandingsUnmatched } from '@shared/types'
 
 /**
  * The division vocabulary, mirrored for the same reason the sync report is: the screens
@@ -41,6 +42,11 @@ export interface EventRow {
    * the list endpoint serves the raw columns and only the detail carries this one.
    */
   wlLocations?: string[] | null
+  /**
+   * The Smoothcomp event the standings read. Null until an admin saves one. Optional for the
+   * same reason as the contact halves: only the detail endpoint carries it.
+   */
+  smoothcompUrl?: string | null
 }
 export interface TeamRow { id: number; eventId: number; name: string; color: TeamColor; position: number }
 export interface AthleteRow {
@@ -160,6 +166,8 @@ export interface ManualKid {
   belt?: string | null
   gender?: string | null
   teamId?: number | null
+  /** A scoring mark carried by the paste. The server applies the cap before it writes. */
+  scoring?: boolean
 }
 
 /**

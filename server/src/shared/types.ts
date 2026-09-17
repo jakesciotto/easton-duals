@@ -68,6 +68,7 @@ export type AuditAction =
   | 'propose' | 'generate'
   | 'ruleset_create' | 'ruleset_edit' | 'ruleset_delete'
   | 'division_create' | 'division_edit' | 'division_delete' | 'fill' | 'schedule'
+  | 'smoothcomp_standings'
   // Backfilled rows carry the match event's own type, and two of those are not verbs any
   // live write records: a desk entry's absolute score, and the pre-0007 admin event kind.
   | 'set_score' | 'admin'
@@ -207,6 +208,24 @@ export interface TeamView { id: number; name: string; color: TeamColor; position
  * and the next team down takes the rank its position in the list gives it (1, 1, 3).
  */
 export interface LeaderboardRow { teamId: number; rank: number; teamPoints: number; wins: number; points: number }
+
+// The Smoothcomp standings: a Smoothcomp event's finished matches joined to the roster's names,
+// teams and scoring marks, ranked by the same rules as the leaderboard. Never stored; the
+// route answers it and writes one audit row.
+export interface StandingsAthlete { athleteId: number; name: string; scoring: boolean; wins: number; losses: number; teamPoints: number }
+export interface StandingsTeam extends LeaderboardRow { name: string; color: TeamColor; scoring: TeamScoring; athletes: StandingsAthlete[] }
+export interface StandingsUnmatched { name: string; club: string; division: string }
+export interface StandingsCounts { read: number; counted: number; byes: number; unfinished: number; undecided: number; unmatched: number; sameTeam: number }
+export interface StandingsReport {
+  fetchedAt: string
+  url: string
+  brackets: { read: number; failed: number[] }
+  matches: StandingsCounts
+  teams: StandingsTeam[]
+  unmatched: StandingsUnmatched[]
+  sameTeamPairs: string[]
+  unknownMethods: string[]
+}
 export interface RulesetView { id: number; name: string; defaultLengthSec: number; actions: RulesetAction[]; terminals: RulesetTerminal[] }
 /**
  * `blocked` is why an idle mat with a queue is not showing anything: the first match in
