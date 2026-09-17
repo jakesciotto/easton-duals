@@ -1,4 +1,5 @@
 import type { LeaderboardRow, TeamView } from '@shared/types'
+import { winnerLine } from '@/lib/format'
 
 /**
  * The sentence under the final standings. Every team that shares rank 1 is named, in
@@ -13,9 +14,7 @@ export function resultText(teams: TeamView[], leaderboard: LeaderboardRow[]): st
     .filter(row => row.rank === 1)
     .map(row => byId.get(row.teamId)?.name)
     .filter((name): name is string => name !== undefined)
-  if (names.length === 0) return ''
-  if (names.length === 1) return `${names[0]} wins`
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} tie`
+  return winnerLine(names)
 }
 
 /**

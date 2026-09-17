@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { contactLine, genderLabel, winTypeLabel } from '@/lib/format'
+import { contactLine, genderLabel, winTypeLabel, winnerLine } from '@/lib/format'
 
 // The column is free text up to ten characters. The roster sync writes "Male", a hand entry
 // writes "M", and the roster row prints the value inside a line that must never wrap, so a
@@ -49,5 +49,16 @@ describe('winTypeLabel', () => {
     expect(winTypeLabel('decision')).toBe('by decision')
     expect(winTypeLabel('walkover')).toBe('by walkover')
     expect(winTypeLabel('dq')).toBe('by DQ')
+  })
+})
+
+// The board's done band and the Smoothcomp report print the same sentence from this one
+// rule, so a tie named on the wall cannot read differently in the organizer's dialog.
+describe('winnerLine', () => {
+  it('names one winner, and every team in a tie', () => {
+    expect(winnerLine([])).toBe('')
+    expect(winnerLine(['Ridgeline'])).toBe('Ridgeline wins')
+    expect(winnerLine(['Ridgeline', 'Lakeside'])).toBe('Ridgeline and Lakeside tie')
+    expect(winnerLine(['Ridgeline', 'Lakeside', 'Harbor Park'])).toBe('Ridgeline, Lakeside and Harbor Park tie')
   })
 })

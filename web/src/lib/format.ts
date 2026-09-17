@@ -24,6 +24,13 @@ export function winTypeLabel(w: WinType): string {
   return WIN_TYPE_LABELS[w]
 }
 
+/** The board's result line: one name wins, more than one tie. Empty for no name. */
+export function winnerLine(names: string[]): string {
+  if (names.length === 0) return ''
+  if (names.length === 1) return `${names[0]} wins`
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} tie`
+}
+
 // The only consumer is teamStyle, which assigns the result to a custom property,
 // so the fallback stays a token reference rather than a literal.
 export function teamHex(color: string): string {
