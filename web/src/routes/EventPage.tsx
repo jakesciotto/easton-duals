@@ -29,6 +29,7 @@ import { OverflowMenu } from '@/components/OverflowMenu'
 import { ContactDialog, contactFooter } from './event/ContactDialog'
 import { TeamsDialog } from './event/TeamsDialog'
 import { DELETE_EVENT_ACTION, DeleteEventDialog } from './event/DeleteEventDialog'
+import { SmoothcompDialog } from './event/SmoothcompDialog'
 import { RosterTab } from './event/RosterTab'
 import { EntryTab } from './event/EntryTab'
 import { RulesetsTab } from './event/RulesetsTab'
@@ -231,6 +232,7 @@ function EventBody({ eventId }: { eventId: number }) {
   const step = setupStepOf(params.get(SETUP_PARAM))
   const [picked, setPicked] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [smoothcompOpen, setSmoothcompOpen] = useState(false)
   // 6.4 / 7.15: the one poll for this event. The header's freshness readout and every tab
   // under the provider read this same stream, so the shell can never report fresh data for
   // a screen that is deliberately frozen, and one browser tab makes one request per tick.
@@ -287,11 +289,16 @@ function EventBody({ eventId }: { eventId: number }) {
       actions={(
         <>
           <Link to={`/board/${eventId}`} target="_blank" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>Open board</Link>
-          {/* 6.9: the one rare action on the whole event, and the only destructive one the
-              shell carries. A certified event is unlocked on the Live tab first. */}
+          {/* 6.9: the two rare actions on the whole event. Reading the standings changes
+              nothing, so the item stands on a certified event and the dialog locks only the
+              URL field, which is a write; the delete is the only destructive action the
+              shell holds, and a certified event is unlocked on the Live tab first. */}
           <OverflowMenu
             label="Event actions"
-            items={[{ key: 'delete', label: DELETE_EVENT_ACTION, disabled: certified, tone: 'destructive', onSelect: () => setDeleteOpen(true) }]}
+            items={[
+              { key: 'smoothcomp', label: 'Smoothcomp standings', disabled: false, onSelect: () => setSmoothcompOpen(true) },
+              { key: 'delete', label: DELETE_EVENT_ACTION, disabled: certified, tone: 'destructive', onSelect: () => setDeleteOpen(true) },
+            ]}
           />
         </>
       )}
@@ -335,6 +342,7 @@ function EventBody({ eventId }: { eventId: number }) {
         />
         <SetupMatchesStep detail={detail} open={step === 'matches'} onClose={() => leave(null)} />
       </SnapshotStreamContext>
+      <SmoothcompDialog detail={detail} certified={certified} open={smoothcompOpen} onOpenChange={setSmoothcompOpen} />
       <DeleteEventDialog detail={detail} open={deleteOpen} onOpenChange={setDeleteOpen} />
     </AdminShell>
   )
