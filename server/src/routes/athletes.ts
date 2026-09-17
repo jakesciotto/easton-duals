@@ -26,6 +26,7 @@ const manualSchema = z.object({
   age: age.nullable().optional(), weightLbs: weight.nullable().optional(),
   belt: belt.nullable().optional(), gender: gender.nullable().optional(),
   teamId: z.number().int().nullable().optional(),
+  scoring: z.boolean().optional(),
 })
 
 const candidateSchema = z.object({
@@ -51,6 +52,21 @@ async function otherMarkedCount(db: DbLike, teamId: number, excludeAthleteId: nu
   const rows = await db.select({ id: athletes.id }).from(athletes)
     .where(and(eq(athletes.teamId, teamId), eq(athletes.scoring, true), ne(athletes.id, excludeAthleteId))).all()
   return rows.length
+}
+
+// The paste carries its marks with the names. The same two rules the toggle enforces apply
+// before anything is written, so a bad paste leaves the roster as it was.
+async function markRefusal(db: DbLike, eventId: number, rows: { teamId?: number | null; scoring?: boolean }[]): Promise<string | null> {
+  const marks = rows.filter(r => r.scoring === true)
+  if (marks.length === 0) return null
+  if (marks.some(r => r.teamId === null || r.teamId === undefined)) return 'a kid needs a team to score'
+  const existing = await db.select({ teamId: athletes.teamId }).from(athletes)
+    .where(and(eq(athletes.eventId, eventId), eq(athletes.scoring, true))).all()
+  const count = new Map<number, number>()
+  for (const r of existing) if (r.teamId !== null) count.set(r.teamId, (count.get(r.teamId) ?? 0) + 1)
+  for (const r of marks) count.set(r.teamId as number, (count.get(r.teamId as number) ?? 0) + 1)
+  for (const n of count.values()) if (n > SCORING_CAP) return 'a team scores with at most ten athletes'
+  return null
 }
 
 async function teamBelongs(db: DbLike, eventId: number, teamId: number | null | undefined): Promise<boolean> {
@@ -94,25 +110,29 @@ athleteRoutes.post('/events/:eventId/athletes', requireAdmin, validate('json', a
   if ('manual' in body) {
     const m = body.manual
     if (!await teamBelongs(db, eventId, m.teamId)) return errorJson(c, 422, 'validation', 'teamId is not on this event')
+    const refusal = await markRefusal(db, eventId, [m])
+    if (refusal) return errorJson(c, 422, 'validation', refusal)
     await db.transaction(async tx => {
       await tx.insert(athletes).values({
         eventId, firstName: m.firstName, lastName: m.lastName, source: 'manual', teamId: m.teamId ?? null,
         age: m.age ?? null, ageSource: m.age == null ? null : 'manual',
         weightLbs: m.weightLbs ?? null, weightSource: m.weightLbs == null ? null : 'manual',
-        belt: m.belt ?? null, gender: m.gender ?? null,
+        belt: m.belt ?? null, gender: m.gender ?? null, scoring: m.scoring ?? false,
       }).run()
       await recordAudit(tx, { eventId, actor: 'admin', action: 'roster_add', detail: { kind: 'manual', count: 1, name: `${m.firstName} ${m.lastName}` } })
       await bumpVersion(tx, eventId)
     })
   } else if ('bulk' in body) {
     for (const m of body.bulk) if (!await teamBelongs(db, eventId, m.teamId)) return errorJson(c, 422, 'validation', 'teamId is not on this event')
+    const refusal = await markRefusal(db, eventId, body.bulk)
+    if (refusal) return errorJson(c, 422, 'validation', refusal)
     await db.transaction(async tx => {
       for (const m of body.bulk) {
         await tx.insert(athletes).values({
           eventId, firstName: m.firstName, lastName: m.lastName, source: 'manual', teamId: m.teamId ?? null,
           age: m.age ?? null, ageSource: m.age == null ? null : 'manual',
           weightLbs: m.weightLbs ?? null, weightSource: m.weightLbs == null ? null : 'manual',
-          belt: m.belt ?? null, gender: m.gender ?? null,
+          belt: m.belt ?? null, gender: m.gender ?? null, scoring: m.scoring ?? false,
         }).run()
       }
       await recordAudit(tx, { eventId, actor: 'admin', action: 'roster_add', detail: { kind: 'bulk', count: body.bulk.length } })

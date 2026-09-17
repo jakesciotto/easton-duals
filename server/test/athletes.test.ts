@@ -83,6 +83,52 @@ describe('athletes', () => {
     expect((await call(app, 'POST', `/api/events/${s.eventId}/athletes`, { bulk: [{ firstName: 'X', lastName: 'Y', teamId: 999 }] }, adminToken)).status).toBe(422)
   })
 
+  describe('scoring on roster add', () => {
+    it('stores the scoring flag from a bulk paste', async () => {
+      const { app, db, adminToken } = await createTestApp()
+      const s = await seedEvent(db, { matches: 0 })
+      const r = await call(app, 'POST', `/api/events/${s.eventId}/athletes`, { bulk: [
+        { firstName: 'Kai', lastName: 'Wong', teamId: s.teamA, scoring: true },
+        { firstName: 'Zoe', lastName: 'Bishop', teamId: s.teamA, scoring: true },
+      ] }, adminToken)
+      expect(r.status).toBe(201)
+      const added = r.body.filter((a: any) => a.lastName === 'Wong' || a.lastName === 'Bishop')
+      expect(added).toHaveLength(2)
+      expect(added.every((a: any) => a.scoring === true)).toBe(true)
+    })
+
+    it('stores scoring false when a bulk row carries no scoring value', async () => {
+      const { app, db, adminToken } = await createTestApp()
+      const s = await seedEvent(db, { matches: 0 })
+      const r = await call(app, 'POST', `/api/events/${s.eventId}/athletes`, { bulk: [{ firstName: 'Kai', lastName: 'Wong', teamId: s.teamA }] }, adminToken)
+      expect(r.body.find((a: any) => a.lastName === 'Wong')).toMatchObject({ scoring: false })
+    })
+
+    it('refuses a marked row with no team, and inserts nothing', async () => {
+      const { app, db, adminToken } = await createTestApp()
+      const s = await seedEvent(db, { matches: 0 })
+      const r = await call(app, 'POST', `/api/events/${s.eventId}/athletes`, { manual: { firstName: 'Kai', lastName: 'Wong', teamId: null, scoring: true } }, adminToken)
+      expect(r.status).toBe(422)
+      expect(r.body.error.message).toBe('a kid needs a team to score')
+      expect(await db.select().from(athletes).where(eq(athletes.lastName, 'Wong')).get()).toBeUndefined()
+    })
+
+    it('refuses a bulk paste that lifts a team past the cap, and writes nothing', async () => {
+      const { app, db, adminToken } = await createTestApp()
+      const s = await seedEvent(db, { matches: 0 })
+      await db.insert(athletes).values(extraKids(s.eventId, s.teamA, 9).map(k => ({ ...k, scoring: true }))).run()
+      await db.update(athletes).set({ scoring: true }).where(eq(athletes.id, s.a1)).run()
+      const before = await db.select().from(athletes).where(eq(athletes.eventId, s.eventId)).all()
+      const r = await call(app, 'POST', `/api/events/${s.eventId}/athletes`, { bulk: [
+        { firstName: 'New', lastName: 'Kid', teamId: s.teamA, scoring: true },
+      ] }, adminToken)
+      expect(r.status).toBe(422)
+      expect(r.body.error.message).toBe('a team scores with at most ten athletes')
+      const after = await db.select().from(athletes).where(eq(athletes.eventId, s.eventId)).all()
+      expect(after).toHaveLength(before.length)
+    })
+  })
+
   describe('scoring flag', () => {
     it('marks up to the cap through PATCH, then refuses the eleventh with the message verbatim', async () => {
       const { app, db, adminToken } = await createTestApp()
