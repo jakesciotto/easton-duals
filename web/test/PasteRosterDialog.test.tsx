@@ -135,4 +135,26 @@ describe('PasteRosterDialog', () => {
       bulk: [{ firstName: 'Mateo', lastName: 'Rivera', age: null, weightLbs: null, belt: null, gender: null, teamId: 1 }],
     })
   })
+
+  it('renders a Scoring column with yes and -- only when the paste has one', async () => {
+    fakeFetch(() => ({ json: {} }))
+    mount()
+    await screen.findByRole('dialog')
+    await userEvent.setup().type(
+      screen.getByLabelText('Roster text'),
+      'Name,Team,Scoring{Enter}Mateo Rivera,Ridgeline,yes{Enter}Ava Park,Ridgeline,no',
+    )
+    expect(within(rows()[0]).getAllByRole('cell').map(c => c.textContent)).toEqual(['', '2', 'Mateo Rivera', '--', '--', 'No belt', '--', 'yes'])
+    expect(within(rows()[1]).getAllByRole('cell').map(c => c.textContent)).toEqual(['', '3', 'Ava Park', '--', '--', 'No belt', '--', '--'])
+  })
+
+  it('disables Add and shows the cap message for eleven scoring marks on one team', async () => {
+    fakeFetch(() => ({ json: {} }))
+    mount()
+    await screen.findByRole('dialog')
+    const paste = ['Name,Team,Scoring', ...Array.from({ length: 11 }, (_, i) => `Kid${i} Test,Ridgeline,yes`)].join('{Enter}')
+    await userEvent.setup().type(screen.getByLabelText('Roster text'), paste)
+    expect(screen.getByText('Ridgeline: 11 scoring competitors, at most ten')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add 11 competitors' })).toBeDisabled()
+  })
 })

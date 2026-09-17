@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { writeErrorMessage } from '@/lib/eventMode'
-import { FIELD_LABEL, parseRosterPaste, type Field, type PasteMapping } from '@/lib/roster-paste'
+import { FIELD_LABEL, parseRosterPaste, scoringCapProblems, type Field, type PasteMapping } from '@/lib/roster-paste'
 import { adminApi, useAdminMutation } from '@/lib/queries'
 import type { EventDetail, ManualKid } from '@/lib/types'
 import { beltLabel, genderLabel } from '@/lib/format'
@@ -28,6 +28,11 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
   const parsed = useMemo(() => parseRosterPaste(text, detail.teams), [text, detail.teams])
   const { lines, mapping } = parsed
   const hasTeamColumn = mapping.columns.includes('team')
+  const hasScoring = mapping.columns.includes('scoring')
+  const capProblems = useMemo(
+    () => scoringCapProblems(parsed.rows, hasTeamColumn ? null : teamId, detail.athletes, detail.teams),
+    [parsed.rows, hasTeamColumn, teamId, detail.athletes, detail.teams],
+  )
   const add = useAdminMutation(detail.event.id, (bulk: ManualKid[]) => adminApi(`/api/events/${detail.event.id}/athletes`, { method: 'POST', body: { bulk } }))
   const teamItems = [{ value: null as number | null, label: 'Unassigned' }, ...detail.teams.map(t => ({ value: t.id as number | null, label: t.name }))]
   const count = parsed.rows.length
@@ -46,7 +51,7 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
       <DialogContent className={dialogSurface(672)}>
         <DialogHeader><DialogTitle>Paste roster</DialogTitle></DialogHeader>
         <DialogBody className={cn(dialogBody, 'gap-4')}>
-          <p className="t2 text-gray-11">One competitor per line. Paste from a spreadsheet with a header row, or type <code className="fig text-gray-10">First Last, age, weight, belt, gender</code>.</p>
+          <p className="t2 text-gray-11">One competitor per line. Paste from a spreadsheet with a header row, or type <code className="fig text-gray-10">First Last, age, weight, belt, gender, Team, Scoring</code>.</p>
           <Textarea
             aria-label="Roster text"
             value={text}
@@ -65,6 +70,7 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
           </div>
 
           {lines.length > 0 && <p className="t2 text-gray-10">{mappingLine(mapping)}</p>}
+          {capProblems.map(p => <p key={p} className="t2 text-fault">{p}</p>)}
 
           {lines.length > 0 && (
             // finding 4: the caller's vertical scroll folds into Table's own wrapper
@@ -85,6 +91,7 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
                   <TableHead numeric className="w-[var(--col-num-m)]">lb</TableHead>
                   <TableHead>Belt</TableHead>
                   <TableHead>Gender</TableHead>
+                  {hasScoring && <TableHead>Scoring</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -95,7 +102,7 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
                     </TableCell>
                     <TableCell numeric className="text-gray-10">{l.n}</TableCell>
                     {l.problem !== null ? (
-                      <TableCell colSpan={5}>
+                      <TableCell colSpan={hasScoring ? 6 : 5}>
                         <span className="truncate text-gray-10">{l.text}</span>
                         <span className="ml-3 t2 text-fault">{l.problem}</span>
                       </TableCell>
@@ -109,6 +116,9 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
                         <TableCell numeric className={l.row?.weightLbs == null ? 'text-attend' : undefined}>{l.row?.weightLbs ?? '--'}</TableCell>
                         <TableCell className="text-gray-11">{beltLabel(l.row?.belt ?? null)}</TableCell>
                         <TableCell className={l.row?.gender ? 'text-gray-11' : 'text-gray-10'}>{genderLabel(l.row?.gender ?? null) ?? '--'}</TableCell>
+                        {hasScoring && (
+                          <TableCell className={l.row?.scoring ? 'text-gray-12' : 'text-gray-10'}>{l.row?.scoring ? 'yes' : '--'}</TableCell>
+                        )}
                       </>
                     )}
                   </TableRow>
@@ -126,7 +136,7 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
         </DialogBody>
         <DialogFooter className={dialogFooter}>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={add.isPending || count === 0}>Add {count} {count === 1 ? 'competitor' : 'competitors'}</Button>
+          <Button onClick={submit} disabled={add.isPending || count === 0 || capProblems.length > 0}>Add {count} {count === 1 ? 'competitor' : 'competitors'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
