@@ -900,3 +900,17 @@ describe('EventPage: deleting the event', () => {
     expect(await item(user)).toHaveAttribute('data-disabled')
   })
 })
+
+/**
+ * 6.9. The shell's overflow is where the event's rare actions live, and the read comes
+ * before the one that cannot be undone.
+ */
+describe('EventPage: the event actions menu', () => {
+  it('lists the Smoothcomp standings above the delete action', async () => {
+    mount(url => snapshotReply(url) ?? (url === '/api/events/7' ? { json: detailWith(IN_ORDER) } : undefined))
+    const user = userEvent.setup()
+    const header = await screen.findByRole('banner')
+    await user.click(within(header).getByRole('button', { name: 'Event actions' }))
+    expect((await screen.findAllByRole('menuitem')).map(i => i.textContent)).toEqual(['Smoothcomp standings', 'Delete event'])
+  })
+})
