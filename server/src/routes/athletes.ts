@@ -43,7 +43,7 @@ const addSchema = z.union([
   z.object({ candidates: z.array(candidateSchema).min(1).max(500), teamId: z.number().int().nullable().optional() }),
 ])
 
-const patchSchema = manualSchema.partial().extend({ scoring: z.boolean().optional() })
+const patchSchema = manualSchema.partial()
 
 // How many kids on the team are already marked, other than the one this write is about.
 // A team scores with at most SCORING_CAP kids, so marking one more only passes when
