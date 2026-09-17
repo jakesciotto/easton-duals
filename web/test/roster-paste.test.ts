@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseRosterPaste, FIELD_LABEL } from '@/lib/roster-paste'
-import type { TeamRow } from '@/lib/types'
+import { parseRosterPaste, scoringCapProblems, FIELD_LABEL } from '@/lib/roster-paste'
+import type { ManualKid, TeamRow } from '@/lib/types'
 
 const teams: TeamRow[] = [
   { id: 1, eventId: 7, name: 'Ridgeline', color: 'red', position: 0 },
@@ -123,10 +123,62 @@ describe('parseRosterPaste, header row', () => {
   })
 })
 
+describe('parseRosterPaste, Scoring column', () => {
+  it('maps Scoring and sets the flag from yes, x, empty, and no', () => {
+    const { rows, errors, mapping } = parseRosterPaste(
+      'Name,Team,Scoring\nMateo Rivera,Ridgeline,yes\nAva Park,Ridgeline,x\nNoah Tran,Ridgeline,\nZoe Martin,Ridgeline,no',
+      teams,
+    )
+    expect(errors).toEqual([])
+    expect(mapping.columns).toEqual(['name', 'team', 'scoring'])
+    expect(rows.map(r => r.scoring)).toEqual([true, true, false, false])
+  })
+
+  it('reports an unrecognized scoring value as a line problem', () => {
+    const { errors } = parseRosterPaste('Name,Team,Scoring\nMateo Rivera,Ridgeline,maybe', teams)
+    expect(errors).toEqual(['line 2: unknown scoring "maybe"'])
+  })
+
+  it('refuses a scoring mark with an empty Team cell', () => {
+    const { errors } = parseRosterPaste('Name,Team,Scoring\nMateo Rivera,,yes', teams)
+    expect(errors).toEqual(['line 2: scoring needs a team'])
+  })
+
+  it('never reads a scoring column from a positional paste', () => {
+    const { rows, mapping } = parseRosterPaste('Mateo Rivera, 8, 62, grey, M')
+    expect(mapping.columns).not.toContain('scoring')
+    expect(rows[0].scoring).toBeUndefined()
+  })
+})
+
+describe('scoringCapProblems', () => {
+  it('flags a team whose existing marks plus the paste pass the cap', () => {
+    const rows: ManualKid[] = [
+      { firstName: 'New', lastName: 'Kid', teamId: 1, scoring: true },
+      { firstName: 'Another', lastName: 'Kid', teamId: 1, scoring: true },
+    ]
+    const existing = Array.from({ length: 9 }, () => ({ teamId: 1, scoring: true }))
+    expect(scoringCapProblems(rows, null, existing, teams)).toEqual(['Ridgeline: 11 scoring competitors, at most ten'])
+  })
+
+  it('flags a marked row with no effective team once', () => {
+    const rows: ManualKid[] = [
+      { firstName: 'New', lastName: 'Kid', scoring: true },
+      { firstName: 'Another', lastName: 'Kid', scoring: true },
+    ]
+    expect(scoringCapProblems(rows, null, [], teams)).toEqual(['Scoring competitors need a team'])
+  })
+
+  it('returns nothing for a paste with no marks', () => {
+    const rows: ManualKid[] = [{ firstName: 'New', lastName: 'Kid', teamId: 1, scoring: false }]
+    expect(scoringCapProblems(rows, null, [], teams)).toEqual([])
+  })
+})
+
 describe('FIELD_LABEL', () => {
   it('names every field the way the table heads already do', () => {
     expect(FIELD_LABEL).toEqual({
-      name: 'Name', first: 'First', last: 'Last', age: 'Age', weight: 'lb', belt: 'Belt', gender: 'Gender', team: 'Team',
+      name: 'Name', first: 'First', last: 'Last', age: 'Age', weight: 'lb', belt: 'Belt', gender: 'Gender', team: 'Team', scoring: 'Scoring',
     })
   })
 })

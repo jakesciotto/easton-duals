@@ -1,4 +1,4 @@
-import { KIDS_BELTS } from '@shared/types'
+import { KIDS_BELTS, SCORING_CAP } from '@shared/types'
 import { dice, normalize } from '@shared/similarity'
 import type { ManualKid, TeamRow } from './types'
 
@@ -15,16 +15,16 @@ function parseBelt(raw: string): string | null | Error {
   return new Error(`unknown belt "${raw}"`)
 }
 
-export type Field = 'name' | 'first' | 'last' | 'age' | 'weight' | 'belt' | 'gender' | 'team'
+export type Field = 'name' | 'first' | 'last' | 'age' | 'weight' | 'belt' | 'gender' | 'team' | 'scoring'
 
 export interface PasteLine { n: number; text: string; row: ManualKid | null; problem: string | null }
 export interface PasteMapping { header: boolean; delimiter: 'tab' | 'comma'; columns: (Field | null)[]; ignored: string[] }
 
 export const FIELD_LABEL: Record<Field, string> = {
-  name: 'Name', first: 'First', last: 'Last', age: 'Age', weight: 'lb', belt: 'Belt', gender: 'Gender', team: 'Team',
+  name: 'Name', first: 'First', last: 'Last', age: 'Age', weight: 'lb', belt: 'Belt', gender: 'Gender', team: 'Team', scoring: 'Scoring',
 }
 
-const FIELD_ORDER: Field[] = ['name', 'first', 'last', 'age', 'weight', 'belt', 'gender', 'team']
+const FIELD_ORDER: Field[] = ['name', 'first', 'last', 'age', 'weight', 'belt', 'gender', 'team', 'scoring']
 
 const FIELD_ALIASES: Record<Field, string[]> = {
   name: ['name', 'full name', 'competitor', 'student', 'athlete', 'kid', 'child'],
@@ -35,6 +35,7 @@ const FIELD_ALIASES: Record<Field, string[]> = {
   belt: ['belt', 'rank', 'belt rank', 'grade'],
   gender: ['gender', 'sex', 'm/f'],
   team: ['team', 'side', 'squad'],
+  scoring: ['scoring', 'scorer', 'scoring athlete', 'scores', 'designated'],
 }
 
 const POSITIONAL_COLUMNS: (Field | null)[] = ['name', 'age', 'weight', 'belt', 'gender']
@@ -79,6 +80,16 @@ function buildMapping(cells: string[]): { columns: (Field | null)[]; ignored: st
   const resolved = columns.map((field, i) => (field !== null && bestColumnForField.get(field) === i ? field : null))
   const ignored = cells.filter((_, i) => resolved[i] === null).map(c => c.trim())
   return { columns: resolved, ignored }
+}
+
+const MARK = new Set(['yes', 'y', 'x', 'true', '1', 'scoring', 'scorer'])
+const NO_MARK = new Set(['', 'no', 'n', 'false', '0', '-', '--'])
+
+function parseScoring(raw: string): boolean | Error {
+  const key = raw.trim().toLowerCase()
+  if (MARK.has(key)) return true
+  if (NO_MARK.has(key)) return false
+  return new Error(`unknown scoring "${raw}"`)
 }
 
 function matchTeam(raw: string, teams: TeamRow[]): TeamRow | null {
@@ -146,6 +157,13 @@ function buildRow(values: Partial<Record<Field, string>>, teams: TeamRow[]): { r
     }
   }
 
+  if (values.scoring !== undefined) {
+    const flag = parseScoring(values.scoring)
+    if (flag instanceof Error) return { row: null, problem: flag.message }
+    if (flag && values.team === '') return { row: null, problem: 'scoring needs a team' }
+    row.scoring = flag
+  }
+
   return { row, problem: null }
 }
 
@@ -208,4 +226,27 @@ export function parseRosterPaste(text: string, teams: TeamRow[] = []): { lines: 
   const rows = errors.length ? [] : lines.map(l => l.row as ManualKid)
 
   return { lines, rows, errors, mapping }
+}
+
+// The cap is per team, and a paste's marks land beside whatever the team already carries.
+// A row with no effective team (no Team column and no team chosen for the paste) cannot be
+// counted against any team, so it is called out on its own rather than silently dropped.
+export function scoringCapProblems(rows: ManualKid[], fallbackTeamId: number | null, athletes: { teamId: number | null; scoring: boolean }[], teams: TeamRow[]): string[] {
+  const marks = rows.filter(r => r.scoring === true)
+  if (marks.length === 0) return []
+  const problems: string[] = []
+  const count = new Map<number, number>()
+  for (const a of athletes) if (a.teamId !== null && a.scoring) count.set(a.teamId, (count.get(a.teamId) ?? 0) + 1)
+  let teamless = false
+  for (const r of marks) {
+    const teamId = r.teamId ?? fallbackTeamId
+    if (teamId === null) { teamless = true; continue }
+    count.set(teamId, (count.get(teamId) ?? 0) + 1)
+  }
+  if (teamless) problems.push('Scoring competitors need a team')
+  for (const team of teams) {
+    const n = count.get(team.id) ?? 0
+    if (n > SCORING_CAP) problems.push(`${team.name}: ${n} scoring competitors, at most ten`)
+  }
+  return problems
 }
