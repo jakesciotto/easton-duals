@@ -89,6 +89,14 @@
   --live: #56dc85;
   --attend: #f7ae0c;
   --fault: #fd736a;
+  /* Kids belt families and stripes, for the roster row dot. */
+  --belt-white: #e6e6e6;
+  --belt-grey: #8b8f96;
+  --belt-yellow: #e2bd45;
+  --belt-orange: #df8a3b;
+  --belt-green: #43a565;
+  --stripe-white: #fafafa;
+  --stripe-black: #111111;
 
   /* Leading and trailing figures. Both stay inside the near-white rule. */
   --fig-lead: var(--gray-12);

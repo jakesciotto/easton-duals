@@ -65,12 +65,12 @@ describe('winnerLine', () => {
 
 describe('beltDotStyle', () => {
   it('fills a plain belt with its family colour', () => {
-    expect(beltDotStyle('grey')).toEqual({ background: '#8b8f96' })
+    expect(beltDotStyle('grey')).toEqual({ background: 'var(--belt-grey)' })
   })
 
   it('puts the stripe at the centre of a striped belt', () => {
-    expect(beltDotStyle('grey-white')).toEqual({ background: 'radial-gradient(circle, #fafafa 0 3px, #8b8f96 3.5px)' })
-    expect(beltDotStyle('yellow-black')).toEqual({ background: 'radial-gradient(circle, #111111 0 3px, #e2bd45 3.5px)' })
+    expect(beltDotStyle('grey-white')).toEqual({ background: 'radial-gradient(circle, var(--stripe-white) 0 3px, var(--belt-grey) 3.5px)' })
+    expect(beltDotStyle('yellow-black')).toEqual({ background: 'radial-gradient(circle, var(--stripe-black) 0 3px, var(--belt-yellow) 3.5px)' })
   })
 
   it('draws no belt as a hollow ring', () => {

@@ -7,15 +7,18 @@ export function beltLabel(belt: string | null): string {
 }
 
 // The roster row shows a belt as a dot: the family fills it and a stripe belt carries the
-// stripe's colour at the centre. No belt is a hollow ring.
-const BELT_FAMILY_HEX: Record<string, string> = { white: '#e6e6e6', grey: '#8b8f96', yellow: '#e2bd45', orange: '#df8a3b', green: '#43a565' }
-const STRIPE_HEX: Record<string, string> = { white: '#fafafa', black: '#111111' }
+// stripe's colour at the centre. No belt is a hollow ring. The colours are tokens in
+// index.css, like every other colour in the app.
+const BELT_FAMILY: Record<string, string> = {
+  white: 'var(--belt-white)', grey: 'var(--belt-grey)', yellow: 'var(--belt-yellow)', orange: 'var(--belt-orange)', green: 'var(--belt-green)',
+}
+const STRIPE: Record<string, string> = { white: 'var(--stripe-white)', black: 'var(--stripe-black)' }
 
 export function beltDotStyle(belt: string | null): CSSProperties {
   if (!belt) return { boxShadow: 'inset 0 0 0 1.5px var(--gray-8)' }
   const [family, stripe] = belt.split('-')
-  const fill = BELT_FAMILY_HEX[family] ?? 'var(--gray-8)'
-  const centre = stripe === undefined ? null : STRIPE_HEX[stripe] ?? null
+  const fill = BELT_FAMILY[family] ?? 'var(--gray-8)'
+  const centre = stripe === undefined ? null : STRIPE[stripe] ?? null
   return centre === null ? { background: fill } : { background: `radial-gradient(circle, ${centre} 0 3px, ${fill} 3.5px)` }
 }
 
