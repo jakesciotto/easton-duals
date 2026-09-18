@@ -12,11 +12,11 @@ const BELT_FAMILY_HEX: Record<string, string> = { white: '#e6e6e6', grey: '#8b8f
 const STRIPE_HEX: Record<string, string> = { white: '#fafafa', black: '#111111' }
 
 export function beltDotStyle(belt: string | null): CSSProperties {
-  if (!belt) return { boxShadow: 'inset 0 0 0 1px var(--gray-8)' }
+  if (!belt) return { boxShadow: 'inset 0 0 0 1.5px var(--gray-8)' }
   const [family, stripe] = belt.split('-')
   const fill = BELT_FAMILY_HEX[family] ?? 'var(--gray-8)'
   const centre = stripe === undefined ? null : STRIPE_HEX[stripe] ?? null
-  return centre === null ? { background: fill } : { background: `radial-gradient(circle, ${centre} 0 2px, ${fill} 2.5px)` }
+  return centre === null ? { background: fill } : { background: `radial-gradient(circle, ${centre} 0 3px, ${fill} 3.5px)` }
 }
 
 export function athleteName(a: { firstName: string; lastName: string }): string {

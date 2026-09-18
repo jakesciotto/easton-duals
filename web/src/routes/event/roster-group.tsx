@@ -106,6 +106,11 @@ export function RosterGroup({
           <span className="t1 font-sans">Competitor</span>
           <span className="tick t1 font-sans text-right">Age</span>
           <span className="tick t1 font-sans text-right">lb</span>
+          {/* The Scoring track is named only where a column designates: a team inside the cap
+              and the pool leave it blank, and the group head line says why. */}
+          {scoring !== null && !scoring.everyone
+            ? <span className="tick t1 font-sans text-center">Scoring</span>
+            : <span />}
           <span />
           <span />
           <span />

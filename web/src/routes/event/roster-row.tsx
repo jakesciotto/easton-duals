@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Chip } from '@/components/ui/chip'
 import { FieldRow } from '@/components/ui/field-set'
-import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
 /**
@@ -23,7 +22,7 @@ import { cn } from '@/lib/utils'
  * picker can reach.
  */
 export const ROSTER_COLS =
-  'grid grid-cols-[var(--col-select)_var(--col-state)_minmax(0,1fr)_var(--col-num-s)_var(--col-num-m)_56px_var(--col-act)_var(--col-act)] gap-x-3 px-3'
+  'grid grid-cols-[var(--col-select)_var(--col-state)_minmax(0,1fr)_var(--col-num-s)_var(--col-num-m)_56px_56px_var(--col-act)_var(--col-act)] gap-x-3 px-3'
 
 const CELL = 'fig t2 h-6 w-full rounded-md px-1.5 text-right transition-colors duration-120 ease-out'
 
@@ -120,16 +119,17 @@ export function looksLikeLine(candidate: { firstName: string; lastName: string; 
 }
 
 // The server's own refusal, printed before the write rather than after it. It hangs on the
-// chip rather than on the control, because a disabled control takes no pointer events and
+// cell rather than on the control, because a disabled control takes no pointer events and
 // so can never show a title of its own.
 export const SCORING_FULL = 'a team scores with at most ten athletes'
 
 /**
- * Spec 4's designation, on the rows where it means something. A team inside the cap scores
- * with every competitor and the pool scores with nobody, so neither offers it at all; the
- * column head says which of the two a column is.
+ * Spec 4's designation, in the Scoring track on the rows where it means something. A team
+ * inside the cap scores with every competitor and the pool scores with nobody, so neither
+ * offers it at all; the column head says which of the two a column is. The competitor is
+ * in the control's name: eleven controls called "Scoring" say nothing about which child.
  */
-function ScoringToggle({ id, name, scoring, full, onChange }: {
+function ScoringCell({ id, name, scoring, full, onChange }: {
   id: number
   name: string
   scoring: boolean
@@ -139,24 +139,16 @@ function ScoringToggle({ id, name, scoring, full, onChange }: {
 }) {
   const refused = full && !scoring
   return (
-    <Chip
-      size="t1"
-      title={refused ? SCORING_FULL : undefined}
-      className={cn('shrink-0 gap-1.5', scoring && 'text-gray-12')}
-    >
+    <span data-slot="scoring-cell" className="flex h-6 items-center justify-center" title={refused ? SCORING_FULL : undefined}>
       <Checkbox
         id={`scoring-${id}`}
+        aria-label={`Scoring for ${name}`}
         checked={scoring}
         disabled={refused}
         onCheckedChange={onChange}
-        className="size-3.5 data-disabled:opacity-50"
+        className="data-disabled:opacity-50"
       />
-      {/* base-ui names the control from this label, so the competitor goes in it: eleven
-          rows of a control called "Scoring" say nothing about which child they are. */}
-      <Label htmlFor={`scoring-${id}`} className="t1 text-inherit">
-        Scoring<span className="sr-only"> for {name}</span>
-      </Label>
-    </Chip>
+    </span>
   )
 }
 
@@ -269,22 +261,8 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
             <span aria-label={mismatch} title={mismatch} className="size-1.5 shrink-0 rounded-full bg-attend" />
           )}
         </span>
-        {/* The toggle rides the name cell rather than a track of its own: the Ledger Grid
-            is already 227px of fixed tracks against a 400px column, and a ninth would be
-            reserved on every row of every column for a control most events never show. */}
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="flex min-w-0 items-center gap-2 t2 font-normal! leading-4! text-gray-10">
-            {metaParts}
-          </span>
-          {scoringToggle && (
-            <ScoringToggle
-              id={kid.id}
-              name={name}
-              scoring={kid.scoring}
-              full={scoringFull}
-              onChange={scoring => onPatch({ scoring })}
-            />
-          )}
+        <span className="flex min-w-0 items-center gap-2 t2 font-normal! leading-4! text-gray-10">
+          {metaParts}
         </span>
       </span>
       <EditableCell
@@ -299,6 +277,17 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
         source={kid.weightSource}
         onSave={weightLbs => onPatch({ weightLbs })}
       />
+      {scoringToggle
+        ? (
+          <ScoringCell
+            id={kid.id}
+            name={name}
+            scoring={kid.scoring}
+            full={scoringFull}
+            onChange={scoring => onPatch({ scoring })}
+          />
+        )
+        : <span />}
       {unlinked
         ? <Button variant="ghost" size="sm" aria-label={`Link ${name}`} onClick={onLink} className="w-full px-0 font-sans">Link</Button>
         : <span />}

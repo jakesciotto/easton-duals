@@ -103,7 +103,9 @@ describe('RosterTab', () => {
     const pool = screen.getByRole('region', { name: 'Unassigned' })
     const row = rowOf(pool, 'Zoe Kid')
     // The Link track, then two action tracks: the profile every row carries, then the remove.
-    expect(row.className).toContain('grid-cols-[var(--col-select)_var(--col-state)_minmax(0,1fr)_var(--col-num-s)_var(--col-num-m)_56px_var(--col-act)_var(--col-act)]')
+    // The Link track, the Scoring track, then two action tracks: the profile every row
+    // carries, then the remove.
+    expect(row.className).toContain('grid-cols-[var(--col-select)_var(--col-state)_minmax(0,1fr)_var(--col-num-s)_var(--col-num-m)_56px_56px_var(--col-act)_var(--col-act)]')
     expect(row.className).toContain('h-14')
     expect(within(row).getByText('Zoe Kid')).toHaveAttribute('title', 'Zoe Kid')
     // The meta line is a belt dot named for screen readers, then the rating chip. The belt
@@ -1205,9 +1207,9 @@ describe('RosterTab scoring', () => {
     mount(squad(11, 10))
     const eleventh = toggle('Theo')
     expect(eleventh).toHaveAttribute('aria-disabled', 'true')
-    expect(eleventh.closest('[data-slot="chip"]')).toHaveAttribute('title', 'a team scores with at most ten athletes')
+    expect(eleventh.closest('[data-slot="scoring-cell"]')).toHaveAttribute('title', 'a team scores with at most ten athletes')
     expect(toggle('Mateo')).not.toHaveAttribute('aria-disabled')
-    expect(toggle('Mateo').closest('[data-slot="chip"]')).not.toHaveAttribute('title')
+    expect(toggle('Mateo').closest('[data-slot="scoring-cell"]')).not.toHaveAttribute('title')
   })
 
   it('marks one competitor through the row the other roster cells are edited through', async () => {

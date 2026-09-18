@@ -69,11 +69,11 @@ describe('beltDotStyle', () => {
   })
 
   it('puts the stripe at the centre of a striped belt', () => {
-    expect(beltDotStyle('grey-white')).toEqual({ background: 'radial-gradient(circle, #fafafa 0 2px, #8b8f96 2.5px)' })
-    expect(beltDotStyle('yellow-black')).toEqual({ background: 'radial-gradient(circle, #111111 0 2px, #e2bd45 2.5px)' })
+    expect(beltDotStyle('grey-white')).toEqual({ background: 'radial-gradient(circle, #fafafa 0 3px, #8b8f96 3.5px)' })
+    expect(beltDotStyle('yellow-black')).toEqual({ background: 'radial-gradient(circle, #111111 0 3px, #e2bd45 3.5px)' })
   })
 
   it('draws no belt as a hollow ring', () => {
-    expect(beltDotStyle(null)).toEqual({ boxShadow: 'inset 0 0 0 1px var(--gray-8)' })
+    expect(beltDotStyle(null)).toEqual({ boxShadow: 'inset 0 0 0 1.5px var(--gray-8)' })
   })
 })
