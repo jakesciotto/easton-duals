@@ -106,9 +106,12 @@ describe('RosterTab', () => {
     expect(row.className).toContain('grid-cols-[var(--col-select)_var(--col-state)_minmax(0,1fr)_var(--col-num-s)_var(--col-num-m)_56px_var(--col-act)_var(--col-act)]')
     expect(row.className).toContain('h-14')
     expect(within(row).getByText('Zoe Kid')).toHaveAttribute('title', 'Zoe Kid')
-    // The figure is now a chip, a child element rather than meta-line text, so this
-    // reads the row's full text rather than one node's own.
-    expect(row).toHaveTextContent('Grey · M · 5.2')
+    // The meta line is a belt dot named for screen readers, then the rating chip. The belt
+    // and the gender are no longer words on the row.
+    expect(within(row).getByRole('img', { name: 'Grey' })).toBeInTheDocument()
+    expect(row).toHaveTextContent('5.2')
+    expect(row).not.toHaveTextContent('Grey')
+    expect(row).not.toHaveTextContent(' · ')
   })
 
   // Spec D.
@@ -423,12 +426,14 @@ describe('RosterTab', () => {
     expect(within(pool).queryByRole('button', { name: 'Weight for Zoe Kid' })).not.toBeInTheDocument()
   })
 
-  it('refuses the row remove for a competitor already in a match and prints the reason on the row', () => {
+  it('refuses the row remove for a competitor already in a match and says so only on the control', () => {
     fakeFetch(() => ({ json: [] }))
     mount(placed)
     const pool = screen.getByRole('region', { name: 'Unassigned' })
     expect(within(pool).getByRole('button', { name: 'Remove Noah Kid, already in a match' })).toBeDisabled()
-    expect(within(pool).getByText('Grey · M · In a match')).toBeInTheDocument()
+    // The meta line no longer says a kid is in a match: the roster is not the place to
+    // read the running order.
+    expect(within(pool).queryByText(/In a match/)).not.toBeInTheDocument()
     expect(within(pool).getByRole('button', { name: 'Remove Zoe Kid' })).toBeEnabled()
   })
 

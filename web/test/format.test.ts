@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { contactLine, genderLabel, winTypeLabel, winnerLine } from '@/lib/format'
+import { contactLine, genderLabel, winTypeLabel, winnerLine, beltDotStyle } from '@/lib/format'
 
 // The column is free text up to ten characters. The roster sync writes "Male", a hand entry
 // writes "M", and the roster row prints the value inside a line that must never wrap, so a
@@ -60,5 +60,20 @@ describe('winnerLine', () => {
     expect(winnerLine(['Ridgeline'])).toBe('Ridgeline wins')
     expect(winnerLine(['Ridgeline', 'Lakeside'])).toBe('Ridgeline and Lakeside tie')
     expect(winnerLine(['Ridgeline', 'Lakeside', 'Harbor Park'])).toBe('Ridgeline, Lakeside and Harbor Park tie')
+  })
+})
+
+describe('beltDotStyle', () => {
+  it('fills a plain belt with its family colour', () => {
+    expect(beltDotStyle('grey')).toEqual({ background: '#8b8f96' })
+  })
+
+  it('puts the stripe at the centre of a striped belt', () => {
+    expect(beltDotStyle('grey-white')).toEqual({ background: 'radial-gradient(circle, #fafafa 0 2px, #8b8f96 2.5px)' })
+    expect(beltDotStyle('yellow-black')).toEqual({ background: 'radial-gradient(circle, #111111 0 2px, #e2bd45 2.5px)' })
+  })
+
+  it('draws no belt as a hollow ring', () => {
+    expect(beltDotStyle(null)).toEqual({ boxShadow: 'inset 0 0 0 1px var(--gray-8)' })
   })
 })

@@ -1,5 +1,6 @@
 import type { AthleteRow, EventDetail } from '@/lib/types'
 import { athleteName, beltLabel, timeOfDay } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { TeamPlate } from '@/components/TeamPlate'
 import { dialogBody, dialogFooter, dialogSurface } from '@/components/dialog-frame'
 import { Button } from '@/components/ui/button'
@@ -36,17 +37,20 @@ export function changeSentence(changes: Record<string, { from: unknown; to: unkn
   return fields.map(([key, d]) => `${CHANGE_LABEL[key] ?? key} ${changed(d.from)} to ${changed(d.to)}.`).join(' ')
 }
 
-const SOURCE_WORD: Record<string, string> = {
-  manual: 'typed',
-  leaderboard: 'leaderboard',
-  wl: 'WellnessLiving',
+// Where a number came from, as the tooltip on the value. The row prints the number alone
+// and the source is a hover away, rather than a word after every figure.
+const SOURCE_TITLE: Record<'age' | 'weight', Record<string, string>> = {
+  age: { manual: 'Entered by hand', leaderboard: "From the leaderboard's age group", wl: 'From WellnessLiving' },
+  weight: { manual: 'Entered by hand', leaderboard: "From the leaderboard's weight class", wl: 'From WellnessLiving' },
 }
 
-/** A number is only half the fact. Where it came from decides whether it can be trusted. */
-function measured(value: number | null, source: string | null): string {
-  if (value === null) return 'missing'
-  const word = source === null ? null : SOURCE_WORD[source] ?? null
-  return word === null ? String(value) : `${value}, ${word}`
+function measured(value: number | null): string {
+  return value === null ? 'missing' : String(value)
+}
+
+function sourceTitle(kind: 'age' | 'weight', value: number | null, source: string | null): string | undefined {
+  if (value === null || source === null) return undefined
+  return SOURCE_TITLE[kind][source]
 }
 
 function beltRow(kid: AthleteRow): string {
@@ -54,11 +58,16 @@ function beltRow(kid: AthleteRow): string {
   return `${beltLabel(kid.belt)}, ${kid.promotedAt === null ? 'date unknown' : `since ${kid.promotedAt}`}`
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
     <ListRow className={ROW}>
       <span className="t2 text-gray-10">{label}</span>
-      <span className="t3 text-gray-12">{value}</span>
+      <span
+        className={cn('t3 text-gray-12', title !== undefined && 'cursor-help underline decoration-dotted decoration-gray-8 underline-offset-4')}
+        title={title}
+      >
+        {value}
+      </span>
     </ListRow>
   )
 }
@@ -91,8 +100,8 @@ export function ProfileSheet({ detail, kid, open, onOpenChange }: {
             <Row label="Location" value={kid.wlLocation ?? 'Unknown'} />
             <Row label="Belt" value={beltRow(kid)} />
             <Row label="ERP" value={kid.erp === null ? 'unrated' : kid.erp.toFixed(1)} />
-            <Row label="Age" value={measured(kid.age, kid.ageSource)} />
-            <Row label="Weight" value={measured(kid.weightLbs, kid.weightSource)} />
+            <Row label="Age" value={measured(kid.age)} title={sourceTitle('age', kid.age, kid.ageSource)} />
+            <Row label="Weight" value={measured(kid.weightLbs)} title={sourceTitle('weight', kid.weightLbs, kid.weightSource)} />
             <Row label="Gender" value={kid.gender ?? 'Unknown'} />
             <Row label="WellnessLiving" value={kid.wlUid === null ? 'Not linked' : 'Linked'} />
             <Row label="Last synced" value={timeOfDay(kid.syncedAt) ?? 'Never'} />

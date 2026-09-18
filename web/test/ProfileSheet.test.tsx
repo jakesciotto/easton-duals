@@ -67,8 +67,11 @@ describe('ProfileSheet', () => {
     expect(lineFor('Location')).toHaveTextContent('Boulder')
     expect(lineFor('Belt')).toHaveTextContent('Grey / White, since 2026-03-14')
     expect(lineFor('ERP')).toHaveTextContent('3.4')
-    expect(lineFor('Age')).toHaveTextContent('8, typed')
-    expect(lineFor('Weight')).toHaveTextContent('62, leaderboard')
+    // The figure stands alone; where it came from is the tooltip on it.
+    expect(lineFor('Age')).toHaveTextContent(/^Age8$/)
+    expect(within(lineFor('Age')).getByText('8')).toHaveAttribute('title', 'Entered by hand')
+    expect(lineFor('Weight')).toHaveTextContent(/^Weight62$/)
+    expect(within(lineFor('Weight')).getByText('62')).toHaveAttribute('title', "From the leaderboard's weight class")
     expect(lineFor('Gender')).toHaveTextContent('Male')
     expect(lineFor('WellnessLiving')).toHaveTextContent('Linked')
     expect(lineFor('Last synced')).toHaveTextContent('3:41 pm')

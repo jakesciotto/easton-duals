@@ -6,6 +6,19 @@ export function beltLabel(belt: string | null): string {
   return belt.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' / ')
 }
 
+// The roster row shows a belt as a dot: the family fills it and a stripe belt carries the
+// stripe's colour at the centre. No belt is a hollow ring.
+const BELT_FAMILY_HEX: Record<string, string> = { white: '#e6e6e6', grey: '#8b8f96', yellow: '#e2bd45', orange: '#df8a3b', green: '#43a565' }
+const STRIPE_HEX: Record<string, string> = { white: '#fafafa', black: '#111111' }
+
+export function beltDotStyle(belt: string | null): CSSProperties {
+  if (!belt) return { boxShadow: 'inset 0 0 0 1px var(--gray-8)' }
+  const [family, stripe] = belt.split('-')
+  const fill = BELT_FAMILY_HEX[family] ?? 'var(--gray-8)'
+  const centre = stripe === undefined ? null : STRIPE_HEX[stripe] ?? null
+  return centre === null ? { background: fill } : { background: `radial-gradient(circle, ${centre} 0 2px, ${fill} 2.5px)` }
+}
+
 export function athleteName(a: { firstName: string; lastName: string }): string {
   return `${a.firstName} ${a.lastName}`.trim()
 }

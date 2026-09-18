@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { IdCardIcon, UserMinusIcon, XIcon } from 'lucide-react'
 import type { AthleteRow, RosterCandidate } from '@/lib/types'
 import { athleteName, beltLabel, genderLabel } from '@/lib/format'
+import { BeltDot } from '@/components/BeltDot'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Chip } from '@/components/ui/chip'
@@ -215,17 +216,15 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
   const state = fault ? 'fault' : kid.age === null || kid.weightLbs === null ? 'attend' : 'ok'
   const mismatch = kid.wlUid !== null && wlRecord !== undefined ? wlMismatchTitle(kid, wlRecord) : null
   const inTeam = kid.teamId !== null
-  // The refusal is printed on the row's own meta line, because a disabled control
-  // takes no pointer events and so can never show a title. Spec D: the ERP figure is a
-  // chip rather than text, so it is a segment of its own instead of a joined string.
+  // The meta line is the belt as a dot and the rating as a chip. The words after them are
+  // states a sync left behind, not facts about the child, and each one is its own segment
+  // so the line never joins text into one string.
   const metaParts: ReactNode[] = [
-    beltLabel(kid.belt),
-    genderLabel(kid.gender),
+    <BeltDot key="belt" belt={kid.belt} />,
     kid.erp === null ? null : <Chip key="erp" value={kid.erp.toFixed(1)} size="t1" />,
-    inMatch ? 'In a match' : null,
-    missing ? NOT_IN_WL : null,
+    missing ? <span key="missing" className="truncate">{NOT_IN_WL}</span> : null,
     suggested !== null && suggestion !== undefined
-      ? <span key="suggestion" className="text-gray-11">{looksLikeLine(suggestion)}</span>
+      ? <span key="suggestion" className="truncate text-gray-11">{looksLikeLine(suggestion)}</span>
       : null,
   ].filter((part): part is NonNullable<typeof part> => part !== null)
 
@@ -274,13 +273,8 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
             is already 227px of fixed tracks against a 400px column, and a ninth would be
             reserved on every row of every column for a control most events never show. */}
         <span className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate t2 font-normal! leading-4! text-gray-10">
-            {metaParts.map((part, i) => (
-              <Fragment key={i}>
-                {i > 0 && ' · '}
-                {part}
-              </Fragment>
-            ))}
+          <span className="flex min-w-0 items-center gap-2 t2 font-normal! leading-4! text-gray-10">
+            {metaParts}
           </span>
           {scoringToggle && (
             <ScoringToggle
