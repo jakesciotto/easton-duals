@@ -19,7 +19,7 @@ import { smoothcompRoutes } from './routes/smoothcomp.js'
 
 // Kept beside the package version by health.test.ts, so a release that bumps one and
 // forgets the other fails a test instead of reporting the wrong build in production.
-export const VERSION = '0.17.1'
+export const VERSION = '0.17.3'
 
 export function createApp(ctx: AppContext) {
   const app = new Hono<Env>()
