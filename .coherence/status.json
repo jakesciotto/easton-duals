@@ -1012,141 +1012,119 @@
     "failures": 0
   },
   "mass": {
-    "at": "2026-10-04T16:09:04.058Z",
-    "commit": "ef5590e",
+    "at": "2026-10-04T16:12:38.611Z",
+    "commit": "77b7f37",
     "dirty": true,
     "dims": [
       {
-        "key": "lines|total",
-        "value": 50911,
-        "unit": "lines",
-        "baseline": 50911
-      },
-      {
-        "key": "lines|Audit and certification",
-        "value": 97,
-        "unit": "lines",
-        "baseline": 97
-      },
-      {
-        "key": "lines|Auth",
-        "value": 158,
-        "unit": "lines",
-        "baseline": 158
-      },
-      {
-        "key": "lines|Console, scorer and board",
-        "value": 17557,
-        "unit": "lines",
-        "baseline": 17557
-      },
-      {
-        "key": "lines|Database",
-        "value": 384,
-        "unit": "lines",
-        "baseline": 384
-      },
-      {
-        "key": "lines|Divisions and formats",
-        "value": 418,
-        "unit": "lines",
-        "baseline": 418
-      },
-      {
-        "key": "lines|Easton Duals",
-        "value": 26509,
-        "unit": "lines",
-        "baseline": 26509
-      },
-      {
-        "key": "lines|Live snapshot and mat binding",
-        "value": 275,
-        "unit": "lines",
-        "baseline": 275
-      },
-      {
-        "key": "lines|Match state machine",
-        "value": 1100,
-        "unit": "lines",
-        "baseline": 1100
-      },
-      {
-        "key": "lines|Matchmaker",
-        "value": 676,
-        "unit": "lines",
-        "baseline": 676
-      },
-      {
-        "key": "lines|Roster",
-        "value": 648,
-        "unit": "lines",
-        "baseline": 648
-      },
-      {
-        "key": "lines|Routes",
-        "value": 1999,
-        "unit": "lines",
-        "baseline": 1999
-      },
-      {
-        "key": "lines|Running order",
-        "value": 172,
-        "unit": "lines",
-        "baseline": 172
-      },
-      {
-        "key": "lines|Shared rules",
-        "value": 598,
-        "unit": "lines",
-        "baseline": 598
-      },
-      {
-        "key": "lines|Smoothcomp standings",
-        "value": 320,
-        "unit": "lines",
-        "baseline": 320
-      },
-      {
-        "key": "files|total",
-        "value": 348,
-        "unit": "files",
-        "baseline": 348
-      },
-      {
-        "key": "symbols|total",
-        "value": 740,
-        "unit": "symbols",
-        "baseline": 740
-      },
-      {
-        "key": "undocumented|symbols",
-        "value": 410,
-        "unit": "symbols",
-        "baseline": 410
+        "key": "deps|dev",
+        "value": 2,
+        "unit": "deps"
       },
       {
         "key": "deps|direct",
         "value": 0,
-        "unit": "deps",
-        "baseline": 0
-      },
-      {
-        "key": "deps|dev",
-        "value": 2,
-        "unit": "deps",
-        "baseline": 2
+        "unit": "deps"
       },
       {
         "key": "deps|transitive",
         "value": 619,
-        "unit": "deps",
-        "baseline": 619
+        "unit": "deps"
+      },
+      {
+        "key": "files|total",
+        "value": 348,
+        "unit": "files"
+      },
+      {
+        "key": "lines|Audit and certification",
+        "value": 97,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Auth",
+        "value": 158,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Console, scorer and board",
+        "value": 17557,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Database",
+        "value": 384,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Divisions and formats",
+        "value": 418,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Easton Duals",
+        "value": 26510,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Live snapshot and mat binding",
+        "value": 275,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Match state machine",
+        "value": 1100,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Matchmaker",
+        "value": 676,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Roster",
+        "value": 648,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Routes",
+        "value": 1999,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Running order",
+        "value": 172,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Shared rules",
+        "value": 598,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|Smoothcomp standings",
+        "value": 320,
+        "unit": "lines"
+      },
+      {
+        "key": "lines|total",
+        "value": 50912,
+        "unit": "lines"
       },
       {
         "key": "measure|test-cases",
         "value": 1740,
-        "unit": "cases",
-        "baseline": 1740
+        "unit": "cases"
+      },
+      {
+        "key": "symbols|total",
+        "value": 740,
+        "unit": "symbols"
+      },
+      {
+        "key": "undocumented|symbols",
+        "value": 410,
+        "unit": "symbols"
       }
     ]
   }

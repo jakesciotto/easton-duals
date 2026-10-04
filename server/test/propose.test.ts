@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { freshDb, seedEvent } from './fixtures.js'
 import type { Db } from '../src/db/client.js'
 import { athletes, auditLog, divisionMembers, divisions, events, matches, proposals } from '../src/db/schema.js'
-import { proposeMatches, pairCost, pairWarnings, pairWhy } from '../src/matchmaker/propose.js'
+import { proposeMatches, pairCost, pairWarnings, pairWhy, MAX_PAIR_COST } from '../src/matchmaker/propose.js'
 
 interface Kid {
   name: string
@@ -357,7 +357,7 @@ describe('proposeMatches, the lowest total cost', () => {
       const out = await proposeMatches(db, s.eventId, 'gi')
       const sides = kids.map((k, i) => ({ id: i, age: k.age!, weightLbs: k.lbs!, belt: k.belt ?? null, erp: null }))
       const model = sides.map((a, i) => ({ id: i, team: kids[i].team, cost: (j: number) => pairCost(a, sides[j]) }))
-      const expected = bestByBruteForce(model, (i, j) => pairCost(sides[i], sides[j]) <= 20)
+      const expected = bestByBruteForce(model, (i, j) => pairCost(sides[i], sides[j]) <= MAX_PAIR_COST)
       const actual = out.reduce((t, p) => t + p.cost, 0) + (size - 2 * out.length) * SIT_OUT
       expect(actual, `pool ${round}: ${JSON.stringify(kids)}`).toBeCloseTo(expected, 6)
       expect(new Set(out.flatMap(p => [p.a.athleteId, p.b.athleteId])).size).toBe(out.length * 2)
