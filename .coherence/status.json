@@ -991,15 +991,15 @@
     "failures": 0
   },
   "mass": {
-    "at": "2026-10-04T15:48:40.420Z",
-    "commit": "45279fc",
+    "at": "2026-10-04T15:48:58.321Z",
+    "commit": "d24448f",
     "dirty": true,
     "dims": [
       {
         "key": "lines|total",
         "value": 50274,
         "unit": "lines",
-        "baseline": 50272
+        "baseline": 50274
       },
       {
         "key": "lines|Audit and certification",
@@ -1035,7 +1035,7 @@
         "key": "lines|Easton Duals",
         "value": 26322,
         "unit": "lines",
-        "baseline": 26320
+        "baseline": 26322
       },
       {
         "key": "lines|Live snapshot and mat binding",
