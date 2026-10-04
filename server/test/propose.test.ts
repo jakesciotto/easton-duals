@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { freshDb, seedEvent } from './fixtures.js'
 import type { Db } from '../src/db/client.js'
 import { athletes, auditLog, divisionMembers, divisions, events, matches, proposals } from '../src/db/schema.js'
-import { proposeMatches, pairCost, pairWarnings, pairWhy } from '../src/matchmaker/propose.js'
+import { proposeMatches, pairCost, pairWarnings, pairWhy, MAX_PAIR_COST } from '../src/matchmaker/propose.js'
 
 interface Kid {
   name: string
@@ -303,5 +303,64 @@ describe('proposeMatches', () => {
     const rows = await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()
     expect(rows.filter(r => r.style === 'nogi').map(r => r.id)).toEqual(nogi.map(p => p.id))
     expect(rows.filter(r => r.style === 'gi')).toHaveLength(2)
+  })
+})
+
+describe('proposeMatches, the lowest total cost', () => {
+  const SIT_OUT = 10.5
+
+  function bestByBruteForce(kids: { id: number; team: string; cost: (o: number) => number }[], admissible: (a: number, b: number) => boolean): number {
+    let best = kids.length * SIT_OUT
+    const walk = (i: number, taken: Set<number>, total: number, pairs: number) => {
+      if (i === kids.length) {
+        const value = total + (kids.length - 2 * pairs) * SIT_OUT
+        if (value < best) best = value
+        return
+      }
+      if (taken.has(i)) return walk(i + 1, taken, total, pairs)
+      walk(i + 1, taken, total, pairs)
+      for (let j = i + 1; j < kids.length; j++) {
+        if (taken.has(j) || kids[i].team === kids[j].team || !admissible(i, j)) continue
+        taken.add(i); taken.add(j)
+        walk(i + 1, taken, total + kids[i].cost(j), pairs + 1)
+        taken.delete(i); taken.delete(j)
+      }
+    }
+    walk(0, new Set(), 0, 0)
+    return best
+  }
+
+  it('makes two pairs where the closest pair first would strand two kids', async () => {
+    const db = await freshDb()
+    const { s } = await pool(db, [
+      { name: 'Ana', team: 'A', lbs: 62, age: 8 },
+      { name: 'Bea', team: 'B', lbs: 62, age: 8 },
+      { name: 'Cal', team: 'C', lbs: 62, age: 9 },
+      { name: 'Cid', team: 'C', lbs: 62, age: 9 },
+    ])
+    const out = await proposeMatches(db, s.eventId, 'gi')
+    expect(out.map(p => p.cost)).toEqual([2, 2])
+    expect(out.map(p => p.b.firstName).sort()).toEqual(['Cal', 'Cid'])
+  })
+
+  it('equals the brute-force optimum over seeded random pools, with a kid without a pair at 10.5', async () => {
+    let seed = 7
+    const rand = (n: number) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n }
+    const belts = ['white', 'grey', 'grey-black', 'yellow', null]
+    for (const round of Array.from({ length: 12 }, (_, i) => i)) {
+      const size = 5 + (round % 5)
+      const kids: Kid[] = Array.from({ length: size }, (_, i) => ({
+        name: `K${i}`, team: (['A', 'B', 'C'] as const)[rand(3)], age: 5 + rand(9), lbs: 35 + rand(75), belt: belts[rand(belts.length)],
+      }))
+      const db = await freshDb()
+      const { s } = await pool(db, kids)
+      const out = await proposeMatches(db, s.eventId, 'gi')
+      const sides = kids.map((k, i) => ({ id: i, age: k.age!, weightLbs: k.lbs!, belt: k.belt ?? null, erp: null }))
+      const model = sides.map((a, i) => ({ id: i, team: kids[i].team, cost: (j: number) => pairCost(a, sides[j]) }))
+      const expected = bestByBruteForce(model, (i, j) => pairCost(sides[i], sides[j]) <= MAX_PAIR_COST)
+      const actual = out.reduce((t, p) => t + p.cost, 0) + (size - 2 * out.length) * SIT_OUT
+      expect(actual, `pool ${round}: ${JSON.stringify(kids)}`).toBeCloseTo(expected, 6)
+      expect(new Set(out.flatMap(p => [p.a.athleteId, p.b.athleteId])).size).toBe(out.length * 2)
+    }
   })
 })

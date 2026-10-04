@@ -136,10 +136,16 @@ describe('confirming', () => {
       { name: 'Pilar', team: 'B' },
     ])
     const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
-    expect(made.body.map((p: any) => [p.a.firstName, p.b.firstName])).toEqual([['Ines', 'Bruno'], ['Nadia', 'Kai']])
-    // Pilar is in no draft, so this hand-added match drops the first draft immediately
-    // and leaves the second one alone.
-    const added = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: id('Ines'), athleteBId: id('Pilar') }, adminToken)
+    expect(made.body).toHaveLength(2)
+    const drafted = new Set(made.body.flatMap((p: any) => [p.a.athleteId, p.b.athleteId]))
+    const withInes = made.body.find((p: any) => p.a.athleteId === id('Ines'))
+    const other = made.body.find((p: any) => p.a.athleteId !== id('Ines'))
+    // One kid of the five is in no draft (a B or C kid, since both A kids are drafted), so
+    // this hand-added match drops only the draft Ines is in and leaves the other alone.
+    const left = ['Bruno', 'Kai', 'Pilar'].map(id).find(k => !drafted.has(k))!
+    expect(withInes).toBeDefined()
+    expect(left).toBeDefined()
+    const added = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: id('Ines'), athleteBId: left }, adminToken)
     expect(added.status).toBe(201)
     expect(added.body.removedProposals).toBe(1)
 
@@ -149,8 +155,8 @@ describe('confirming', () => {
     expect(await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()).toEqual([])
     const rows = await db.select().from(matches).where(eq(matches.eventId, s.eventId)).orderBy(matches.orderIndex).all()
     expect(rows.map(m => [m.athleteAId, m.athleteBId, m.source])).toEqual([
-      [id('Ines'), id('Pilar'), 'designed'],
-      [id('Nadia'), id('Kai'), 'proposed'],
+      [id('Ines'), left, 'designed'],
+      [other.a.athleteId, other.b.athleteId, 'proposed'],
     ])
   })
 
