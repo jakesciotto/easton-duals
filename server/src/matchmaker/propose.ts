@@ -153,7 +153,7 @@ export async function proposeMatches(db: DbLike, eventId: number, style: Style):
     if (!ev) throw new MatchStateError('event not found')
     const teamRows = await tx.select().from(teams).where(eq(teams.eventId, eventId)).orderBy(asc(teams.position)).all()
     const positionOf = new Map(teamRows.map(t => [t.id, t.position]))
-    const roster = await tx.select().from(athletes).where(eq(athletes.eventId, eventId)).all()
+    const roster = await tx.select().from(athletes).where(eq(athletes.eventId, eventId)).orderBy(asc(athletes.id)).all()
     const matchRows = await tx.select({ a: matches.athleteAId, b: matches.athleteBId, style: matches.style })
       .from(matches).where(eq(matches.eventId, eventId)).all()
     const divisionRows = await tx.select({ athleteId: divisionMembers.athleteId }).from(divisionMembers)

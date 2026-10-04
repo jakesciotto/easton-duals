@@ -144,6 +144,7 @@ describe('confirming', () => {
     // this hand-added match drops only the draft Ines is in and leaves the other alone.
     const left = ['Bruno', 'Kai', 'Pilar'].map(id).find(k => !drafted.has(k))!
     expect(withInes).toBeDefined()
+    expect(left).toBeDefined()
     const added = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: id('Ines'), athleteBId: left }, adminToken)
     expect(added.status).toBe(201)
     expect(added.body.removedProposals).toBe(1)
