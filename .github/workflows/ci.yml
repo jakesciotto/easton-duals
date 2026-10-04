@@ -12,9 +12,20 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: version is semver and every version field agrees
+        run: |
+          node -e "const r=require('./package.json').version,s=require('./server/package.json').version,w=require('./web/package.json').version;const a=require('fs').readFileSync('server/src/app.ts','utf8').match(/VERSION = '([^']+)'/)[1];for(const v of [r,s,w,a]){if(!/^\d+\.\d+\.\d+$/.test(v)){console.error('version is not MAJOR.MINOR.PATCH, got '+v);process.exit(1)}}if(new Set([r,s,w,a]).size!==1){console.error('version fields disagree',{r,s,w,a});process.exit(1)}console.log('version '+r)"
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      - name: test, writing the oracle report coherence resolves claims from
+        run: npx vitest run --reporter=default --reporter=json --outputFile.json=.coherence/test-report.json
+      - name: coherence, claims from that same run plus the structural gates
+        if: always()
+        run: |
+          npx coherence verify --from-report .coherence/test-report.json
+          npx coherence mass --check
+          npx coherence claude --check
+          npx coherence hooks --check --host claude
       - run: npm run build
       - run: npm run e2e
   gitleaks:

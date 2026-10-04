@@ -1,0 +1,21 @@
+{
+  "language": "typescript",
+  "codeExt": ["ts", "tsx"],
+  "outputDir": ".coherence/out",
+  "entryDir": ".",
+  "tooling": ["scripts", "server/scripts", "server/drizzle"],
+  "sources": ["server/src", "web/src"],
+  "testDir": "test",
+  "typecheck": ["npm", "run", "typecheck"],
+  "test": ["npx", "vitest", "run", "-t"],
+  "ignore": ["node_modules", ".git", "dist", ".vercel", ".coherence", "public", "data", ".superpowers", ".claude"],
+  "mass": {
+    "measures": [
+      {
+        "key": "test-cases",
+        "cmd": ["sh", "-c", "grep -rhoE '^[[:space:]]*(it|test)\\(' server/test web/test | wc -l"],
+        "unit": "cases"
+      }
+    ]
+  }
+}

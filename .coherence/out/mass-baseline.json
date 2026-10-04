@@ -1,0 +1,112 @@
+[
+  {
+    "key": "deps|dev",
+    "value": 2,
+    "unit": "deps"
+  },
+  {
+    "key": "deps|direct",
+    "value": 0,
+    "unit": "deps"
+  },
+  {
+    "key": "deps|transitive",
+    "value": 619,
+    "unit": "deps"
+  },
+  {
+    "key": "files|total",
+    "value": 346,
+    "unit": "files"
+  },
+  {
+    "key": "lines|Audit and certification",
+    "value": 97,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Auth",
+    "value": 158,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Console, scorer and board",
+    "value": 17557,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Database",
+    "value": 384,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Divisions and formats",
+    "value": 418,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Easton Duals",
+    "value": 26320,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Live snapshot and mat binding",
+    "value": 275,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Match state machine",
+    "value": 1100,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Matchmaker",
+    "value": 226,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Roster",
+    "value": 648,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Routes",
+    "value": 1999,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Running order",
+    "value": 172,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Shared rules",
+    "value": 598,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|Smoothcomp standings",
+    "value": 320,
+    "unit": "lines"
+  },
+  {
+    "key": "lines|total",
+    "value": 50272,
+    "unit": "lines"
+  },
+  {
+    "key": "measure|test-cases",
+    "value": 1735,
+    "unit": "cases"
+  },
+  {
+    "key": "symbols|total",
+    "value": 737,
+    "unit": "symbols"
+  },
+  {
+    "key": "undocumented|symbols",
+    "value": 409,
+    "unit": "symbols"
+  }
+]
