@@ -15,7 +15,9 @@ vi.mock('qrcode', () => ({ default: { toString: async () => '<svg>mock</svg>' } 
 beforeEach(() => { localStorage.clear(); setAdminToken('tok') })
 afterEach(() => vi.unstubAllGlobals())
 
-const SERVER_NOW = '2026-10-03T16:00:00.000Z'
+// The present: the first paint reads the clock against Date.now() before the server
+// offset lands, so a frozen date expired every running match once it passed.
+const SERVER_NOW = new Date().toISOString()
 
 const detail: EventDetail = {
   event: { id: 1, name: 'Fall Duals', date: '2026-10-03', matCount: 1, matCode: '0420', status: 'live', mode: 'live', sameGender: false, createdAt: 'x' },
