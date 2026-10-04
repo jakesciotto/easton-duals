@@ -5,8 +5,20 @@ data/
 *.db-shm
 .env
 dist/
-.claude/
+# local agent scratch stays out; the three coherence control files are tracked
+.claude/*
+!.claude/settings.json
+!.claude/coherence-hook
+!.claude/coherence-root
 .superpowers/
 server/public/
 pnpm-lock.yaml
 yarn.lock
+
+# coherence derived artifacts, the batched test report and the per-run job list; baselines stay tracked
+.coherence/out/*
+!.coherence/out/mass-baseline.json
+.coherence/test-report.json
+.coherence/verify-jobs.json
+.coherence/activity/
+.coherence/read-traces/

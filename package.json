@@ -14,7 +14,7 @@
     "dev": "trap 'kill 0' EXIT INT TERM; npm run dev -w server & npm run dev -w web & wait",
     "build": "npm run build -w web && npm run build -w server && rm -rf server/public && cp -r web/dist server/public",
     "start": "npm start -w server",
-    "test": "npm test -w server && npm test -w web",
+    "test": "vitest run",
     "typecheck": "npm run typecheck -w server && npm run typecheck -w web && tsc -p tsconfig.json",
     "lint": "npm run lint -w server && npm run lint -w web && node scripts/design-lint.mjs",
     "e2e": "node scripts/e2e.mjs",
@@ -27,6 +27,7 @@
     "esbuild": "^0.28.0"
   },
   "devDependencies": {
+    "@danilocampos/coherence": "^0.37.1",
     "vite": "^8.2.0"
   }
 }
