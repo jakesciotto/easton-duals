@@ -1,1005 +1,1026 @@
 {
   "version": 1,
   "verify": {
-    "at": "2026-10-04T15:48:39.720Z",
-    "commit": "45279fc",
+    "at": "2026-10-04T16:08:45.677Z",
+    "commit": "ef5590e",
     "dirty": true,
     "tier": "full",
     "scope": null,
     "batched": true,
     "cost": {
-      "totalMs": 24712.978587,
+      "totalMs": 25153.890159999995,
       "claims": [
         {
           "node": "Auth",
           "claim": "passes test \"pin\"",
-          "ms": 7979.032249000002,
+          "ms": 7985.270376,
           "source": "report"
         },
         {
           "node": "Easton Duals",
           "claim": "typechecks",
-          "ms": 7934.152667,
+          "ms": 7718.980750000001,
           "source": "wall"
         },
         {
           "node": "Audit and certification",
           "claim": "boundary \"a certified event refuses every write\" at assertNotCertified via guard \"certification locks the event\"",
-          "ms": 2303.926048000002,
-          "source": "report"
-        },
-        {
-          "node": "Console, scorer and board",
-          "claim": "boundary \"an open dialog holds the snapshot unless it opts out by name\" at useHeldWhileEngaged via guard \"useHeldWhileEngaged\"",
-          "ms": 823.6884999999999,
+          "ms": 2151.8892940000005,
           "source": "report"
         },
         {
           "node": "Database",
           "claim": "passes test \"createDb retry wiring\"",
-          "ms": 793.6011660000001,
+          "ms": 854.287833,
+          "source": "report"
+        },
+        {
+          "node": "Console, scorer and board",
+          "claim": "boundary \"an open dialog holds the snapshot unless it opts out by name\" at useHeldWhileEngaged via guard \"useHeldWhileEngaged\"",
+          "ms": 825.4347920000002,
           "source": "report"
         }
       ]
     },
     "lastFastAt": "2026-10-01T20:20:14.329Z",
-    "lastFullAt": "2026-10-04T15:48:39.720Z",
+    "lastFullAt": "2026-10-04T16:08:45.677Z",
     "claims": [
       {
         "node": "Easton Duals",
         "claim": "typechecks",
         "kind": "pass",
         "detail": "",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 5
+        "runs": 7
       },
       {
         "node": "Easton Duals",
         "claim": "boundary \"the served version equals the package version\" at VERSION via guard \"health\"",
         "kind": "pass",
         "detail": "the served version equals the package version @ VERSION (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Easton Duals",
         "claim": "passes test \"the write routes this suite covers\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Easton Duals",
         "claim": "coherence.config.json exists at root",
         "kind": "pass",
         "detail": "coherence.config.json @ root",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 5
+        "runs": 7
       },
       {
         "node": "Easton Duals",
         "claim": "CHANGELOG.md exists at root",
         "kind": "pass",
         "detail": "CHANGELOG.md @ root",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": true,
         "lastFailAt": "2026-10-01T20:20:14.329Z",
         "lastFailCommit": "1201525",
-        "runs": 5
+        "runs": 7
       },
       {
         "node": "Audit and certification",
         "claim": "boundary \"a certified event refuses every write\" at assertNotCertified via guard \"certification locks the event\"",
         "kind": "pass",
         "detail": "a certified event refuses every write @ assertNotCertified (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Audit and certification",
         "claim": "boundary \"every write records an audit row\" at recordAudit via guard \"audit log, the event\"",
         "kind": "pass",
         "detail": "every write records an audit row @ recordAudit (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Audit and certification",
         "claim": "passes test \"certify and uncertify\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Auth",
         "claim": "boundary \"an admin route rejects a request without a valid admin token\" at requireAdmin via guard \"middleware\"",
         "kind": "pass",
         "detail": "an admin route rejects a request without a valid admin token @ requireAdmin (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Auth",
         "claim": "boundary \"a token is signed and expires\" at verifyToken via guard \"tokens\"",
         "kind": "pass",
         "detail": "a token is signed and expires @ verifyToken (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Auth",
         "claim": "boundary \"a PIN or mat code check is rate limited per IP\" at checkLimit via guard \"checkLimit\"",
         "kind": "pass",
         "detail": "a PIN or mat code check is rate limited per IP @ checkLimit (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Auth",
         "claim": "passes test \"POST /api/auth/admin\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Auth",
         "claim": "passes test \"pin\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Database",
         "claim": "boundary \"a boot migrates only a file database\" at autoMigrates via guard \"autoMigrates\"",
         "kind": "pass",
         "detail": "a boot migrates only a file database @ autoMigrates (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Database",
         "claim": "boundary \"the database url comes from the environment with a local file default\" at dbUrlFromEnv via guard \"dbUrlFromEnv\"",
         "kind": "pass",
         "detail": "the database url comes from the environment with a local file default @ dbUrlFromEnv (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Database",
         "claim": "passes test \"createDb retry wiring\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Database",
         "claim": "passes test \"migration 0012 adds divisions, numbers, styles and feeds\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Divisions and formats",
         "claim": "boundary \"a division generates its matches once per style in dependency order\" at generateDivision via guard \"both styles\"",
         "kind": "pass",
         "detail": "a division generates its matches once per style in dependency order @ generateDivision (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Divisions and formats",
         "claim": "boundary \"seeds are the listed order and seed by rating reorders by ERP\" at seedByRating via guard \"seedByRating\"",
         "kind": "pass",
         "detail": "seeds are the listed order and seed by rating reorders by ERP @ seedByRating (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Divisions and formats",
         "claim": "boundary \"a same-team round one pair is swapped away or warned\" at arrangeSlots via guard \"same-team pairs in round one\"",
         "kind": "pass",
         "detail": "a same-team round one pair is swapped away or warned @ arrangeSlots (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Divisions and formats",
         "claim": "boundary \"double elimination ends in one grand final with no reset\" at generateDivision via guard \"double elimination\"",
         "kind": "pass",
         "detail": "double elimination ends in one grand final with no reset @ generateDivision (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Divisions and formats",
         "claim": "passes test \"round robin\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Divisions and formats",
         "claim": "passes test \"single elimination\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Divisions and formats",
         "claim": "passes test \"createDivision\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Divisions and formats",
         "claim": "passes test \"regenerateDivision\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Divisions and formats",
         "claim": "passes test \"deleteDivision\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Live snapshot and mat binding",
         "claim": "boundary \"a public reader sees initials and an admin token the full name\" at nameFormFor via guard \"names on the wire\"",
         "kind": "pass",
         "detail": "a public reader sees initials and an admin token the full name @ nameFormFor (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 2
+        "runs": 4
       },
       {
         "node": "Live snapshot and mat binding",
         "claim": "boundary \"every write bumps the event version in its transaction\" at bumpVersion via guard \"bumpVersion\"",
         "kind": "pass",
         "detail": "every write bumps the event version in its transaction @ bumpVersion (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Live snapshot and mat binding",
         "claim": "boundary \"a mat binding dies when another tablet takes the mat\" at bindMat via guard \"bind and heartbeat\"",
         "kind": "pass",
         "detail": "a mat binding dies when another tablet takes the mat @ bindMat (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Live snapshot and mat binding",
         "claim": "passes test \"buildSnapshot\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Live snapshot and mat binding",
         "claim": "passes test \"snapshot polling\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Live snapshot and mat binding",
         "claim": "passes test \"unbind\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Match state machine",
         "claim": "boundary \"match events are the source of truth and the caches follow in the same transaction\" at recompute via guard \"appendMatchEvent\"",
         "kind": "pass",
         "detail": "match events are the source of truth and the caches follow in the same transaction @ recompute (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Match state machine",
         "claim": "boundary \"a score and a win type derive from the events\" at deriveOutcome via guard \"deriveOutcome\"",
         "kind": "pass",
         "detail": "a score and a win type derive from the events @ deriveOutcome (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Match state machine",
         "claim": "boundary \"a mat starts only a runnable match\" at advanceMat via guard \"a mat only starts a match it can run\"",
         "kind": "pass",
         "detail": "a mat starts only a runnable match @ advanceMat (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Match state machine",
         "claim": "boundary \"an ended feeder fills its dependents in the same transaction\" at fillDependents via guard \"fillDependents\"",
         "kind": "pass",
         "detail": "an ended feeder fills its dependents in the same transaction @ fillDependents (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Match state machine",
         "claim": "boundary \"a correction that changes a winner refuses when a dependent already ran\" at assertDependentsPending via guard \"a correction on a feeder\"",
         "kind": "pass",
         "detail": "a correction that changes a winner refuses when a dependent already ran @ assertDependentsPending (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Match state machine",
         "claim": "boundary \"a reopen refuses while a dependent is live or done\" at reopenMatch via guard \"reopening a feeder\"",
         "kind": "pass",
         "detail": "a reopen refuses while a dependent is live or done @ reopenMatch (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Match state machine",
         "claim": "boundary \"the clock expires lazily on read\" at expireOverdue via guard \"expireOverdue\"",
         "kind": "pass",
         "detail": "the clock expires lazily on read @ expireOverdue (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Match state machine",
         "claim": "passes test \"undoLastMatchEvent\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Match state machine",
         "claim": "passes test \"enterResult\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Match state machine",
         "claim": "passes test \"skipMatch\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Matchmaker",
         "claim": "boundary \"pair cost ranks class, then age, then belt, then rating\" at pairCost via guard \"pairCost\"",
         "kind": "pass",
         "detail": "pair cost ranks class, then age, then belt, then rating @ pairCost (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Matchmaker",
-        "claim": "boundary \"the proposer offers each free kid once, closest cross-team pair first, and never a division kid\" at proposeMatches via guard \"proposeMatches\"",
+        "claim": "boundary \"the proposer offers each free kid at most once, across teams only, and never a division kid\" at proposeMatches via guard \"proposeMatches\"",
         "kind": "pass",
-        "detail": "the proposer offers each free kid once, closest cross-team pair first, and never a division kid @ proposeMatches (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "detail": "the proposer offers each free kid at most once, across teams only, and never a division kid @ proposeMatches (source-property guard)",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 2
+      },
+      {
+        "node": "Matchmaker",
+        "claim": "boundary \"the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5\" at proposeMatches via guard \"proposeMatches, the lowest total cost\"",
+        "kind": "pass",
+        "detail": "the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5 @ proposeMatches (source-property guard)",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
+        "tier": "full",
+        "everFailed": false,
+        "runs": 2
+      },
+      {
+        "node": "Matchmaker",
+        "claim": "passes test \"maximumWeightMatching\"",
+        "kind": "pass",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
+        "tier": "full",
+        "everFailed": false,
+        "runs": 2
       },
       {
         "node": "Matchmaker",
         "claim": "boundary \"a hand-designed pair warns and never refuses\" at pairWarnings via guard \"pairWarnings\"",
         "kind": "pass",
         "detail": "a hand-designed pair warns and never refuses @ pairWarnings (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Matchmaker",
         "claim": "passes test \"beltDistance\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Matchmaker",
         "claim": "passes test \"pairWhy\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Matchmaker",
         "claim": "passes test \"proposing\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Matchmaker",
         "claim": "passes test \"confirming\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Matchmaker",
         "claim": "passes test \"swapping a kid into a draft\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Roster",
         "claim": "boundary \"a hand-edited age or weight sticks through a re-sync\" at profileChanges via guard \"profileChanges\"",
         "kind": "pass",
         "detail": "a hand-edited age or weight sticks through a re-sync @ profileChanges (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Roster",
         "claim": "boundary \"the sync asks WellnessLiving for the roster's own names only\" at rosterFilter via guard \"roster routes\"",
         "kind": "pass",
         "detail": "the sync asks WellnessLiving for the roster's own names only @ rosterFilter (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 2
+        "runs": 4
       },
       {
         "node": "Roster",
         "claim": "passes test \"the bulk paste\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Roster",
         "claim": "passes test \"the WellnessLiving search\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Roster",
         "claim": "passes test \"linkUpdate\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Routes",
         "claim": "passes test \"match routes\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Routes",
         "claim": "passes test \"roster routes\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Routes",
         "claim": "passes test \"entry routes\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Routes",
         "claim": "passes test \"division routes\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Routes",
         "claim": "passes test \"the delete and patch guards\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Routes",
         "claim": "passes test \"GET /api/events/:eventId/connect\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Running order",
         "claim": "boundary \"every gi match runs before any nogi match\" at planSchedule via guard \"planSchedule: the style rule gaps rather than takes a runnable nogi match\"",
         "kind": "pass",
         "detail": "every gi match runs before any nogi match @ planSchedule (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Running order",
         "claim": "boundary \"a feeder runs at least two waves before its dependent\" at planSchedule via guard \"planSchedule: the feeder rule holds a match two waves behind its feeders\"",
         "kind": "pass",
         "detail": "a feeder runs at least two waves before its dependent @ planSchedule (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Running order",
         "claim": "boundary \"a kid never fights in two adjacent waves unless nothing else fits\" at planSchedule via guard \"planSchedule: the rest rule keeps a kid out of the immediately adjacent wave\"",
         "kind": "pass",
         "detail": "a kid never fights in two adjacent waves unless nothing else fits @ planSchedule (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Running order",
         "claim": "boundary \"the plan is deterministic for the same input\" at planSchedule via guard \"planSchedule: determinism\"",
         "kind": "pass",
         "detail": "the plan is deterministic for the same input @ planSchedule (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Running order",
         "claim": "passes test \"planSchedule: priority order\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Running order",
         "claim": "passes test \"planSchedule: the estimate\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Running order",
         "claim": "passes test \"the schedule route\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Shared rules",
         "claim": "boundary \"teams rank by team points, then wins, then match points, then position, and ties share a rank\" at rankTeams via guard \"rankTeams\"",
         "kind": "pass",
         "detail": "teams rank by team points, then wins, then match points, then position, and ties share a rank @ rankTeams (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Shared rules",
         "claim": "boundary \"team points come only from scoring athletes by win type\" at teamPointsFor via guard \"teamPointsFor\"",
         "kind": "pass",
         "detail": "team points come only from scoring athletes by win type @ teamPointsFor (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Shared rules",
         "claim": "boundary \"a team over ten kids scores only with its marked kids\" at scoringSet via guard \"scoringSet\"",
         "kind": "pass",
         "detail": "a team over ten kids scores only with its marked kids @ scoringSet (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Shared rules",
         "claim": "boundary \"a stored weight falls in one registration band\" at weightClass via guard \"weightClass\"",
         "kind": "pass",
         "detail": "a stored weight falls in one registration band @ weightClass (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Shared rules",
         "claim": "boundary \"a name resolves through one similarity module\" at nameScore via guard \"nameScore\"",
         "kind": "pass",
         "detail": "a name resolves through one similarity module @ nameScore (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Shared rules",
         "claim": "passes test \"formatClock\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Shared rules",
         "claim": "passes test \"roundLabel\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Smoothcomp standings",
         "claim": "boundary \"a Smoothcomp match counts only when both names resolve to roster kids on teams\" at computeStandings via guard \"computeStandings\"",
         "kind": "pass",
         "detail": "a Smoothcomp match counts only when both names resolve to roster kids on teams @ computeStandings (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Smoothcomp standings",
         "claim": "boundary \"a Smoothcomp win method maps to a win type and an unknown method earns one point\" at winTypeFor via guard \"winTypeFor\"",
         "kind": "pass",
         "detail": "a Smoothcomp win method maps to a win type and an unknown method earns one point @ winTypeFor (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Smoothcomp standings",
         "claim": "boundary \"a Smoothcomp URL parses to one event\" at parseSmoothcompUrl via guard \"parseSmoothcompUrl\"",
         "kind": "pass",
         "detail": "a Smoothcomp URL parses to one event @ parseSmoothcompUrl (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Smoothcomp standings",
         "claim": "passes test \"parseBracket\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Smoothcomp standings",
         "claim": "passes test \"POST /events/:eventId/smoothcomp/standings\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Console, scorer and board",
         "claim": "boundary \"a roster paste maps columns by header or by position\" at parseRosterPaste via guard \"parseRosterPaste, header row\"",
         "kind": "pass",
         "detail": "a roster paste maps columns by header or by position @ parseRosterPaste (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Console, scorer and board",
         "claim": "boundary \"a match paste creates pairs and division lines\" at parseMatchPaste via guard \"parseMatchPaste\"",
         "kind": "pass",
         "detail": "a match paste creates pairs and division lines @ parseMatchPaste (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Console, scorer and board",
         "claim": "boundary \"the scoring cap is checked before the paste is sent\" at scoringCapProblems via guard \"scoringCapProblems\"",
         "kind": "pass",
         "detail": "the scoring cap is checked before the paste is sent @ scoringCapProblems (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Console, scorer and board",
         "claim": "boundary \"an open dialog holds the snapshot unless it opts out by name\" at useHeldWhileEngaged via guard \"useHeldWhileEngaged\"",
         "kind": "pass",
         "detail": "an open dialog holds the snapshot unless it opts out by name @ useHeldWhileEngaged (source-property guard)",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Console, scorer and board",
         "claim": "passes test \"EventPage, 6.4: one poll for the whole event\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Console, scorer and board",
         "claim": "passes test \"the board greps in 5.1\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Console, scorer and board",
         "claim": "passes test \"team colour guards\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       },
       {
         "node": "Console, scorer and board",
         "claim": "passes test \"useSnapshot\"",
         "kind": "pass",
-        "at": "2026-10-04T15:48:39.720Z",
-        "commit": "45279fc",
+        "at": "2026-10-04T16:08:45.677Z",
+        "commit": "ef5590e",
         "tier": "full",
         "everFailed": false,
-        "runs": 3
+        "runs": 5
       }
     ],
     "coverage": {
       "components": 14,
       "claimed": 14,
       "withWhy": 14,
-      "symbols": 737,
-      "documented": 328
+      "symbols": 740,
+      "documented": 330
     },
     "invariants": {
-      "total": 43,
-      "anchored": 43,
+      "total": 44,
+      "anchored": 44,
       "gaps": []
     },
     "narrative": null,
-    "jobs": 409,
+    "jobs": 410,
     "failures": 0
   },
   "mass": {
-    "at": "2026-10-04T15:48:58.321Z",
-    "commit": "d24448f",
+    "at": "2026-10-04T16:09:04.058Z",
+    "commit": "ef5590e",
     "dirty": true,
     "dims": [
       {
         "key": "lines|total",
-        "value": 50274,
+        "value": 50911,
         "unit": "lines",
-        "baseline": 50274
+        "baseline": 50911
       },
       {
         "key": "lines|Audit and certification",
@@ -1033,9 +1054,9 @@
       },
       {
         "key": "lines|Easton Duals",
-        "value": 26322,
+        "value": 26509,
         "unit": "lines",
-        "baseline": 26322
+        "baseline": 26509
       },
       {
         "key": "lines|Live snapshot and mat binding",
@@ -1051,9 +1072,9 @@
       },
       {
         "key": "lines|Matchmaker",
-        "value": 226,
+        "value": 676,
         "unit": "lines",
-        "baseline": 226
+        "baseline": 676
       },
       {
         "key": "lines|Roster",
@@ -1087,21 +1108,21 @@
       },
       {
         "key": "files|total",
-        "value": 346,
+        "value": 348,
         "unit": "files",
-        "baseline": 346
+        "baseline": 348
       },
       {
         "key": "symbols|total",
-        "value": 737,
+        "value": 740,
         "unit": "symbols",
-        "baseline": 737
+        "baseline": 740
       },
       {
         "key": "undocumented|symbols",
-        "value": 409,
+        "value": 410,
         "unit": "symbols",
-        "baseline": 409
+        "baseline": 410
       },
       {
         "key": "deps|direct",
@@ -1123,9 +1144,9 @@
       },
       {
         "key": "measure|test-cases",
-        "value": 1735,
+        "value": 1740,
         "unit": "cases",
-        "baseline": 1735
+        "baseline": 1740
       }
     ]
   }

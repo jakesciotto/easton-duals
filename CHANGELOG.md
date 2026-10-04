@@ -4,6 +4,9 @@ All notable changes to Easton Duals. The format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+### Changed
+- The proposer makes the pairing with the lowest total cost (Edmonds' blossom over the general graph) instead of taking the closest pair first. A kid without a pair costs 10.5, so a pair is made only when it beats both kids sitting out; a pair over 20 (two classes, or one class and five years) is never offered.
+
 ### Added
 - coherence specs (`*.spec.md`), `coherence.config.json`, a root vitest config that runs both workspaces in one batch, CLAUDE.md and AGENTS.md, and CI gates for verify, mass, claude and hooks.
 
