@@ -4,6 +4,7 @@ import { events, teams, athletes, divisionMembers, divisions, matches, proposals
 import { MatchStateError } from '../match/events.js'
 import { recordAudit } from '../audit/log.js'
 import { beltDistance } from './cost.js'
+import { maximumWeightMatching } from './blossom.js'
 import { classGap, weightClass } from '../shared/weight-class.js'
 import type { Proposal, ProposalSide, Style } from '../shared/types.js'
 
@@ -14,9 +15,11 @@ const AGE_WEIGHT = 2
 const BELT_WEIGHT = 0.5
 const ERP_WEIGHT = 0.1
 
-// A pair further apart than this is not offered at all. Past two classes the organizer
-// has to ask for the match by hand, and the Add match dialog warns when they do.
-const MAX_CLASS_GAP = 2
+// A pair costing more than this is never offered: two classes, or one class and five
+// years. Past it the organizer asks for the match by hand and the Add match dialog warns.
+// Below it, every admitted pair weighs MAX_PAIR_COST + 1 - cost, so a kid without a pair
+// costs 10.5 and the matching makes a pair only when it beats both kids sitting out.
+export const MAX_PAIR_COST = 20
 
 // What a hand-designed pair is warned about. Neither ever blocks a write.
 const WARN_CLASS_GAP = 2
@@ -135,9 +138,10 @@ const pairKey = (a: number, b: number) => a < b ? `${a}:${b}` : `${b}:${a}`
 const genderKey = (g: string) => g.trim().toLowerCase().charAt(0)
 
 /**
- * Every cross-team pair the event could still run for this style, closest first, taken
- * greedily so each kid appears once. Deterministic: the sort falls through to the athlete
- * ids, so the same roster proposes the same rows every time.
+ * The pairing of this style's free kids with the lowest total cost, where a kid left
+ * without a pair costs half of MAX_PAIR_COST plus a half: a maximum weight matching over
+ * the general graph, since teams number two to eight. Deterministic: the edges enter the
+ * matching in cost then athlete id order, so the same roster proposes the same rows.
  *
  * One transaction: the event's drafts of this style are replaced whole, because a
  * proposal only means anything against the pool as it stands now. A draft of the other
@@ -175,23 +179,27 @@ export async function proposeMatches(db: DbLike, eventId: number, style: Style):
         const x = free[i]
         const y = free[j]
         if (x.teamId === y.teamId) continue
-        if (classGap(x.weightLbs!, y.weightLbs!) > MAX_CLASS_GAP) continue
         if (ev.sameGender && x.gender && y.gender && genderKey(x.gender) !== genderKey(y.gender)) continue
         if (met.has(pairKey(x.id, y.id))) continue
+        const cost = pairCost(x, y)
+        if (cost > MAX_PAIR_COST) continue
         const [a, b] = positionOf.get(x.teamId!)! < positionOf.get(y.teamId!)! ? [x, y] : [y, x]
-        candidates.push({ a, b, cost: pairCost(a, b), why: pairWhy(a, b), lighter: lighterOf(a, b) })
+        candidates.push({ a, b, cost, why: pairWhy(a, b), lighter: lighterOf(a, b) })
       }
     }
     candidates.sort((p, q) => p.cost - q.cost || p.lighter - q.lighter || p.a.id - q.a.id || p.b.id - q.b.id)
 
-    const taken = new Set<number>()
-    const chosen: Candidate[] = []
-    for (const c of candidates) {
-      if (taken.has(c.a.id) || taken.has(c.b.id)) continue
-      taken.add(c.a.id)
-      taken.add(c.b.id)
-      chosen.push(c)
-    }
+    // Integer weights keep the matching exact. The cost term is scaled so that no sum of
+    // tie-break terms can outweigh one thousandth of cost, and the tie-break prefers the
+    // earlier candidate, which is how a tie between equal pairs stays explainable.
+    const index = new Map(free.map((k, i) => [k.id, i]))
+    const scale = Math.floor(free.length / 2) * candidates.length + 1
+    const mate = maximumWeightMatching(free.length, candidates.map((c, rank) => ({
+      a: index.get(c.a.id)!, b: index.get(c.b.id)!,
+      weight: Math.round((MAX_PAIR_COST + 1 - c.cost) * 1000) * scale + (candidates.length - rank),
+    })))
+    const chosen = candidates.filter(c => mate[index.get(c.a.id)!] === index.get(c.b.id))
+    const taken = new Set(chosen.flatMap(c => [c.a.id, c.b.id]))
 
     await tx.delete(proposals).where(and(eq(proposals.eventId, eventId), eq(proposals.style, style))).run()
     const at = new Date().toISOString()
