@@ -6,8 +6,8 @@ The paste, the WellnessLiving sync, the leaderboard ERP join and the link sugges
 - the sync asks WellnessLiving for the roster's own names only
 
 ## works when
-- boundary "a hand-edited age or weight sticks through a re-sync" at profileChanges via guard "profileChanges"
-- boundary "the sync asks WellnessLiving for the roster's own names only" at rosterFilter via guard "roster routes"
+- boundary "a hand-edited age or weight sticks through a re-sync" at profileChanges via guard "a hand-edited age or weight sticks through a re-sync"
+- boundary "the sync asks WellnessLiving for the roster's own names only" at rosterFilter via guard "the sync asks WellnessLiving for the roster's own names only"
 - passes test "the bulk paste"
 - passes test "the WellnessLiving search"
 - passes test "linkUpdate"
@@ -29,5 +29,5 @@ comes from the leaderboard app. WellnessLiving and the leaderboard overwrite a p
 the link; an age or weight the organizer edits by hand afterwards sticks through a re-run.
 
 ## refutations
-- a hand-edited age or weight sticks through a re-sync: profileChanges no longer skips fields the update leaves undefined -> RED, "2 failed | 0 passed" in profileChanges
-- the sync asks WellnessLiving for the roster's own names only: rosterFilter fills firstTokens with the roster last-name tokens -> RED, "1 failed | 10 passed" in roster routes; the syncRoster describe stayed GREEN under two mutations because it never reaches rosterFilter, so the claim moved to roster routes
+- a hand-edited age or weight sticks through a re-sync: profileChanges no longer skips fields the update leaves undefined -> RED, "2 failed | 0 passed" in a hand-edited age or weight sticks through a re-sync
+- the sync asks WellnessLiving for the roster's own names only: rosterFilter fills firstTokens with the roster last-name tokens -> RED, "1 failed | 10 passed" in the sync asks WellnessLiving for the roster's own names only; the syncRoster describe stayed GREEN under two mutations because it never reaches rosterFilter, so the claim moved to roster routes

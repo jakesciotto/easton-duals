@@ -4,7 +4,7 @@ import { freshDb } from './fixtures.js'
 
 const HOUR_MS = 60 * 60 * 1000
 
-describe('checkLimit', () => {
+describe('a PIN or mat code check is rate limited per IP', () => {
   it('allows through ten pin failures and refuses the next attempt with a positive retryAfterSec', async () => {
     const db = await freshDb()
     for (let i = 0; i < 10; i++) {

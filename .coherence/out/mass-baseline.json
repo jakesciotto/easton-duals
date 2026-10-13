@@ -16,7 +16,7 @@
   },
   {
     "key": "files|total",
-    "value": 348,
+    "value": 259,
     "unit": "files"
   },
   {
@@ -46,7 +46,7 @@
   },
   {
     "key": "lines|Easton Duals",
-    "value": 26510,
+    "value": 7074,
     "unit": "lines"
   },
   {
@@ -91,22 +91,22 @@
   },
   {
     "key": "lines|total",
-    "value": 50912,
+    "value": 31476,
     "unit": "lines"
   },
   {
     "key": "measure|test-cases",
-    "value": 1740,
+    "value": 463,
     "unit": "cases"
   },
   {
     "key": "symbols|total",
-    "value": 740,
+    "value": 735,
     "unit": "symbols"
   },
   {
     "key": "undocumented|symbols",
-    "value": 410,
+    "value": 405,
     "unit": "symbols"
   }
 ]

@@ -3,7 +3,7 @@ import { scoringSet, teamPointsFor } from '../src/shared/scoring.js'
 
 const kids = (n: number, marked: number[] = []) => Array.from({ length: n }, (_, i) => ({ id: i + 1, scoring: marked.includes(i + 1) }))
 
-describe('scoringSet', () => {
+describe('a team over ten kids scores only with its marked kids', () => {
   it('scores with every kid on a team inside the cap, marked or not', () => {
     expect([...scoringSet(kids(3))]).toEqual([1, 2, 3])
     expect([...scoringSet(kids(10, [4]))]).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
@@ -15,7 +15,7 @@ describe('scoringSet', () => {
   })
 })
 
-describe('teamPointsFor', () => {
+describe('team points come only from scoring athletes by win type', () => {
   it('pays three for a submission, two for points, one for the rest', () => {
     expect(['submission', 'points', 'decision', 'walkover', 'dq'].map(w => teamPointsFor(w as never))).toEqual([3, 2, 1, 1, 1])
   })

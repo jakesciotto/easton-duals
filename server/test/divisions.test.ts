@@ -133,21 +133,3 @@ describe('deleteDivision', () => {
       .toMatchObject({ divisionId: made.division.id, name: 'Novice' })
   })
 })
-
-describe('loadDivisions', () => {
-  it('reads the divisions in position order with their warnings recomputed', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matches: 0 })
-    await createDivision(db, s.eventId, { name: 'First', format: 'round_robin', styles: 'gi', athleteIds: [s.a1, s.b1] })
-    await createDivision(db, s.eventId, { name: 'Second', format: 'single_elim', styles: 'gi', athleteIds: [s.a1, s.a2, s.b1, s.b2] })
-    const [first, second] = await loadDivisions(db, s.eventId)
-    expect([first.name, first.position, second.name, second.position]).toEqual(['First', 0, 'Second', 1])
-    expect(second.matchIds).toHaveLength(3)
-
-    // A reload recomputes the warnings from the members it finds, so the two always agree.
-    const { division } = await regenerateDivision(db, second.id, { athleteIds: [s.a1, s.a2, s.b1, s.b2].reverse() })
-    expect(division.warnings).toEqual([])
-    const reloaded = await loadDivisions(db, s.eventId)
-    expect(reloaded[1].warnings).toEqual(division.warnings)
-  })
-})

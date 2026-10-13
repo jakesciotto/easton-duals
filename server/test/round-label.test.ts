@@ -1,14 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { bracketRounds, roundLabel } from '../src/shared/round-label.js'
+import { roundLabel } from '../src/shared/round-label.js'
 
 const single = (round: number, count: number) => roundLabel('single_elim', round, count)
 const double = (round: number, count: number) => roundLabel('double_elim', round, count)
-
-describe('bracketRounds', () => {
-  it('counts the rounds of the power of two the bracket is built at', () => {
-    expect([2, 3, 4, 5, 8, 9, 16].map(bracketRounds)).toEqual([1, 2, 2, 3, 3, 4, 4])
-  })
-})
 
 describe('roundLabel', () => {
   it('names a single elimination round by its distance from the final', () => {

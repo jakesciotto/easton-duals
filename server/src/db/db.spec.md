@@ -6,8 +6,8 @@ libSQL through drizzle: a file on the gym box, Turso in production, migrations o
 - the database url comes from the environment with a local file default
 
 ## works when
-- boundary "a boot migrates only a file database" at autoMigrates via guard "autoMigrates"
-- boundary "the database url comes from the environment with a local file default" at dbUrlFromEnv via guard "dbUrlFromEnv"
+- boundary "a boot migrates only a file database" at autoMigrates via guard "a boot migrates only a file database"
+- boundary "the database url comes from the environment with a local file default" at dbUrlFromEnv via guard "the database url comes from the environment with a local file default"
 - passes test "createDb retry wiring"
 - passes test "migration 0012 adds divisions, numbers, styles and feeds"
 
@@ -30,5 +30,5 @@ fetch a request form that intermittently loses the Authorization header, and 0.8
 guard fetch injected into createClient.
 
 ## refutations
-- a boot migrates only a file database: autoMigrates always returns true -> RED, "1 failed | 1 passed" in autoMigrates
-- the database url comes from the environment with a local file default: removed the DB_PATH branch of dbUrlFromEnv -> RED, "1 failed | 2 passed" in dbUrlFromEnv
+- a boot migrates only a file database: autoMigrates always returns true -> RED, "1 failed | 1 passed" in a boot migrates only a file database
+- the database url comes from the environment with a local file default: removed the DB_PATH branch of dbUrlFromEnv -> RED, "1 failed | 2 passed" in the database url comes from the environment with a local file default

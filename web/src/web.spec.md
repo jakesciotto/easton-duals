@@ -8,11 +8,11 @@ The React client: the admin console, the tablet scorer, the TV board, the pastes
 - an open dialog holds the snapshot unless it opts out by name
 
 ## works when
-- boundary "a roster paste maps columns by header or by position" at parseRosterPaste via guard "parseRosterPaste, header row"
-- boundary "a match paste creates pairs and division lines" at parseMatchPaste via guard "parseMatchPaste"
-- boundary "the scoring cap is checked before the paste is sent" at scoringCapProblems via guard "scoringCapProblems"
-- boundary "an open dialog holds the snapshot unless it opts out by name" at useHeldWhileEngaged via guard "useHeldWhileEngaged"
-- passes test "EventPage, 6.4: one poll for the whole event"
+- boundary "a roster paste maps columns by header or by position" at parseRosterPaste via guard "a roster paste maps columns by header or by position"
+- boundary "a match paste creates pairs and division lines" at parseMatchPaste via guard "a match paste creates pairs and division lines"
+- boundary "the scoring cap is checked before the paste is sent" at scoringCapProblems via guard "the scoring cap is checked before the paste is sent"
+- boundary "an open dialog holds the snapshot unless it opts out by name" at useHeldWhileEngaged via guard "an open dialog holds the snapshot unless it opts out by name"
+- passes test "one poll for the whole event"
 - passes test "the board greps in 5.1"
 - passes test "team colour guards"
 - passes test "useSnapshot"
@@ -39,7 +39,7 @@ step 36, 40, 44, and the scorer's 64. Board rules: the leaderboard for every tea
 clamped by team count, no plate and no "Wins" word on leaderboard rows.
 
 ## refutations
-- a roster paste maps columns by header or by position: header rows read cells by the positional columns -> RED, "6 failed | 3 passed" in parseRosterPaste, header row
-- a match paste creates pairs and division lines: pair branch requires 3 names instead of 2 -> RED, "16 failed | 11 passed" in parseMatchPaste
-- the scoring cap is checked before the paste is sent: cap threshold raised by 100 -> RED, "1 failed | 2 passed" in scoringCapProblems
-- an open dialog holds the snapshot unless it opts out by name: useHeldWhileEngaged commits the incoming value while the operator is engaged -> RED, "2 failed | 3 passed" in useHeldWhileEngaged
+- a roster paste maps columns by header or by position: header rows read cells by the positional columns -> RED, "6 failed | 3 passed" in a roster paste maps columns by header or by position
+- a match paste creates pairs and division lines: pair branch requires 3 names instead of 2 -> RED, "16 failed | 11 passed" in a match paste creates pairs and division lines
+- the scoring cap is checked before the paste is sent: cap threshold raised by 100 -> RED, "1 failed | 2 passed" in the scoring cap is checked before the paste is sent
+- an open dialog holds the snapshot unless it opts out by name: useHeldWhileEngaged commits the incoming value while the operator is engaged -> RED, "2 failed | 3 passed" in an open dialog holds the snapshot unless it opts out by name

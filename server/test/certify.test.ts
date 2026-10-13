@@ -134,7 +134,7 @@ describe('the write routes this suite covers', () => {
   })
 })
 
-describe('certification locks the event', () => {
+describe('a certified event refuses every write', () => {
   it.each(WRITES.map(w => [w.name, w] as const))('refuses %s', async (_name, w) => {
     const { app, adminToken, s } = await certified()
     const token = w.mat ? matToken(s.eventId, s.matIds[0]) : adminToken

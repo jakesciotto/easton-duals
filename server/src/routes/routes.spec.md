@@ -3,11 +3,13 @@ The Hono routes: events, teams, athletes, roster, proposals, matches, divisions,
 
 ## works when
 - passes test "match routes"
-- passes test "roster routes"
+- passes test "the sync asks WellnessLiving for the roster's own names only"
 - passes test "entry routes"
 - passes test "division routes"
 - passes test "the delete and patch guards"
-- passes test "GET /api/events/:eventId/connect"
+- passes test "the scoring cap at the routes"
+- passes test "the scoring cap on a move"
+- passes test "the event connect route"
 
 ## why
 Every write route calls the certification lock first and records an audit row. An event that

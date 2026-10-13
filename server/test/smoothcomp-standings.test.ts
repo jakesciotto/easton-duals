@@ -17,38 +17,7 @@ function match(o: { id: number; left: SmoothcompSeat | null; right: SmoothcompSe
   }
 }
 
-describe('resolveKid', () => {
-  const roster: StandingsKid[] = [
-    { id: 1, firstName: 'Mateo', lastName: 'Rivera', teamId: 1, scoring: false },
-    { id: 2, firstName: 'Ava', lastName: 'Park', teamId: 1, scoring: false },
-  ]
-
-  it('resolves an exact name', () => {
-    expect(resolveKid({ firstName: 'Mateo', lastName: 'Rivera' }, roster)).toBe(roster[0])
-  })
-
-  it('resolves a middle name or initial through the canonical first token', () => {
-    expect(resolveKid({ firstName: 'Mateo A.', lastName: 'Rivera' }, roster)).toBe(roster[0])
-  })
-
-  it('falls through to the near match when the exact rule misses, and he is the only Rivera', () => {
-    expect(resolveKid({ firstName: 'Matt', lastName: 'Rivera' }, roster)).toBe(roster[0])
-  })
-
-  it('resolves to nothing when two roster kids share one exact name', () => {
-    const twins: StandingsKid[] = [
-      { id: 1, firstName: 'Mateo', lastName: 'Rivera', teamId: 1, scoring: false },
-      { id: 2, firstName: 'Mateo', lastName: 'Rivera', teamId: 2, scoring: false },
-    ]
-    expect(resolveKid({ firstName: 'Mateo', lastName: 'Rivera' }, twins)).toBeNull()
-  })
-
-  it('resolves to nothing when no roster name is close', () => {
-    expect(resolveKid({ firstName: 'Zed', lastName: 'Quill' }, roster)).toBeNull()
-  })
-})
-
-describe('winTypeFor', () => {
+describe('a Smoothcomp win method maps to a win type and an unknown method earns one point', () => {
   it('maps disqualification to dq, case insensitively', () => {
     expect(winTypeFor('Disqualification')).toBe('dq')
   })
@@ -58,7 +27,7 @@ describe('winTypeFor', () => {
   })
 })
 
-describe('computeStandings', () => {
+describe('a Smoothcomp match counts only when both names resolve to roster kids on teams', () => {
   const teams: StandingsTeamInput[] = [
     { id: 1, name: 'Ridgeline', color: 'red', position: 0 },
     { id: 2, name: 'Lakeside', color: 'blue', position: 1 },
@@ -165,5 +134,26 @@ describe('computeStandings', () => {
     expect(byName('Ridgeline')?.rank).toBe(1)
     expect(byName('Lakeside')?.rank).toBe(1)
     expect(byName('Hillcrest')?.rank).toBe(3)
+  })
+
+  it('resolves a seat to one roster kid by exact, canonical or near name, and to nothing when two share it or none is close', () => {
+    const roster: StandingsKid[] = [
+      { id: 1, firstName: 'Mateo', lastName: 'Rivera', teamId: 1, scoring: false },
+      { id: 2, firstName: 'Ava', lastName: 'Park', teamId: 1, scoring: false },
+    ]
+    const twins: StandingsKid[] = [
+      { id: 1, firstName: 'Mateo', lastName: 'Rivera', teamId: 1, scoring: false },
+      { id: 2, firstName: 'Mateo', lastName: 'Rivera', teamId: 2, scoring: false },
+    ]
+    const cases: [{ firstName: string; lastName: string }, StandingsKid[], StandingsKid | null][] = [
+      [{ firstName: 'Mateo', lastName: 'Rivera' }, roster, roster[0]],
+      [{ firstName: 'Mateo A.', lastName: 'Rivera' }, roster, roster[0]],
+      [{ firstName: 'Matt', lastName: 'Rivera' }, roster, roster[0]],
+      [{ firstName: 'Mateo', lastName: 'Rivera' }, twins, null],
+      [{ firstName: 'Zed', lastName: 'Quill' }, roster, null],
+    ]
+    for (const [seatName, kids, expected] of cases) {
+      expect(resolveKid(seatName, kids), `${seatName.firstName} ${seatName.lastName}`).toBe(expected)
+    }
   })
 })

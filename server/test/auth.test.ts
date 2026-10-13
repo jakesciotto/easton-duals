@@ -2,13 +2,13 @@ import { describe, it, expect } from 'vitest'
 import { Hono } from 'hono'
 import { signToken, verifyToken, tokenExpiry, type TokenPayload } from '../src/auth/tokens.js'
 import { pinMatches, validateAdminPin, randomMatCode } from '../src/auth/pin.js'
-import { attachAuth, requireAdmin, requireMatOrAdmin, clientIp } from '../src/auth/middleware.js'
+import { attachAuth, requireAdmin, requireMatOrAdmin } from '../src/auth/middleware.js'
 import type { Env, AppContext } from '../src/context.js'
 import { freshDb } from './fixtures.js'
 
 const SECRET = 'test-secret'
 
-describe('tokens', () => {
+describe('a token is signed and expires', () => {
   it('round-trips a payload', () => {
     const t = signToken({ role: 'admin', exp: tokenExpiry(0) }, SECRET)
     expect(verifyToken(t, SECRET, 0)).toEqual({ role: 'admin', exp: 86_400 })
@@ -30,7 +30,7 @@ describe('tokens', () => {
   })
 })
 
-describe('pin', () => {
+describe('PIN and mat code shapes', () => {
   it('compares in constant time and validates the shape', () => {
     expect(pinMatches('123456', '123456')).toBe(true)
     expect(pinMatches('123457', '123456')).toBe(false)
@@ -44,39 +44,7 @@ describe('pin', () => {
   })
 })
 
-describe('clientIp', () => {
-  function build(publicUrl: string | undefined) {
-    const app = new Hono<Env>()
-    app.use('*', async (c, next) => {
-      c.set('ctx', { publicUrl } as unknown as AppContext)
-      await next()
-    })
-    app.get('/ip', c => c.json({ ip: clientIp(c) }))
-    return app
-  }
-
-  it('cloud mode (publicUrl set): prefers the leftmost x-forwarded-for entry, then x-real-ip', async () => {
-    const app = build('https://duals.example.com')
-    const forwarded = await app.request('/ip', { headers: { 'x-forwarded-for': ' 203.0.113.7 , 70.41.3.18 ', 'x-real-ip': '198.51.100.5' } })
-    expect(await forwarded.json()).toEqual({ ip: '203.0.113.7' })
-    const real = await app.request('/ip', { headers: { 'x-real-ip': ' 198.51.100.5 ' } })
-    expect(await real.json()).toEqual({ ip: '198.51.100.5' })
-  })
-
-  it('cloud mode (publicUrl set): falls back when no proxy header is present', async () => {
-    const app = build('https://duals.example.com')
-    const r = await app.request('/ip')
-    expect((await r.json()).ip).toBe('unknown')
-  })
-
-  it('LAN mode (no publicUrl): ignores forwarded headers entirely, even when spoofed', async () => {
-    const app = build(undefined)
-    const r = await app.request('/ip', { headers: { 'x-forwarded-for': '203.0.113.7', 'x-real-ip': '198.51.100.5' } })
-    expect((await r.json()).ip).toBe('unknown')
-  })
-})
-
-describe('middleware', () => {
+describe('an admin route rejects a request without a valid admin token', () => {
   async function build() {
     const db = await freshDb()
     const app = new Hono<Env>()

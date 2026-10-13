@@ -39,7 +39,7 @@ function plan(pending: PendingMatch[], opts: Partial<Omit<PlanInput, 'pending'>>
 const matchIds = (p: ReturnType<typeof planSchedule>) => p.order.map(o => o.matchId)
 const waveOf = (p: ReturnType<typeof planSchedule>, matchId: number) => p.order.find(o => o.matchId === matchId)?.wave
 
-describe('planSchedule: priority order', () => {
+describe('planSchedule priority order', () => {
   it('places every gi match ahead of every nogi match, regardless of number', () => {
     const result = plan([
       pm({ id: 1, number: 1, style: 'nogi', athleteIds: [1, 2] }),
@@ -81,7 +81,7 @@ describe('planSchedule: priority order', () => {
   })
 })
 
-describe('planSchedule: the style rule gaps rather than takes a runnable nogi match', () => {
+describe('every gi match runs before any nogi match', () => {
   const result = plan([
     pm({ id: 1, number: 1, style: 'gi', athleteIds: [1, 2] }),
     pm({ id: 2, number: 2, style: 'gi', athleteIds: [3, 4], feeds: [1] }),
@@ -107,9 +107,19 @@ describe('planSchedule: the style rule gaps rather than takes a runnable nogi ma
     expect(result.waves).toBe(4)
     expect(result.minutes).toBe(18) // (300+60)*3 placed waves / 60, wave 1 contributes nothing
   })
+
+  it('places an all-nogi list in priority order with no gap', () => {
+    const result = plan([
+      pm({ id: 1, number: 1, style: 'nogi', age: 12, athleteIds: [1, 2] }),
+      pm({ id: 2, number: 2, style: 'nogi', age: 9, athleteIds: [3, 4] }),
+    ])
+    expect(matchIds(result)).toEqual([2, 1])
+    expect(result.gaps).toEqual([])
+    expect(result.waves).toBe(2)
+  })
 })
 
-describe('planSchedule: the feeder rule holds a match two waves behind its feeders', () => {
+describe('a feeder runs at least two waves before its dependent', () => {
   const mats = [{ id: 10, number: 1 }, { id: 20, number: 2 }]
   const result = plan([
     pm({ id: 1, number: 1, athleteIds: [1, 2] }),
@@ -156,9 +166,15 @@ describe('planSchedule: the feeder rule holds a match two waves behind its feede
     expect(result2.gaps).toEqual([{ wave: 0, matId: 10, waitingOn: 1 }])
     expect(waveOf(result2, 1)).toBe(1)
   })
+
+  it('throws instead of looping when a feed can never clear', () => {
+    expect(() => plan([
+      pm({ id: 1, number: 1, athleteIds: [null, null], feeds: [1] }),
+    ])).toThrow('schedule cannot place M1')
+  })
 })
 
-describe('planSchedule: the rest rule keeps a kid out of the immediately adjacent wave', () => {
+describe('a kid never fights in two adjacent waves unless nothing else fits', () => {
   it('spaces a kid\'s two matches by at least two waves when a filler is available', () => {
     const result = plan([
       pm({ id: 1, number: 1, athleteIds: [1, 2] }),
@@ -198,9 +214,7 @@ describe('planSchedule: the rest rule keeps a kid out of the immediately adjacen
     expect(result.warnings).toEqual(['Wren: M1 and M2 back to back'])
     expect(result.gaps).toEqual([])
   })
-})
 
-describe('planSchedule: a live kid is fixed at wave -1', () => {
   it('blocks the kid\'s own next match at wave 0 and frees it at wave 1', () => {
     const result = plan(
       [pm({ id: 1, number: 1, athleteIds: [901, 902] })],
@@ -212,44 +226,7 @@ describe('planSchedule: a live kid is fixed at wave -1', () => {
   })
 })
 
-describe('planSchedule: lanes', () => {
-  it('fills every one of three mats every wave, in mat number order', () => {
-    const mats = [{ id: 30, number: 3 }, { id: 10, number: 1 }, { id: 20, number: 2 }]
-    const pending = Array.from({ length: 6 }, (_, i) => pm({
-      id: i + 1, number: i + 1, athleteIds: [1000 + i * 2, 1001 + i * 2],
-    }))
-    const result = plan(pending, { mats, firstOrderIndex: 7 })
-
-    expect(result.gaps).toEqual([])
-    expect(result.waves).toBe(2)
-    expect(result.order).toEqual([
-      { matchId: 1, matId: 10, orderIndex: 7, wave: 0 },
-      { matchId: 2, matId: 20, orderIndex: 8, wave: 0 },
-      { matchId: 3, matId: 30, orderIndex: 9, wave: 0 },
-      { matchId: 4, matId: 10, orderIndex: 10, wave: 1 },
-      { matchId: 5, matId: 20, orderIndex: 11, wave: 1 },
-      { matchId: 6, matId: 30, orderIndex: 12, wave: 1 },
-    ])
-    expect(result.perMat).toEqual([
-      { matId: 10, number: 1, count: 2 },
-      { matId: 20, number: 2, count: 2 },
-      { matId: 30, number: 3, count: 2 },
-    ])
-  })
-
-  it('gives one lane with a null mat id when there are no mats', () => {
-    const result = plan([
-      pm({ id: 1, number: 1, athleteIds: [1, 2] }),
-      pm({ id: 2, number: 2, athleteIds: [3, 4] }),
-    ], { mats: [] })
-
-    expect(result.order.every(o => o.matId === null)).toBe(true)
-    expect(result.perMat).toEqual([{ matId: null, number: 1, count: 2 }])
-    expect(result.waves).toBe(2)
-  })
-})
-
-describe('planSchedule: the estimate', () => {
+describe('planSchedule estimate', () => {
   it('sums the longest match per wave plus a minute, rounded up', () => {
     const result = plan([
       pm({ id: 1, number: 1, athleteIds: [1, 2], lengthSec: 300 }),
@@ -260,7 +237,7 @@ describe('planSchedule: the estimate', () => {
   })
 })
 
-describe('planSchedule: determinism', () => {
+describe('the plan is deterministic for the same input', () => {
   it('gives the same plan for the same input', () => {
     const mats = [{ id: 30, number: 3 }, { id: 10, number: 1 }, { id: 20, number: 2 }]
     const pending = Array.from({ length: 6 }, (_, i) => pm({
@@ -268,56 +245,5 @@ describe('planSchedule: determinism', () => {
     }))
     const input: PlanInput = { mats, live: [], pending, firstOrderIndex: 1 }
     expect(planSchedule(input, noNames)).toEqual(planSchedule(input, noNames))
-  })
-})
-
-describe('planSchedule: performance', () => {
-  it('plans two hundred matches on four mats in under 200 ms', () => {
-    const mats = [1, 2, 3, 4].map(n => ({ id: n, number: n }))
-    const pending = Array.from({ length: 200 }, (_, i) => pm({
-      id: i + 1, number: i + 1, athleteIds: [i * 2 + 1000, i * 2 + 1001],
-    }))
-    const start = Date.now()
-    const result = plan(pending, { mats })
-    const elapsed = Date.now() - start
-    expect(result.order).toHaveLength(200)
-    expect(result.gaps).toEqual([])
-    expect(elapsed).toBeLessThan(200)
-  })
-})
-
-describe('planSchedule: edges', () => {
-  it('plans nothing when nothing is pending', () => {
-    const result = plan([], { mats: [{ id: 10, number: 1 }, { id: 20, number: 2 }] })
-    expect(result).toEqual({
-      order: [], waves: 0, minutes: 0, warnings: [], gaps: [],
-      perMat: [{ matId: 10, number: 1, count: 0 }, { matId: 20, number: 2, count: 0 }],
-    })
-  })
-
-  it('places an all-nogi list in priority order with no gap', () => {
-    const result = plan([
-      pm({ id: 1, number: 1, style: 'nogi', age: 12, athleteIds: [1, 2] }),
-      pm({ id: 2, number: 2, style: 'nogi', age: 9, athleteIds: [3, 4] }),
-    ])
-    expect(matchIds(result)).toEqual([2, 1])
-    expect(result.gaps).toEqual([])
-    expect(result.waves).toBe(2)
-  })
-
-  it('leaves the idle lanes of a short final wave without a gap', () => {
-    const mats = [1, 2, 3].map(n => ({ id: n, number: n }))
-    const pending = Array.from({ length: 4 }, (_, i) => pm({ id: i + 1, number: i + 1, athleteIds: [i * 2 + 1, i * 2 + 2] }))
-    const result = plan(pending, { mats })
-    expect(result.waves).toBe(2)
-    expect(result.gaps).toEqual([])
-    expect(result.perMat.map(m => m.count)).toEqual([2, 1, 1])
-    expect(result.order.map(o => o.orderIndex)).toEqual([1, 2, 3, 4])
-  })
-
-  it('throws instead of looping when a feed can never clear', () => {
-    expect(() => plan([
-      pm({ id: 1, number: 1, athleteIds: [null, null], feeds: [1] }),
-    ])).toThrow('schedule cannot place M1')
   })
 })

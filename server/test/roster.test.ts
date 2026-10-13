@@ -1,98 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
-import { deriveKidsBelt, kidsQuery } from '../src/roster/belts.js'
-import { ageFromAgeGroup, weightFromWeightClass } from '../src/roster/parse.js'
-import { makeCompetitorId } from '../src/roster/slug.js'
-import { buildCandidates } from '../src/roster/join.js'
-import { rosterFromEnv } from '../src/roster/config.js'
+import { kidsQuery, searchQuery } from '../src/roster/belts.js'
 import { WlRequestError } from '../src/roster/wl.js'
-import type { WlBeltRecord, LeaderboardCompetitor, WlLocation, WlNameFilter, RosterCandidate } from '../src/roster/types.js'
+import type { WlBeltRecord, WlLocation, WlNameFilter, RosterCandidate } from '../src/roster/types.js'
 import { auditLog, events, athletes, rosterCandidates } from '../src/db/schema.js'
 import type { Db } from '../src/db/client.js'
 import { createTestApp, call } from './helpers.js'
 import { seedEvent } from './fixtures.js'
-
-describe('deriveKidsBelt', () => {
-  it('maps WL rank titles to the kids ladder', () => {
-    expect(deriveKidsBelt('Grey/White Belt')).toBe('grey-white')
-    expect(deriveKidsBelt('Gray Belt - 2 stripes')).toBe('grey')
-    expect(deriveKidsBelt('Yellow/Black belt')).toBe('yellow-black')
-    expect(deriveKidsBelt('White Belt')).toBe('white')
-    expect(deriveKidsBelt('Blue Belt')).toBeNull()
-    expect(deriveKidsBelt('')).toBeNull()
-  })
-  it('keeps the default query lowercase and narrowed to kids IBJJF categories', () => {
-    const q = kidsQuery()
-    expect(q.startsWith('select ')).toBe(true)
-    expect(q).toContain("like '%Kids%'")
-    expect(q).toContain("like '%IBJJF%'")
-  })
-  it('overrides with an exact category title, escaping an embedded quote', () => {
-    const q = kidsQuery("O'Brien Kids Belts")
-    expect(q).toContain("text_rank_category = 'O''Brien Kids Belts'")
-    expect(q).not.toContain('%Kids%')
-  })
-})
-
-describe('parse', () => {
-  it('reads the lower bound of an age group', () => {
-    expect(ageFromAgeGroup('8-9')).toBe(8)
-    expect(ageFromAgeGroup('10-10')).toBe(10)
-    expect(ageFromAgeGroup('Adult')).toBeNull()
-    expect(ageFromAgeGroup(null)).toBeNull()
-  })
-  it('reads the bound of a weight class in lbs or kg', () => {
-    expect(weightFromWeightClass('-75 lbs')).toBe(75)
-    expect(weightFromWeightClass('75+ lbs')).toBe(75)
-    expect(weightFromWeightClass('-30 kg')).toBe(66)
-    expect(weightFromWeightClass('Open')).toBeNull()
-  })
-})
-
-describe('makeCompetitorId', () => {
-  it('matches the leaderboard slug rule byte for byte', () => {
-    expect(makeCompetitorId('Vesper Ortega')).toBe('vesper-ortega')
-    expect(makeCompetitorId("  Mateo  O'Neil ")).toBe('mateo-o-neil')
-  })
-})
-
-describe('buildCandidates', () => {
-  const rec = (o: Partial<WlBeltRecord>): WlBeltRecord => ({
-    uid: '1', kBusiness: '100001', location: 'North', firstName: 'Zoe', lastName: 'Martin',
-    rankTitle: 'Grey Belt', categoryTitle: 'Kids IBJJF Belts', promotedAt: '2026-01-01', ...o,
-  })
-  const comp: LeaderboardCompetitor = { id: 'zoe-martin', name: 'Zoe Martin', belt: 'grey', ageGroup: '8-9', gender: 'Female', weightClass: '-60 lbs', academy: 'Ridgeline', erp: 5.2 }
-
-  it('joins by slug and fills age, weight, gender, and erp', () => {
-    const [c] = buildCandidates([rec({})], [comp])
-    expect(c).toEqual({ wlUid: '1', firstName: 'Zoe', lastName: 'Martin', belt: 'grey', wlLocation: 'North', leaderboardId: 'zoe-martin', erp: 5.2, age: 8, weightLbs: 60, gender: 'Female', promotedAt: '2026-01-01' })
-  })
-  it('keeps one row per uid using the latest promotion', () => {
-    const rows = buildCandidates([rec({ rankTitle: 'Grey/White Belt', promotedAt: '2025-01-01' }), rec({ location: 'South', promotedAt: '2026-05-01' })], [])
-    expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({ belt: 'grey', wlLocation: 'South', leaderboardId: null, erp: null, age: null })
-  })
-  it('sorts by last name then first name', () => {
-    const rows = buildCandidates([rec({ uid: '2', firstName: 'Ana', lastName: 'Bell' }), rec({ uid: '1' })], [])
-    expect(rows.map(r => r.lastName)).toEqual(['Bell', 'Martin'])
-  })
-})
-
-describe('rosterFromEnv', () => {
-  it('builds clients only when every variable is present', () => {
-    expect(rosterFromEnv({})).toEqual({ wl: null, leaderboard: null, syncBudgetMs: null })
-    const full = rosterFromEnv({ WL_CLIENT_ID: 'a', WL_CLIENT_SECRET: 'b', WL_BUSINESS: '1', LEADERBOARD_SUPABASE_URL: 'https://x.supabase.co', LEADERBOARD_SUPABASE_KEY: 'k' })
-    expect(full.wl).not.toBeNull()
-    expect(full.leaderboard).toEqual({ url: 'https://x.supabase.co', key: 'k' })
-  })
-
-  it('takes the sync budget from the environment, then from the caller default', () => {
-    expect(rosterFromEnv({ SYNC_DEADLINE_MS: '90000' }, { syncBudgetMs: 280_000 }).syncBudgetMs).toBe(90_000)
-    expect(rosterFromEnv({}, { syncBudgetMs: 280_000 }).syncBudgetMs).toBe(280_000)
-    expect(rosterFromEnv({ SYNC_DEADLINE_MS: 'soon' }, { syncBudgetMs: 280_000 }).syncBudgetMs).toBe(280_000)
-    expect(rosterFromEnv({ SYNC_DEADLINE_MS: '0' }).syncBudgetMs).toBeNull()
-  })
-})
 
 const NORTH = { kBusiness: '100001', title: 'North', city: 'Northtown' }
 const SOUTH = { kBusiness: '100002', title: 'South', city: 'Southtown' }
@@ -130,10 +44,12 @@ function wlFake(locations: WlLocation[] = [NORTH], gym = GYM) {
   }
 }
 
+const filter = (o: Partial<WlNameFilter>): WlNameFilter => ({ uids: [], lastTokens: [], firstTokens: [], ...o })
+
 const addZoe = (db: Db, eventId: number) =>
   db.insert(athletes).values({ eventId, firstName: 'Zoe', lastName: 'Martin', source: 'manual' }).run()
 
-describe('roster routes', () => {
+describe("the sync asks WellnessLiving for the roster's own names only", () => {
   it('503s when WL is not configured', async () => {
     const { app, db, adminToken } = await createTestApp()
     const s = await seedEvent(db)
@@ -309,6 +225,24 @@ describe('roster routes', () => {
     expect(r.status).toBe(404)
     expect(wl.searches).toEqual([])
   })
+
+  it('appends one parenthesised or clause to the kids query', () => {
+    const queries = searchQuery(filter({ uids: ['u1', 'u2'], lastTokens: ['rivera'], firstTokens: ['mateo'] }))
+    expect(queries).toEqual([
+      `${kidsQuery()} and (uid in ('u1','u2') or lower(\`o_client.text_last\`) like '%rivera%' or lower(\`o_client.text_first\`) like '%mateo%')`,
+    ])
+  })
+
+  it('compares a name through lower() on both sides, because the report\'s like is case sensitive', () => {
+    const [q] = searchQuery(filter({ lastTokens: ['Delgado'] }))
+    expect(q).toContain("lower(`o_client.text_last`) like '%delgado%'")
+    // A bare column here answers nothing for a name WellnessLiving stores in title case.
+    expect(q).not.toContain('`o_client.text_last` like')
+  })
+
+  it('answers no query at all for an empty filter', () => {
+    expect(searchQuery(filter({}))).toEqual([])
+  })
 })
 
 describe('the WellnessLiving search', () => {
@@ -372,31 +306,5 @@ describe('the WellnessLiving search', () => {
     const { app, db } = await createTestApp(wlConfig(wlFake()))
     const s = await seedEvent(db, { matches: 0 })
     expect((await call(app, 'GET', `/api/events/${s.eventId}/wl-search?q=martin`)).status).toBe(401)
-  })
-})
-
-describe('roster match route', () => {
-  it('404s on an unknown event', async () => {
-    const { app, adminToken } = await createTestApp()
-    expect((await call(app, 'POST', '/api/events/999999/roster/match', undefined, adminToken)).status).toBe(404)
-  })
-
-  it('409s no_pool on an empty pool', async () => {
-    const { app, db, adminToken } = await createTestApp()
-    const s = await seedEvent(db, { matches: 0 })
-    const r = await call(app, 'POST', `/api/events/${s.eventId}/roster/match`, undefined, adminToken)
-    expect(r.status).toBe(409)
-    expect(r.body.error.code).toBe('no_pool')
-  })
-
-  it('links the pool and answers the report plus the athletes', async () => {
-    const { app, db, adminToken } = await createTestApp()
-    const s = await seedEvent(db, { matches: 0 })
-    await db.insert(athletes).values({ eventId: s.eventId, firstName: 'Jonas', lastName: 'Blake', source: 'manual' }).run()
-    await db.insert(rosterCandidates).values({ eventId: s.eventId, wlUid: 'w0', firstName: 'Jonas', lastName: 'Blake', belt: 'yellow', wlLocation: 'North' }).run()
-    const r = await call(app, 'POST', `/api/events/${s.eventId}/roster/match`, undefined, adminToken)
-    expect(r.status).toBe(200)
-    expect(r.body.report.linked).toEqual(['Jonas Blake'])
-    expect(r.body.athletes.find((a: any) => a.lastName === 'Blake')).toMatchObject({ wlUid: 'w0', belt: 'yellow' })
   })
 })

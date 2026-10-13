@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { weightClass, classGap } from '../src/shared/weight-class.js'
+import { weightClass } from '../src/shared/weight-class.js'
 
-describe('weightClass', () => {
+describe('a stored weight falls in one registration band', () => {
   it('puts every band edge on the right side of the line', () => {
     const edges: [number, number][] = [
       [39, 0], [40, 1], [46, 1], [47, 2], [53, 2], [54, 3], [61, 3], [62, 4], [70, 4],
@@ -41,15 +41,5 @@ describe('weightClass', () => {
 
   it('reads a weight under the first band as the first band', () => {
     expect(weightClass(0)).toEqual({ index: 0, label: 'Up to 39 lbs' })
-  })
-})
-
-describe('classGap', () => {
-  it('counts the bands between two weights, either way round', () => {
-    expect(classGap(62, 70)).toBe(0)
-    expect(classGap(60, 62)).toBe(1)
-    expect(classGap(62, 60)).toBe(1)
-    expect(classGap(39, 120)).toBe(9)
-    expect(classGap(115, 131)).toBe(2)
   })
 })

@@ -8,12 +8,12 @@ One static plan in waves across the mats, built on demand from every pending mat
 - the plan is deterministic for the same input
 
 ## works when
-- boundary "every gi match runs before any nogi match" at planSchedule via guard "planSchedule: the style rule gaps rather than takes a runnable nogi match"
-- boundary "a feeder runs at least two waves before its dependent" at planSchedule via guard "planSchedule: the feeder rule holds a match two waves behind its feeders"
-- boundary "a kid never fights in two adjacent waves unless nothing else fits" at planSchedule via guard "planSchedule: the rest rule keeps a kid out of the immediately adjacent wave"
-- boundary "the plan is deterministic for the same input" at planSchedule via guard "planSchedule: determinism"
-- passes test "planSchedule: priority order"
-- passes test "planSchedule: the estimate"
+- boundary "every gi match runs before any nogi match" at planSchedule via guard "every gi match runs before any nogi match"
+- boundary "a feeder runs at least two waves before its dependent" at planSchedule via guard "a feeder runs at least two waves before its dependent"
+- boundary "a kid never fights in two adjacent waves unless nothing else fits" at planSchedule via guard "a kid never fights in two adjacent waves unless nothing else fits"
+- boundary "the plan is deterministic for the same input" at planSchedule via guard "the plan is deterministic for the same input"
+- passes test "planSchedule priority order"
+- passes test "planSchedule estimate"
 - passes test "the schedule route"
 
 ## why
@@ -25,7 +25,7 @@ minute. A live kid is fixed at wave -1. The pilot notes asked for gi first, youn
 match of rest, nogi at the end; the planner factors in the number of mats.
 
 ## refutations
-- every gi match runs before any nogi match: removed the unplacedGi > 0 break in findCandidate -> RED, "3 failed | 1 passed" in planSchedule: the style rule gaps rather than takes a runnable nogi match
-- a feeder runs at least two waves before its dependent: feeder gap wave - 2 changed to wave - 1 -> RED, "3 failed | 3 passed" in planSchedule: the feeder rule holds a match two waves behind its feeders
-- a kid never fights in two adjacent waves unless nothing else fits: strict rest check drops the wave - 1 exclusion -> RED, "2 failed | 1 passed" in planSchedule: the rest rule keeps a kid out of the immediately adjacent wave
-- the plan is deterministic for the same input: final priority tiebreak replaced with Math.random() -> RED, "1 failed | 0 passed" in planSchedule: determinism
+- every gi match runs before any nogi match: removed the unplacedGi > 0 break in findCandidate -> RED, "3 failed | 1 passed" in every gi match runs before any nogi match
+- a feeder runs at least two waves before its dependent: feeder gap wave - 2 changed to wave - 1 -> RED, "3 failed | 3 passed" in a feeder runs at least two waves before its dependent
+- a kid never fights in two adjacent waves unless nothing else fits: strict rest check drops the wave - 1 exclusion -> RED, "2 failed | 1 passed" in a kid never fights in two adjacent waves unless nothing else fits
+- the plan is deterministic for the same input: final priority tiebreak replaced with Math.random() -> RED, "1 failed | 0 passed" in the plan is deterministic for the same input

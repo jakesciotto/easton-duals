@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { parseSmoothcompUrl } from '../src/smoothcomp/url.js'
 
-describe('parseSmoothcompUrl', () => {
+describe('a Smoothcomp URL parses to one event', () => {
   it('reads the origin and the event id out of a results URL', () => {
     expect(parseSmoothcompUrl('https://smoothcomp.com/en/event/29499/results'))
       .toEqual({ ok: true, origin: 'https://smoothcomp.com', eventId: '29499' })

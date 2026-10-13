@@ -6,8 +6,8 @@ The append-only audit log and the lock a certified event puts on every write.
 - every write records an audit row
 
 ## works when
-- boundary "a certified event refuses every write" at assertNotCertified via guard "certification locks the event"
-- boundary "every write records an audit row" at recordAudit via guard "audit log, the event"
+- boundary "a certified event refuses every write" at assertNotCertified via guard "a certified event refuses every write"
+- boundary "every write records an audit row" at recordAudit via guard "every write records an audit row"
 - passes test "certify and uncertify"
 
 ## why
@@ -19,5 +19,5 @@ as surely as a score does. Every recorded action is undoable, auditable and chan
 the match until the organizer certifies.
 
 ## refutations
-- a certified event refuses every write: assertNotCertified compares status to 'zzz' -> RED, "35 failed | 52 passed" in certification locks the event
-- every write records an audit row: recordAudit returns before the insert -> RED, "4 failed | 0 passed" in audit log, the event
+- a certified event refuses every write: assertNotCertified compares status to 'zzz' -> RED, "35 failed | 52 passed" in a certified event refuses every write
+- every write records an audit row: recordAudit returns before the insert -> RED, "4 failed | 0 passed" in every write records an audit row

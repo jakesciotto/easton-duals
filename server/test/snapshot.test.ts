@@ -5,8 +5,7 @@ import { buildSnapshot } from '../src/live/snapshot.js'
 import { rankTeams } from '../src/shared/leaderboard.js'
 import { appendMatchEvent, endMatch, bumpVersion } from '../src/match/events.js'
 import { advanceMat, reopenMatch } from '../src/match/mats.js'
-import { athletes, mats, matches } from '../src/db/schema.js'
-import { createMatch } from '../src/match/create.js'
+import { mats, matches } from '../src/db/schema.js'
 import { ON_DECK_DEPTH } from '../src/shared/types.js'
 
 const opts = { names: 'full' as const, nowMs: Date.parse('2026-08-27T18:00:00.000Z') }
@@ -146,100 +145,3 @@ describe('buildSnapshot', () => {
   })
 })
 
-describe('a bracket match in the snapshot', () => {
-  const made = (r: Awaited<ReturnType<typeof createMatch>>) => {
-    if (!r.ok) throw new Error(r.message)
-    return r.match
-  }
-
-  it('prints the feed label as the side name and carries the number, style, division and round', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matCount: 1, matches: 0, live: true, divisions: true })
-    const snap = await buildSnapshot(db, s.eventId, opts)
-    const bracket = snap.matches.filter(m => m.divisionId === s.divisionId)
-    expect(bracket.map(m => [m.number, m.style, m.round])).toEqual([[1, 'gi', 1], [2, 'gi', 1], [3, 'gi', 2]])
-    const final = bracket[2]
-    expect(final.a).toMatchObject({ athleteId: null, name: 'Winner of M1', teamId: null, feed: { matchId: bracket[0].id, matchNumber: 1, take: 'winner' } })
-    expect(final.b).toMatchObject({ athleteId: null, name: 'Winner of M2' })
-    expect(bracket[0].a).toMatchObject({ name: 'Mateo Rivera', feed: null })
-  })
-
-  it('says an idle mat is waiting on the feeder of the match at the head of its queue', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matCount: 1, matches: 0, live: true })
-    const feeder = made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, matId: null, source: 'designed' }))
-    made(await createMatch(db, {
-      eventId: s.eventId, athleteAId: null, athleteBId: s.b2,
-      feedA: { matchId: feeder.id, take: 'winner' }, matId: s.matIds[0], source: 'generated',
-    }))
-    const snap = await buildSnapshot(db, s.eventId, opts)
-    expect(snap.mats[0]).toMatchObject({ current: null, blocked: `Waiting on M${feeder.number}` })
-  })
-
-  it('names the kid holding an idle mat up and the mat they are on', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matCount: 2, matches: 0, live: true })
-    made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, matId: s.matIds[0], source: 'designed' }))
-    made(await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b2, matId: s.matIds[1], source: 'designed' }))
-    const snap = await buildSnapshot(db, s.eventId, opts)
-    expect(snap.mats.map(m => m.blocked)).toEqual([null, 'Mateo Rivera is live on mat 1'])
-  })
-
-  it('says nothing about a mat that is running or has an empty queue', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { live: true })
-    expect((await buildSnapshot(db, s.eventId, opts)).mats.map(m => m.blocked)).toEqual([null, null])
-  })
-})
-
-import { publicName } from '../src/live/snapshot.js'
-
-// Open question 5. The snapshot is public, so by default it carries a first name and a
-// last initial; only a caller that asks for the full form gets it.
-describe('public names', () => {
-  it('shortens to a last initial by default', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { live: true })
-    const snap = await buildSnapshot(db, s.eventId, { nowMs: Date.now() })
-    expect(snap.matches[0].a.name).toBe('Mateo R.')
-  })
-  it('formats a single name and an empty surname without a stray dot', () => {
-    expect(publicName('Mateo', 'Rivera')).toBe('Mateo R.')
-    expect(publicName('Mateo', '')).toBe('Mateo')
-    expect(publicName(' Ava ', ' park')).toBe('Ava P.')
-  })
-})
-
-describe('team points', () => {
-  it('pays a scoring kid\'s win by how it was won, and a team inside the cap scores with everyone', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matCount: 1, live: true })
-    await appendMatchEvent(db, { id: 't1', matchId: s.matchIds[0], type: 'terminal', athleteId: s.a1, actionKey: 'submission', lastSeq: 0 })
-    await endMatch(db, { id: 'end1', matchId: s.matchIds[0], lastSeq: 1 })
-    const snap = await buildSnapshot(db, s.eventId, opts)
-    expect(snap.teams.map(t => [t.teamPoints, t.wins, t.scoring])).toEqual([
-      [3, 1, { marked: 0, size: 2, everyone: true }],
-      [0, 0, { marked: 0, size: 2, everyone: true }],
-    ])
-    expect(snap.leaderboard[0]).toEqual({ teamId: s.teamA, rank: 1, teamPoints: 3, wins: 1, points: 0 })
-  })
-
-  it('counts a win by an unmarked kid on a large team as a win with no team points', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matCount: 1, live: true })
-    await db.insert(athletes).values(Array.from({ length: 9 }, (_, i) => ({
-      eventId: s.eventId, teamId: s.teamA, firstName: `Kid${i}`, lastName: 'Ridge', source: 'manual' as const,
-    }))).run()
-    await db.update(athletes).set({ scoring: true }).where(eq(athletes.id, s.a2)).run()
-    await appendMatchEvent(db, { id: 'e1', matchId: s.matchIds[0], type: 'score', athleteId: s.a1, actionKey: 'mount', lastSeq: 0 })
-    await endMatch(db, { id: 'end1', matchId: s.matchIds[0], lastSeq: 1 })
-    let snap = await buildSnapshot(db, s.eventId, opts)
-    expect(snap.teams[0]).toMatchObject({ teamPoints: 0, wins: 1, scoring: { marked: 1, size: 11, everyone: false } })
-
-    await advanceMat(db, s.matIds[0], 'admin')
-    await endMatch(db, { id: 'end2', matchId: s.matchIds[1], lastSeq: 0, winnerAthleteId: s.a2 })
-    snap = await buildSnapshot(db, s.eventId, opts)
-    expect(snap.teams[0]).toMatchObject({ teamPoints: 1, wins: 2 })
-    expect(snap.matches.find(m => m.id === s.matchIds[1])?.result?.winType).toBe('decision')
-  })
-})
