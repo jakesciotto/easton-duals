@@ -1043,119 +1043,141 @@
     "failures": 0
   },
   "mass": {
-    "at": "2026-10-13T19:00:59.877Z",
-    "commit": "6427e32",
-    "dirty": true,
+    "at": "2026-10-13T19:16:00.091Z",
+    "commit": "c9bf3a2",
+    "dirty": false,
     "dims": [
       {
-        "key": "deps|dev",
-        "value": 2,
-        "unit": "deps"
-      },
-      {
-        "key": "deps|direct",
-        "value": 0,
-        "unit": "deps"
-      },
-      {
-        "key": "deps|transitive",
-        "value": 619,
-        "unit": "deps"
-      },
-      {
-        "key": "files|total",
-        "value": 260,
-        "unit": "files"
+        "key": "lines|total",
+        "value": 31513,
+        "unit": "lines",
+        "baseline": 31513
       },
       {
         "key": "lines|Audit and certification",
         "value": 97,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 97
       },
       {
         "key": "lines|Auth",
         "value": 158,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 158
       },
       {
         "key": "lines|Console, scorer and board",
         "value": 17557,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 17557
       },
       {
         "key": "lines|Database",
         "value": 384,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 384
       },
       {
         "key": "lines|Divisions and formats",
         "value": 418,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 418
       },
       {
         "key": "lines|Easton Duals",
         "value": 7111,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 7111
       },
       {
         "key": "lines|Live snapshot and mat binding",
         "value": 275,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 275
       },
       {
         "key": "lines|Match state machine",
         "value": 1100,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 1100
       },
       {
         "key": "lines|Matchmaker",
         "value": 676,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 676
       },
       {
         "key": "lines|Roster",
         "value": 648,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 648
       },
       {
         "key": "lines|Routes",
         "value": 1999,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 1999
       },
       {
         "key": "lines|Running order",
         "value": 172,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 172
       },
       {
         "key": "lines|Shared rules",
         "value": 598,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 598
       },
       {
         "key": "lines|Smoothcomp standings",
         "value": 320,
-        "unit": "lines"
+        "unit": "lines",
+        "baseline": 320
       },
       {
-        "key": "lines|total",
-        "value": 31513,
-        "unit": "lines"
-      },
-      {
-        "key": "measure|test-cases",
-        "value": 464,
-        "unit": "cases"
+        "key": "files|total",
+        "value": 260,
+        "unit": "files",
+        "baseline": 260
       },
       {
         "key": "symbols|total",
         "value": 735,
-        "unit": "symbols"
+        "unit": "symbols",
+        "baseline": 735
       },
       {
         "key": "undocumented|symbols",
         "value": 405,
-        "unit": "symbols"
+        "unit": "symbols",
+        "baseline": 405
+      },
+      {
+        "key": "deps|direct",
+        "value": 0,
+        "unit": "deps",
+        "baseline": 0
+      },
+      {
+        "key": "deps|dev",
+        "value": 2,
+        "unit": "deps",
+        "baseline": 2
+      },
+      {
+        "key": "deps|transitive",
+        "value": 619,
+        "unit": "deps",
+        "baseline": 619
+      },
+      {
+        "key": "measure|test-cases",
+        "value": 464,
+        "unit": "cases",
+        "baseline": 464
       }
     ]
   }
