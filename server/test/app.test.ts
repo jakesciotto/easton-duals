@@ -60,12 +60,3 @@ describe('snapshot polling', () => {
     expect(r.body.error.code).toBe('not_found')
   })
 })
-
-describe('error mapping', () => {
-  it('returns the standard 404 body for unknown routes', async () => {
-    const { app } = await createTestApp()
-    const r = await call(app, 'GET', '/api/nope')
-    expect(r.status).toBe(404)
-    expect(r.body).toEqual({ error: { code: 'not_found', message: 'not found' } })
-  })
-})

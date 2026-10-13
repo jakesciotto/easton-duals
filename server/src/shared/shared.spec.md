@@ -9,11 +9,11 @@ Pure modules the server, the console and the board read through: the leaderboard
 - a name resolves through one similarity module
 
 ## works when
-- boundary "teams rank by team points, then wins, then match points, then position, and ties share a rank" at rankTeams via guard "rankTeams"
-- boundary "team points come only from scoring athletes by win type" at teamPointsFor via guard "teamPointsFor"
-- boundary "a team over ten kids scores only with its marked kids" at scoringSet via guard "scoringSet"
-- boundary "a stored weight falls in one registration band" at weightClass via guard "weightClass"
-- boundary "a name resolves through one similarity module" at nameScore via guard "nameScore"
+- boundary "teams rank by team points, then wins, then match points, then position, and ties share a rank" at rankTeams via guard "teams rank by team points, then wins, then match points, then position, and ties share a rank"
+- boundary "team points come only from scoring athletes by win type" at teamPointsFor via guard "team points come only from scoring athletes by win type"
+- boundary "a team over ten kids scores only with its marked kids" at scoringSet via guard "a team over ten kids scores only with its marked kids"
+- boundary "a stored weight falls in one registration band" at weightClass via guard "a stored weight falls in one registration band"
+- boundary "a name resolves through one similarity module" at nameScore via guard "a name resolves through one similarity module"
 - passes test "formatClock"
 - passes test "roundLabel"
 
@@ -39,8 +39,8 @@ else scores by Dice over tokens with a suggestion floor of 0.6 and a margin of 0
 match is a suggestion for a person, never a link.
 
 ## refutations
-- teams rank by team points, then wins, then match points, then position, and ties share a rank: flipped the wins and match-points sort directions -> RED, "3 failed | 6 passed" in rankTeams
-- team points come only from scoring athletes by win type: teamPointsFor returns 1 for every win type -> RED, "1 failed | 0 passed" in teamPointsFor
-- a team over ten kids scores only with its marked kids: scoringSet no longer filters on the scoring flag -> RED, "1 failed | 1 passed" in scoringSet
-- a stored weight falls in one registration band: weightClass boundary `<=` changed to `<` -> RED, "2 failed | 3 passed" in weightClass
-- a name resolves through one similarity module: nameScore same-last-name bonus inverted -> RED, "2 failed | 3 passed" in nameScore
+- teams rank by team points, then wins, then match points, then position, and ties share a rank: flipped the wins and match-points sort directions -> RED, "3 failed | 6 passed" in teams rank by team points, then wins, then match points, then position, and ties share a rank
+- team points come only from scoring athletes by win type: teamPointsFor returns 1 for every win type -> RED, "1 failed | 0 passed" in team points come only from scoring athletes by win type
+- a team over ten kids scores only with its marked kids: scoringSet no longer filters on the scoring flag -> RED, "1 failed | 1 passed" in a team over ten kids scores only with its marked kids
+- a stored weight falls in one registration band: weightClass boundary `<=` changed to `<` -> RED, "2 failed | 3 passed" in a stored weight falls in one registration band
+- a name resolves through one similarity module: nameScore same-last-name bonus inverted -> RED, "2 failed | 3 passed" in a name resolves through one similarity module

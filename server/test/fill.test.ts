@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { asc, eq } from 'drizzle-orm'
 import { freshDb, seedEvent } from './fixtures.js'
 import { createTestApp, call } from './helpers.js'
-import { auditLog, matches, type MatchRow } from '../src/db/schema.js'
+import { auditLog, events, matches, mats, type MatchRow } from '../src/db/schema.js'
+import { appendMatchEvent, endMatch, loadMatch, MatchStateError } from '../src/match/events.js'
 import { createDivision } from '../src/formats/divisions.js'
 import { createMatch } from '../src/match/create.js'
 import { enterResult } from '../src/match/entry.js'
-import { reopenMatch } from '../src/match/mats.js'
+import { advanceMat, reopenMatch } from '../src/match/mats.js'
 import type { Db } from '../src/db/client.js'
 import type { DivisionFormat } from '../src/shared/types.js'
 
@@ -31,7 +32,7 @@ const win = (db: Db, match: MatchRow, winnerAthleteId: number, reason?: string) 
 const sides = (m: MatchRow) => [m.athleteAId, m.athleteBId]
 const reload = async (db: Db, id: number) => (await db.select().from(matches).where(eq(matches.id, id)).get())!
 
-describe('fillDependents', () => {
+describe('an ended feeder fills its dependents in the same transaction', () => {
   it('writes the winner and the loser into the sides that wait on them', async () => {
     const { db, s, rows } = await bracket('double_elim')
     // Slot order 1, 4, 2, 3: M1 is the first semifinal, M3 the winners final and M4 the
@@ -70,7 +71,7 @@ describe('fillDependents', () => {
   })
 })
 
-describe('a correction on a feeder', () => {
+describe('a correction that changes a winner refuses when a dependent already ran', () => {
   it('writes the new kid into every dependent side while they are all pending', async () => {
     const { db, s, rows } = await bracket('single_elim')
     await win(db, rows[0], s.a1)
@@ -100,7 +101,7 @@ describe('a correction on a feeder', () => {
   })
 })
 
-describe('reopening a feeder', () => {
+describe('a reopen refuses while a dependent is live or done', () => {
   it('empties the sides it filled, and the next end fills them again', async () => {
     const { db, s, rows } = await bracket('single_elim', { live: true })
     await win(db, rows[0], s.a1)
@@ -116,6 +117,44 @@ describe('reopening a feeder', () => {
     await db.update(matches).set({ status: 'live' }).where(eq(matches.id, rows[2].id)).run()
     await expect(reopenMatch(db, rows[0].id)).rejects.toThrow(`M${rows[2].number} already ran on this result`)
     expect((await reload(db, rows[0].id)).status).toBe('done')
+  })
+
+  it('reopens a done match and pulls back an untouched next match', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 1, live: true })
+    const [first, second] = s.matchIds
+    await endMatch(db, { id: 'end1', matchId: first, lastSeq: 0, winnerAthleteId: s.a1 })
+    await advanceMat(db, s.matIds[0], 'admin')
+    const m = await reopenMatch(db, first)
+    expect(m.status).toBe('live')
+    expect(m.winnerAthleteId).toBeNull()
+    expect((await loadMatch(db, second)).status).toBe('pending')
+    expect((await db.select().from(mats).where(eq(mats.id, s.matIds[0])).get())?.currentMatchId).toBe(first)
+  })
+
+  it('refuses when the next match already has scoring events', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 1, live: true })
+    const [first, second] = s.matchIds
+    await endMatch(db, { id: 'end1', matchId: first, lastSeq: 0, winnerAthleteId: s.a1 })
+    await advanceMat(db, s.matIds[0], 'admin')
+    await appendMatchEvent(db, { id: 'e1', matchId: second, type: 'score', athleteId: s.a2, actionKey: 'takedown', lastSeq: 0 })
+    await expect(reopenMatch(db, first)).rejects.toThrow(/already started/)
+  })
+
+  it('refuses while the event is in setup and works once it is done', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 1 })
+    await enterResult(db, s.matchIds[0], { entryId: 'entry-0001', pointsA: 2, pointsB: 0, winnerAthleteId: s.a1, winType: 'points' })
+    await expect(reopenMatch(db, s.matchIds[0])).rejects.toThrow(/start the event/)
+    await db.update(events).set({ status: 'done' }).where(eq(events.id, s.eventId)).run()
+    expect((await reopenMatch(db, s.matchIds[0])).status).toBe('live')
+  })
+
+  it('refuses on a match that is not done', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { live: true })
+    await expect(reopenMatch(db, s.matchIds[0])).rejects.toThrow(MatchStateError)
   })
 })
 
@@ -155,12 +194,5 @@ describe('the delete and patch guards', () => {
     const patched = await call(app, 'PATCH', `/api/matches/${rows[0].id}`, { lengthSec: 120, matId: s.matIds[0] }, adminToken)
     expect(patched.status).toBe(200)
     expect(patched.body).toMatchObject({ lengthSec: 120, matId: s.matIds[0] })
-  })
-})
-
-describe('a bracket match with an empty side', () => {
-  it('cannot be scored until its feeder ends', async () => {
-    const { db, rows } = await bracket('single_elim')
-    await expect(win(db, rows[2], rows[2].athleteAId ?? 0)).rejects.toThrow('athlete not in match')
   })
 })

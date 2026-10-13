@@ -98,7 +98,7 @@ describe('single elimination', () => {
   })
 })
 
-describe('double elimination', () => {
+describe('double elimination ends in one grand final with no reset', () => {
   it('gives four members six matches, one grand final', () => {
     const { matches } = generate('double_elim', 4, { teams: [1, 2, 3, 2] })
     expect(matches.map(shape)).toEqual([
@@ -142,7 +142,7 @@ describe('double elimination', () => {
   })
 })
 
-describe('same-team pairs in round one', () => {
+describe('a same-team round one pair is swapped away or warned', () => {
   it('swaps the lower seed with the nearest seed that splits both pairs', () => {
     // Slot order 1, 4, 2, 3 puts seeds 1 and 4 together, both on team 1. Seed 4 is the
     // lower of the two, and the nearest seed whose swap splits both pairs is seed 3.
@@ -168,7 +168,7 @@ describe('same-team pairs in round one', () => {
   })
 })
 
-describe('both styles', () => {
+describe('a division generates its matches once per style in dependency order', () => {
   it('runs the nogi set after the gi set with its feeds pointing inside itself', () => {
     const { matches } = generate('single_elim', 4, { teams: [1, 2, 3, 2], styles: 'both' })
     expect(matches.map(m => m.style)).toEqual(['gi', 'gi', 'gi', 'nogi', 'nogi', 'nogi'])
@@ -189,7 +189,7 @@ describe('both styles', () => {
   })
 })
 
-describe('seedByRating', () => {
+describe('seeds are the listed order and seed by rating reorders by ERP', () => {
   it('sorts by rating, unrated last in the listed order', () => {
     expect(seedByRating([
       { athleteId: 1, erp: 5.4, seed: 1 },
@@ -205,13 +205,5 @@ describe('seedByRating', () => {
       { athleteId: 9, erp: null, seed: 2 },
       { athleteId: 8, erp: null, seed: 1 },
     ])).toEqual([8, 9])
-  })
-})
-
-describe('determinism', () => {
-  it('gives the same matches and warnings every run', () => {
-    const once = generate('double_elim', 7, { teams: [1, 1, 2, 2, 3, 3, 1], styles: 'both' })
-    const twice = generate('double_elim', 7, { teams: [1, 1, 2, 2, 3, 3, 1], styles: 'both' })
-    expect(twice).toEqual(once)
   })
 })

@@ -3,7 +3,7 @@ import { rankTeams } from '../src/shared/leaderboard.js'
 
 const team = (id: number, teamPoints: number, wins: number, points: number, position: number) => ({ id, teamPoints, wins, points, position })
 
-describe('rankTeams', () => {
+describe('teams rank by team points, then wins, then match points, then position, and ties share a rank', () => {
   it('orders by team points first, whatever the wins and points say', () => {
     const rows = rankTeams([team(1, 2, 9, 90, 0), team(2, 7, 1, 3, 1), team(3, 4, 5, 40, 2)])
     expect(rows.map(r => r.teamId)).toEqual([2, 3, 1])

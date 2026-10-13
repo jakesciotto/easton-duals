@@ -6,7 +6,7 @@ A team duels scoring app for a kids jiu jitsu gym: one Hono server on libSQL, on
 
 ## works when
 - typechecks
-- boundary "the served version equals the package version" at VERSION via guard "health"
+- boundary "the served version equals the package version" at VERSION via guard "the served version equals the package version"
 - passes test "the write routes this suite covers"
 - coherence.config.json exists at root
 - CHANGELOG.md exists at root
@@ -39,4 +39,4 @@ The record before 2026-10-01 (plans, mockups, the decisions log) sits in
 the coherence journal.
 
 ## refutations
-- the served version equals the package version: set VERSION to '0.0.0' -> RED, "1 failed | 0 passed" in health
+- the served version equals the package version: set VERSION to '0.0.0' -> RED, "1 failed | 0 passed" in the served version equals the package version

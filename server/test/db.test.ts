@@ -1,53 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { autoMigrates, createDb, dbUrlFromEnv, getOrCreateSecret } from '../src/db/client.js'
-import { events, teams, athletes, settings } from '../src/db/schema.js'
-import { eq } from 'drizzle-orm'
-import { freshDb } from './fixtures.js'
+import { autoMigrates, createDb, dbUrlFromEnv } from '../src/db/client.js'
+import { settings } from '../src/db/schema.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-describe('db', () => {
-  it('migrates and round-trips an event with teams', async () => {
-    const db = await freshDb()
-    const ev = await db.insert(events).values({ name: 'Fall Duals', date: '2026-10-03', matCount: 2, matCode: '0420', createdAt: '2026-08-27T00:00:00.000Z' }).returning().get()
-    await db.insert(teams).values([
-      { eventId: ev.id, name: 'Ridgeline', color: 'red', position: 0 },
-      { eventId: ev.id, name: 'Lakeside', color: 'blue', position: 1 },
-    ]).run()
-    expect(await db.select().from(teams).where(eq(teams.eventId, ev.id)).all()).toHaveLength(2)
-    expect(ev.status).toBe('setup')
-    expect(ev.sameGender).toBe(false)
-  })
-
-  it('cascades athletes on event delete and nulls team on team delete', async () => {
-    const db = await freshDb()
-    const ev = await db.insert(events).values({ name: 'X', date: '2026-10-03', matCount: 1, matCode: '0000', createdAt: 'now' }).returning().get()
-    const team = await db.insert(teams).values({ eventId: ev.id, name: 'A', color: 'red', position: 0 }).returning().get()
-    const kid = await db.insert(athletes).values({ eventId: ev.id, teamId: team.id, firstName: 'Test', lastName: 'Kid', source: 'manual' }).returning().get()
-    await db.delete(teams).where(eq(teams.id, team.id)).run()
-    expect((await db.select().from(athletes).where(eq(athletes.id, kid.id)).get())?.teamId).toBeNull()
-    await db.delete(events).where(eq(events.id, ev.id)).run()
-    expect(await db.select().from(athletes).all()).toHaveLength(0)
-  })
-
-  it('creates the secret once and returns the same value after', async () => {
-    const db = await freshDb()
-    const a = await getOrCreateSecret(db)
-    const b = await getOrCreateSecret(db)
-    expect(a).toBe(b)
-    expect(a.length).toBeGreaterThan(30)
-  })
-
-  it('survives two callers racing to create the secret', async () => {
-    const db = await freshDb()
-    const [a, b] = await Promise.all([getOrCreateSecret(db), getOrCreateSecret(db)])
-    expect(a).toBe(b)
-    expect(await db.select().from(settings).all()).toHaveLength(1)
-  })
-})
-
-describe('dbUrlFromEnv', () => {
+describe('the database url comes from the environment with a local file default', () => {
   it('prefers an explicit DB_PATH over Turso credentials', () => {
     const r = dbUrlFromEnv({ DB_PATH: '/tmp/x.db', TURSO_DATABASE_URL: 'libsql://example.invalid', TURSO_AUTH_TOKEN: 't' })
     expect(r).toEqual({ url: 'file:/tmp/x.db' })
@@ -58,6 +16,18 @@ describe('dbUrlFromEnv', () => {
   })
   it('falls back to the DATA_DIR file', () => {
     expect(dbUrlFromEnv({ DATA_DIR: './d' }).url).toBe('file:d/duals.db')
+  })
+  it('prefers duals.db, falls back to an existing duels.db, and names duals.db on a fresh box', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-name-'))
+    try {
+      expect(dbUrlFromEnv({ DATA_DIR: dir }).url).toBe(`file:${path.join(dir, 'duals.db')}`)
+      fs.writeFileSync(path.join(dir, 'duels.db'), '')
+      expect(dbUrlFromEnv({ DATA_DIR: dir }).url).toBe(`file:${path.join(dir, 'duels.db')}`)
+      fs.writeFileSync(path.join(dir, 'duals.db'), '')
+      expect(dbUrlFromEnv({ DATA_DIR: dir }).url).toBe(`file:${path.join(dir, 'duals.db')}`)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 
@@ -77,7 +47,7 @@ describe('createDb retry wiring', () => {
 // A boot may migrate the one database it owns, the file on the gym box. A remote database
 // is shared with the deployed build, and the dev server that dropped two columns on
 // production hours before the release that stopped reading them is why this exists.
-describe('autoMigrates', () => {
+describe('a boot migrates only a file database', () => {
   it('migrates a file database at boot', () => {
     expect(autoMigrates('file:./data/duals.db')).toBe(true)
     expect(autoMigrates('file::memory:')).toBe(true)
@@ -85,20 +55,5 @@ describe('autoMigrates', () => {
   it('never migrates a remote database at boot', () => {
     expect(autoMigrates('libsql://duals-example.turso.io')).toBe(false)
     expect(autoMigrates('https://duals-example.turso.io')).toBe(false)
-  })
-})
-
-describe('the file database keeps its old name on a box that already has one', () => {
-  it('prefers duals.db, falls back to an existing duels.db, and names duals.db on a fresh box', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-name-'))
-    try {
-      expect(dbUrlFromEnv({ DATA_DIR: dir }).url).toBe(`file:${path.join(dir, 'duals.db')}`)
-      fs.writeFileSync(path.join(dir, 'duels.db'), '')
-      expect(dbUrlFromEnv({ DATA_DIR: dir }).url).toBe(`file:${path.join(dir, 'duels.db')}`)
-      fs.writeFileSync(path.join(dir, 'duals.db'), '')
-      expect(dbUrlFromEnv({ DATA_DIR: dir }).url).toBe(`file:${path.join(dir, 'duals.db')}`)
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
   })
 })

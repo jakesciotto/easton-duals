@@ -8,10 +8,10 @@ Round robin, single and double elimination, generated once per style with feeds 
 - double elimination ends in one grand final with no reset
 
 ## works when
-- boundary "a division generates its matches once per style in dependency order" at generateDivision via guard "both styles"
-- boundary "seeds are the listed order and seed by rating reorders by ERP" at seedByRating via guard "seedByRating"
-- boundary "a same-team round one pair is swapped away or warned" at arrangeSlots via guard "same-team pairs in round one"
-- boundary "double elimination ends in one grand final with no reset" at generateDivision via guard "double elimination"
+- boundary "a division generates its matches once per style in dependency order" at generateDivision via guard "a division generates its matches once per style in dependency order"
+- boundary "seeds are the listed order and seed by rating reorders by ERP" at seedByRating via guard "seeds are the listed order and seed by rating reorders by ERP"
+- boundary "a same-team round one pair is swapped away or warned" at arrangeSlots via guard "a same-team round one pair is swapped away or warned"
+- boundary "double elimination ends in one grand final with no reset" at generateDivision via guard "double elimination ends in one grand final with no reset"
 - passes test "round robin"
 - passes test "single elimination"
 - passes test "createDivision"
@@ -30,7 +30,7 @@ winner or the loser of another match). Seeds are the listed order; "Seed by rati
 action, never a default.
 
 ## refutations
-- a division generates its matches once per style in dependency order: styles 'both' generates gi only -> RED, "1 failed | 2 passed" in both styles
-- seeds are the listed order and seed by rating reorders by ERP: seedByRating sorts ERP ascending -> RED, "1 failed | 1 passed" in seedByRating
-- a same-team round one pair is swapped away or warned: arrangeSlots skips every pair -> RED, "3 failed | 0 passed" in same-team pairs in round one
-- double elimination ends in one grand final with no reset: emitted the grand final twice -> RED, "4 failed | 0 passed" in double elimination
+- a division generates its matches once per style in dependency order: styles 'both' generates gi only -> RED, "1 failed | 2 passed" in a division generates its matches once per style in dependency order
+- seeds are the listed order and seed by rating reorders by ERP: seedByRating sorts ERP ascending -> RED, "1 failed | 1 passed" in seeds are the listed order and seed by rating reorders by ERP
+- a same-team round one pair is swapped away or warned: arrangeSlots skips every pair -> RED, "3 failed | 0 passed" in a same-team round one pair is swapped away or warned
+- double elimination ends in one grand final with no reset: emitted the grand final twice -> RED, "4 failed | 0 passed" in double elimination ends in one grand final with no reset

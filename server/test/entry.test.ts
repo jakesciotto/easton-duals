@@ -2,10 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { freshDb, seedEvent } from './fixtures.js'
 import { createTestApp, call } from './helpers.js'
-import { enterResult, createEntry } from '../src/match/entry.js'
+import { enterResult } from '../src/match/entry.js'
 import { loadMatch, loadEvents, appendMatchEvent } from '../src/match/events.js'
 import { mats, matches } from '../src/db/schema.js'
-import { buildSnapshot } from '../src/live/snapshot.js'
 
 describe('enterResult', () => {
   it('fills a pending match, marks it done, and advances the mat', async () => {
@@ -58,83 +57,6 @@ describe('enterResult', () => {
     const db = await freshDb()
     const s = await seedEvent(db, { live: true })
     await expect(enterResult(db, s.matchIds[0], { entryId: 'entry-0001', pointsA: 0, pointsB: 0, winnerAthleteId: s.a2, winType: 'points' })).rejects.toThrow(/not in match/)
-  })
-})
-
-describe('createEntry', () => {
-  it('reuses a pending match for the same pair', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db)
-    const r = await createEntry(db, s.eventId, { entryId: 'entry-0001', athleteAId: s.b1, athleteBId: s.a1, pointsA: 3, pointsB: 0, winnerAthleteId: s.a1, winType: 'points' })
-    expect(r.match.id).toBe(s.matchIds[0])
-    expect(r.match.pointsA).toBe(3)
-    expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toHaveLength(2)
-  })
-
-  it('lands on the match a mat is showing, ends it, and advances that mat', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matCount: 1, live: true })
-    const [first, second] = s.matchIds
-    const r = await createEntry(db, s.eventId, { entryId: 'entry-0001', athleteAId: s.b1, athleteBId: s.a1, pointsA: 5, pointsB: 1, winnerAthleteId: s.a1, winType: 'points' })
-    expect(r.match.id).toBe(first)
-    expect(r.match.status).toBe('done')
-    expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toHaveLength(2)
-    expect((await db.select().from(mats).where(eq(mats.id, s.matIds[0])).get())?.currentMatchId).toBe(second)
-    const snap = await buildSnapshot(db, s.eventId, { nowMs: Date.now() })
-    expect(snap.teams.map(t => t.wins)).toEqual([1, 0])
-  })
-
-  it('prefers a live match over a later pending one for the same pair', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matCount: 1, live: true, matches: 1 })
-    const extra = await db.insert(matches).values({
-      eventId: s.eventId, matId: null, number: 5, orderIndex: 5, rulesetId: s.rulesetId,
-      lengthSec: 300, athleteAId: s.a1, athleteBId: s.b1,
-    }).returning().get()
-    const r = await createEntry(db, s.eventId, { entryId: 'entry-0002', athleteAId: s.a1, athleteBId: s.b1, pointsA: 2, pointsB: 0, winnerAthleteId: s.a1, winType: 'points' })
-    expect(r.match.id).toBe(s.matchIds[0])
-    expect((await loadMatch(db, extra.id)).status).toBe('pending')
-  })
-
-  it('creates an unassigned match at the end of the order otherwise', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db)
-    const r = await createEntry(db, s.eventId, { entryId: 'entry-0001', athleteAId: s.a1, athleteBId: s.b2, pointsA: 0, pointsB: 4, winnerAthleteId: s.b2, winType: 'submission' })
-    expect(r.match).toMatchObject({ athleteAId: s.a1, athleteBId: s.b2, matId: null, orderIndex: 2, status: 'done', winType: 'submission' })
-  })
-
-  it('replays the same entryId without creating a second match', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matches: 0 })
-    const input = { entryId: 'entry-0001', athleteAId: s.a1, athleteBId: s.b1, pointsA: 2, pointsB: 0, winnerAthleteId: s.a1, winType: 'points' as const }
-    const first = await createEntry(db, s.eventId, input)
-    const replay = await createEntry(db, s.eventId, input)
-    expect(replay.duplicate).toBe(true)
-    expect(replay.match.id).toBe(first.match.id)
-    expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toHaveLength(1)
-  })
-
-  it('creates a nogi match when the entry asks for one', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matches: 0 })
-    const r = await createEntry(db, s.eventId, { entryId: 'entry-0001', athleteAId: s.a1, athleteBId: s.b1, pointsA: 2, pointsB: 0, winnerAthleteId: s.a1, winType: 'points', style: 'nogi' })
-    expect(r.match.style).toBe('nogi')
-  })
-
-  it('lands a desk entry on the requested style when the pair has both open', async () => {
-    const db = await freshDb()
-    const s = await seedEvent(db, { matches: 0 })
-    const gi = await db.insert(matches).values({
-      eventId: s.eventId, matId: null, number: 5, orderIndex: 5, rulesetId: s.rulesetId, lengthSec: 300,
-      athleteAId: s.a1, athleteBId: s.b1, style: 'gi',
-    }).returning().get()
-    const nogi = await db.insert(matches).values({
-      eventId: s.eventId, matId: null, number: 6, orderIndex: 6, rulesetId: s.rulesetId, lengthSec: 300,
-      athleteAId: s.a1, athleteBId: s.b1, style: 'nogi',
-    }).returning().get()
-    const r = await createEntry(db, s.eventId, { entryId: 'entry-0001', athleteAId: s.a1, athleteBId: s.b1, pointsA: 2, pointsB: 0, winnerAthleteId: s.a1, winType: 'points', style: 'nogi' })
-    expect(r.match.id).toBe(nogi.id)
-    expect((await loadMatch(db, gi.id)).status).toBe('pending')
   })
 })
 

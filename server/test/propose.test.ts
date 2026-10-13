@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { freshDb, seedEvent } from './fixtures.js'
+import { createTestApp, call } from './helpers.js'
 import type { Db } from '../src/db/client.js'
 import { athletes, auditLog, divisionMembers, divisions, events, matches, proposals } from '../src/db/schema.js'
 import { proposeMatches, pairCost, pairWarnings, pairWhy, MAX_PAIR_COST } from '../src/matchmaker/propose.js'
@@ -32,7 +33,7 @@ async function pool(db: Db, kids: Kid[]) {
   return { s, id: (name: string) => id.get(name)!, names: (p: { a: { firstName: string }; b: { firstName: string } }) => `${p.a.firstName} v ${p.b.firstName}` }
 }
 
-describe('pairCost', () => {
+describe('pair cost ranks class, then age, then belt, then rating', () => {
   const side = (o: Partial<Parameters<typeof pairCost>[0]> = {}) => ({ id: 1, age: 8, weightLbs: 62, belt: 'grey', erp: null, ...o })
 
   it('weighs the class ten, the year two, the belt a half, and the rating a tenth', () => {
@@ -71,7 +72,7 @@ describe('pairWhy', () => {
   })
 })
 
-describe('pairWarnings', () => {
+describe('a hand-designed pair warns and never refuses', () => {
   it('reports Already met only against a match of the same style', async () => {
     const db = await freshDb()
     const { s, id } = await pool(db, [
@@ -85,9 +86,26 @@ describe('pairWarnings', () => {
     expect(await pairWarnings(db, s.eventId, id('Ines'), id('Bruno'), { style: 'gi' })).toEqual(['Already met'])
     expect(await pairWarnings(db, s.eventId, id('Ines'), id('Bruno'), { style: 'nogi' })).toEqual([])
   })
+
+  it('defaults to gi, takes nogi on create, changes on patch, and warns per style', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    const gi = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: s.a1, athleteBId: s.b1 }, adminToken)
+    expect(gi.status).toBe(201)
+    expect(gi.body).toMatchObject({ style: 'gi', warnings: [] })
+    const nogi = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: s.a1, athleteBId: s.b1, style: 'nogi' }, adminToken)
+    expect(nogi.status).toBe(201)
+    expect(nogi.body).toMatchObject({ style: 'nogi', warnings: [] })
+    const again = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: s.a1, athleteBId: s.b1, style: 'nogi' }, adminToken)
+    expect(again.body.warnings).toEqual(['Already met'])
+    const patched = await call(app, 'PATCH', `/api/matches/${again.body.id}`, { style: 'gi' }, adminToken)
+    expect(patched.status).toBe(200)
+    expect(patched.body).toMatchObject({ style: 'gi', warnings: ['Already met'] })
+    expect((await db.select().from(matches).where(eq(matches.id, again.body.id)).get())?.style).toBe('gi')
+  })
 })
 
-describe('proposeMatches', () => {
+describe('the proposer offers each free kid at most once, across teams only, and never a division kid', () => {
   it('pairs across three teams, closest first, with the lower team first in the row', async () => {
     const db = await freshDb()
     const { s, id } = await pool(db, [
@@ -306,7 +324,7 @@ describe('proposeMatches', () => {
   })
 })
 
-describe('proposeMatches, the lowest total cost', () => {
+describe('the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5', () => {
   const SIT_OUT = 10.5
 
   function bestByBruteForce(kids: { id: number; team: string; cost: (o: number) => number }[], admissible: (a: number, b: number) => boolean): number {

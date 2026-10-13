@@ -11,13 +11,13 @@ The event log per match, the derived caches, the mats, the bracket feeds and the
 - the clock expires lazily on read
 
 ## works when
-- boundary "match events are the source of truth and the caches follow in the same transaction" at recompute via guard "appendMatchEvent"
-- boundary "a score and a win type derive from the events" at deriveOutcome via guard "deriveOutcome"
-- boundary "a mat starts only a runnable match" at advanceMat via guard "a mat only starts a match it can run"
-- boundary "an ended feeder fills its dependents in the same transaction" at fillDependents via guard "fillDependents"
-- boundary "a correction that changes a winner refuses when a dependent already ran" at assertDependentsPending via guard "a correction on a feeder"
-- boundary "a reopen refuses while a dependent is live or done" at reopenMatch via guard "reopening a feeder"
-- boundary "the clock expires lazily on read" at expireOverdue via guard "expireOverdue"
+- boundary "match events are the source of truth and the caches follow in the same transaction" at recompute via guard "match events are the source of truth and the caches follow in the same transaction"
+- boundary "a score and a win type derive from the events" at deriveOutcome via guard "a score and a win type derive from the events"
+- boundary "a mat starts only a runnable match" at advanceMat via guard "a mat starts only a runnable match"
+- boundary "an ended feeder fills its dependents in the same transaction" at fillDependents via guard "an ended feeder fills its dependents in the same transaction"
+- boundary "a correction that changes a winner refuses when a dependent already ran" at assertDependentsPending via guard "a correction that changes a winner refuses when a dependent already ran"
+- boundary "a reopen refuses while a dependent is live or done" at reopenMatch via guard "a reopen refuses while a dependent is live or done"
+- boundary "the clock expires lazily on read" at expireOverdue via guard "the clock expires lazily on read"
 - passes test "undoLastMatchEvent"
 - passes test "enterResult"
 - passes test "skipMatch"
@@ -48,10 +48,10 @@ the mats drive it. In entry mode Start event must not advance mats and the desk 
 the designed match.
 
 ## refutations
-- match events are the source of truth and the caches follow in the same transaction: recompute writes pointsA as 0 -> RED, "2 failed | 6 passed" in appendMatchEvent
-- a score and a win type derive from the events: deriveOutcome decides on scoreA < scoreB -> RED, "1 failed | 2 passed" in deriveOutcome
-- a mat starts only a runnable match: advanceMat takes queue[0] instead of the first runnable match -> RED, "3 failed | 1 passed" in a mat only starts a match it can run
-- an ended feeder fills its dependents in the same transaction: fillDependents swaps winner and loser into the dependent sides -> RED, "3 failed | 1 passed" in fillDependents
-- a correction that changes a winner refuses when a dependent already ran: assertDependentsPending never finds a ran dependent -> RED, "1 failed | 2 passed" in a correction on a feeder
-- a reopen refuses while a dependent is live or done: removed the assertDependentsPending call from reopenMatch -> RED, "1 failed | 1 passed" in reopening a feeder
-- the clock expires lazily on read: expireOverdue overdue test inverted -> RED, "3 failed | 1 passed" in expireOverdue
+- match events are the source of truth and the caches follow in the same transaction: recompute writes pointsA as 0 -> RED, "2 failed | 6 passed" in match events are the source of truth and the caches follow in the same transaction
+- a score and a win type derive from the events: deriveOutcome decides on scoreA < scoreB -> RED, "1 failed | 2 passed" in a score and a win type derive from the events
+- a mat starts only a runnable match: advanceMat takes queue[0] instead of the first runnable match -> RED, "3 failed | 1 passed" in a mat starts only a runnable match
+- an ended feeder fills its dependents in the same transaction: fillDependents swaps winner and loser into the dependent sides -> RED, "3 failed | 1 passed" in an ended feeder fills its dependents in the same transaction
+- a correction that changes a winner refuses when a dependent already ran: assertDependentsPending never finds a ran dependent -> RED, "1 failed | 2 passed" in a correction that changes a winner refuses when a dependent already ran
+- a reopen refuses while a dependent is live or done: removed the assertDependentsPending call from reopenMatch -> RED, "1 failed | 1 passed" in a reopen refuses while a dependent is live or done
+- the clock expires lazily on read: expireOverdue overdue test inverted -> RED, "3 failed | 1 passed" in the clock expires lazily on read

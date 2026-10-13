@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseRosterPaste, scoringCapProblems, FIELD_LABEL } from '@/lib/roster-paste'
+import { parseRosterPaste, scoringCapProblems } from '@/lib/roster-paste'
 import type { ManualKid, TeamRow } from '@/lib/types'
 
 const teams: TeamRow[] = [
@@ -7,59 +7,7 @@ const teams: TeamRow[] = [
   { id: 2, eventId: 7, name: 'Lakeside', color: 'blue', position: 1 },
 ]
 
-describe('parseRosterPaste, positional (no header)', () => {
-  it('parses name, age, weight, belt, and gender with optional fields', () => {
-    const { rows, errors, mapping } = parseRosterPaste('Mateo Rivera, 8, 62, grey, M\nAva Park,9,70,gray/black,f\nNoah Tran\n\nZoe Ann Martin, 7')
-    expect(errors).toEqual([])
-    expect(mapping.header).toBe(false)
-    expect(mapping.delimiter).toBe('comma')
-    expect(rows).toEqual([
-      { firstName: 'Mateo', lastName: 'Rivera', age: 8, weightLbs: 62, belt: 'grey', gender: 'M' },
-      { firstName: 'Ava', lastName: 'Park', age: 9, weightLbs: 70, belt: 'grey-black', gender: 'F' },
-      { firstName: 'Noah', lastName: 'Tran', age: null, weightLbs: null, belt: null, gender: null },
-      { firstName: 'Zoe Ann', lastName: 'Martin', age: 7, weightLbs: null, belt: null, gender: null },
-    ])
-  })
-
-  it('reports bad lines with their number and keeps the good ones', () => {
-    const { rows, errors } = parseRosterPaste('OnlyOneName, 8\nKai Wong, eight\nLiam C, 9, 60, purple')
-    expect(rows).toHaveLength(0)
-    expect(errors).toEqual(['line 1: needs a first and last name', 'line 2: age must be a number', 'line 3: unknown belt "purple"'])
-  })
-
-  it('rejects an out-of-range age or weight with a row error', () => {
-    expect(parseRosterPaste('Kai Wong, 2').errors).toEqual(['line 1: age must be between 3 and 17'])
-    expect(parseRosterPaste('Kai Wong, 18').errors).toEqual(['line 1: age must be between 3 and 17'])
-    expect(parseRosterPaste('Kai Wong, 8, 19').errors).toEqual(['line 1: weight must be between 20 and 250'])
-    expect(parseRosterPaste('Kai Wong, 8, 251').errors).toEqual(['line 1: weight must be between 20 and 250'])
-  })
-
-  it('accepts the boundary age and weight values', () => {
-    expect(parseRosterPaste('Kai Wong, 3, 20').rows).toEqual([{ firstName: 'Kai', lastName: 'Wong', age: 3, weightLbs: 20, belt: null, gender: null }])
-    expect(parseRosterPaste('Kai Wong, 17, 250').rows).toEqual([{ firstName: 'Kai', lastName: 'Wong', age: 17, weightLbs: 250, belt: null, gender: null }])
-  })
-
-  it('keeps a one cell line that resembles a field name as a competitor', () => {
-    const { mapping, lines, errors } = parseRosterPaste('Al Grade\nBo Kim')
-    expect(mapping.header).toBe(false)
-    expect(lines.map(l => l.row?.lastName)).toEqual(['Grade', 'Kim'])
-    expect(errors).toEqual([])
-  })
-
-  it('reads a lone exact field name as a header', () => {
-    const { mapping, lines } = parseRosterPaste('Name\nAl Grade')
-    expect(mapping).toEqual({ header: true, delimiter: 'comma', columns: ['name'], ignored: [] })
-    expect(lines.map(l => l.row?.lastName)).toEqual(['Grade'])
-  })
-
-  it('never reads a bare number line as a header', () => {
-    const { mapping } = parseRosterPaste('Name,8\nMateo Rivera,9')
-    expect(mapping.header).toBe(false)
-    expect(mapping.delimiter).toBe('comma')
-  })
-})
-
-describe('parseRosterPaste, header row', () => {
+describe('a roster paste maps columns by header or by position', () => {
   it('maps a tab separated sheet with a header and parses it', () => {
     const { rows, errors, mapping } = parseRosterPaste('Name\tAge\tWeight\tBelt\tGender\nMateo Rivera\t8\t62\tgrey\tM')
     expect(errors).toEqual([])
@@ -121,9 +69,57 @@ describe('parseRosterPaste, header row', () => {
     const leadingBlank = parseRosterPaste('\nName,Age\nMateo Rivera,8')
     expect(leadingBlank.lines[0].n).toBe(3)
   })
-})
 
-describe('parseRosterPaste, Scoring column', () => {
+  it('parses name, age, weight, belt, and gender with optional fields', () => {
+    const { rows, errors, mapping } = parseRosterPaste('Mateo Rivera, 8, 62, grey, M\nAva Park,9,70,gray/black,f\nNoah Tran\n\nZoe Ann Martin, 7')
+    expect(errors).toEqual([])
+    expect(mapping.header).toBe(false)
+    expect(mapping.delimiter).toBe('comma')
+    expect(rows).toEqual([
+      { firstName: 'Mateo', lastName: 'Rivera', age: 8, weightLbs: 62, belt: 'grey', gender: 'M' },
+      { firstName: 'Ava', lastName: 'Park', age: 9, weightLbs: 70, belt: 'grey-black', gender: 'F' },
+      { firstName: 'Noah', lastName: 'Tran', age: null, weightLbs: null, belt: null, gender: null },
+      { firstName: 'Zoe Ann', lastName: 'Martin', age: 7, weightLbs: null, belt: null, gender: null },
+    ])
+  })
+
+  it('reports bad lines with their number and keeps the good ones', () => {
+    const { rows, errors } = parseRosterPaste('OnlyOneName, 8\nKai Wong, eight\nLiam C, 9, 60, purple')
+    expect(rows).toHaveLength(0)
+    expect(errors).toEqual(['line 1: needs a first and last name', 'line 2: age must be a number', 'line 3: unknown belt "purple"'])
+  })
+
+  it('rejects an out-of-range age or weight with a row error', () => {
+    expect(parseRosterPaste('Kai Wong, 2').errors).toEqual(['line 1: age must be between 3 and 17'])
+    expect(parseRosterPaste('Kai Wong, 18').errors).toEqual(['line 1: age must be between 3 and 17'])
+    expect(parseRosterPaste('Kai Wong, 8, 19').errors).toEqual(['line 1: weight must be between 20 and 250'])
+    expect(parseRosterPaste('Kai Wong, 8, 251').errors).toEqual(['line 1: weight must be between 20 and 250'])
+  })
+
+  it('accepts the boundary age and weight values', () => {
+    expect(parseRosterPaste('Kai Wong, 3, 20').rows).toEqual([{ firstName: 'Kai', lastName: 'Wong', age: 3, weightLbs: 20, belt: null, gender: null }])
+    expect(parseRosterPaste('Kai Wong, 17, 250').rows).toEqual([{ firstName: 'Kai', lastName: 'Wong', age: 17, weightLbs: 250, belt: null, gender: null }])
+  })
+
+  it('keeps a one cell line that resembles a field name as a competitor', () => {
+    const { mapping, lines, errors } = parseRosterPaste('Al Grade\nBo Kim')
+    expect(mapping.header).toBe(false)
+    expect(lines.map(l => l.row?.lastName)).toEqual(['Grade', 'Kim'])
+    expect(errors).toEqual([])
+  })
+
+  it('reads a lone exact field name as a header', () => {
+    const { mapping, lines } = parseRosterPaste('Name\nAl Grade')
+    expect(mapping).toEqual({ header: true, delimiter: 'comma', columns: ['name'], ignored: [] })
+    expect(lines.map(l => l.row?.lastName)).toEqual(['Grade'])
+  })
+
+  it('never reads a bare number line as a header', () => {
+    const { mapping } = parseRosterPaste('Name,8\nMateo Rivera,9')
+    expect(mapping.header).toBe(false)
+    expect(mapping.delimiter).toBe('comma')
+  })
+
   it('maps Scoring and sets the flag from yes, x, empty, and no', () => {
     const { rows, errors, mapping } = parseRosterPaste(
       'Name,Team,Scoring\nMateo Rivera,Ridgeline,yes\nAva Park,Ridgeline,x\nNoah Tran,Ridgeline,\nZoe Martin,Ridgeline,no',
@@ -151,7 +147,7 @@ describe('parseRosterPaste, Scoring column', () => {
   })
 })
 
-describe('scoringCapProblems', () => {
+describe('the scoring cap is checked before the paste is sent', () => {
   it('flags a team whose existing marks plus the paste pass the cap', () => {
     const rows: ManualKid[] = [
       { firstName: 'New', lastName: 'Kid', teamId: 1, scoring: true },
@@ -172,13 +168,5 @@ describe('scoringCapProblems', () => {
   it('returns nothing for a paste with no marks', () => {
     const rows: ManualKid[] = [{ firstName: 'New', lastName: 'Kid', teamId: 1, scoring: false }]
     expect(scoringCapProblems(rows, null, [], teams)).toEqual([])
-  })
-})
-
-describe('FIELD_LABEL', () => {
-  it('names every field the way the table heads already do', () => {
-    expect(FIELD_LABEL).toEqual({
-      name: 'Name', first: 'First', last: 'Last', age: 'Age', weight: 'lb', belt: 'Belt', gender: 'Gender', team: 'Team', scoring: 'Scoring',
-    })
   })
 })

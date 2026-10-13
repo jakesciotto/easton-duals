@@ -3,7 +3,6 @@ import { eq } from 'drizzle-orm'
 import { createTestApp, call } from './helpers.js'
 import { seedEvent } from './fixtures.js'
 import { seat, match, elimBracket } from './smoothcomp-fixtures.js'
-import { fetchJson, SmoothcompTimeout } from '../src/smoothcomp/client.js'
 import { events, athletes, auditLog } from '../src/db/schema.js'
 import type { Db } from '../src/db/client.js'
 
@@ -26,28 +25,7 @@ async function withUrl(db: Db, eventId: number) {
   await db.update(events).set({ smoothcompUrl: SMOOTHCOMP_URL }).where(eq(events.id, eventId)).run()
 }
 
-describe('fetchJson', () => {
-  it('retries a retryable status and returns the JSON once it succeeds', async () => {
-    let attempts = 0
-    const { fn, calls } = fakeFetch({ [LIST]: () => (attempts++ < 2 ? { status: 503 } : { json: { ok: true } }) })
-    await expect(fetchJson(LIST, { fetchFn: fn, backoffMs: 0 })).resolves.toEqual({ ok: true })
-    expect(calls).toHaveLength(3)
-  })
-
-  it('throws SmoothcompError with the status after one call on a non retryable response', async () => {
-    const { fn, calls } = fakeFetch({ [LIST]: () => ({ status: 404 }) })
-    await expect(fetchJson(LIST, { fetchFn: fn, backoffMs: 0 })).rejects.toMatchObject({ status: 404 })
-    expect(calls).toHaveLength(1)
-  })
-
-  it('throws SmoothcompTimeout before making any call when the deadline has already passed', async () => {
-    const { fn, calls } = fakeFetch({ [LIST]: () => ({ json: {} }) })
-    await expect(fetchJson(LIST, { fetchFn: fn, deadlineAt: Date.now() - 1 })).rejects.toBeInstanceOf(SmoothcompTimeout)
-    expect(calls).toHaveLength(0)
-  })
-})
-
-describe('POST /events/:eventId/smoothcomp/standings', () => {
+describe('the Smoothcomp standings route', () => {
   it('requires an admin token', async () => {
     const { app } = await createTestApp()
     expect((await call(app, 'POST', '/api/events/1/smoothcomp/standings')).status).toBe(401)

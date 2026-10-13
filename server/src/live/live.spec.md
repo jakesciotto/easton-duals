@@ -7,9 +7,9 @@ The one snapshot every screen polls, the public name form and the tablet binding
 - a mat binding dies when another tablet takes the mat
 
 ## works when
-- boundary "a public reader sees initials and an admin token the full name" at nameFormFor via guard "names on the wire"
-- boundary "every write bumps the event version in its transaction" at bumpVersion via guard "bumpVersion"
-- boundary "a mat binding dies when another tablet takes the mat" at bindMat via guard "bind and heartbeat"
+- boundary "a public reader sees initials and an admin token the full name" at nameFormFor via guard "a public reader sees initials and an admin token the full name"
+- boundary "every write bumps the event version in its transaction" at bumpVersion via guard "every write bumps the event version in its transaction"
+- boundary "a mat binding dies when another tablet takes the mat" at bindMat via guard "a mat binding dies when another tablet takes the mat"
 - passes test "buildSnapshot"
 - passes test "snapshot polling"
 - passes test "unbind"
@@ -23,6 +23,6 @@ or `?far=` with an admin token, and a television's keys move only a board whose 
 none.
 
 ## refutations
-- a public reader sees initials and an admin token the full name: nameFormFor always returns 'full' -> RED, "1 failed | 0 passed" in names on the wire; the public names describe stayed GREEN under two mutations because it never calls nameFormFor, so the claim moved
-- every write bumps the event version in its transaction: bumpVersion adds 0 instead of 1 -> RED, "1 failed | 0 passed" in bumpVersion
-- a mat binding dies when another tablet takes the mat: bindMat never refuses a held mat -> RED, "1 failed | 4 passed" in bind and heartbeat
+- a public reader sees initials and an admin token the full name: nameFormFor always returns 'full' -> RED, "1 failed | 0 passed" in a public reader sees initials and an admin token the full name; the public names describe stayed GREEN under two mutations because it never calls nameFormFor, so the claim moved
+- every write bumps the event version in its transaction: bumpVersion adds 0 instead of 1 -> RED, "1 failed | 0 passed" in every write bumps the event version in its transaction
+- a mat binding dies when another tablet takes the mat: bindMat never refuses a held mat -> RED, "1 failed | 4 passed" in a mat binding dies when another tablet takes the mat

@@ -7,11 +7,11 @@ The winner of a Smoothcomp event computed from its finished matches against the 
 - a Smoothcomp URL parses to one event
 
 ## works when
-- boundary "a Smoothcomp match counts only when both names resolve to roster kids on teams" at computeStandings via guard "computeStandings"
-- boundary "a Smoothcomp win method maps to a win type and an unknown method earns one point" at winTypeFor via guard "winTypeFor"
-- boundary "a Smoothcomp URL parses to one event" at parseSmoothcompUrl via guard "parseSmoothcompUrl"
+- boundary "a Smoothcomp match counts only when both names resolve to roster kids on teams" at computeStandings via guard "a Smoothcomp match counts only when both names resolve to roster kids on teams"
+- boundary "a Smoothcomp win method maps to a win type and an unknown method earns one point" at winTypeFor via guard "a Smoothcomp win method maps to a win type and an unknown method earns one point"
+- boundary "a Smoothcomp URL parses to one event" at parseSmoothcompUrl via guard "a Smoothcomp URL parses to one event"
 - passes test "parseBracket"
-- passes test "POST /events/:eventId/smoothcomp/standings"
+- passes test "the Smoothcomp standings route"
 
 ## why
 Four public JSON endpoints, a pure parser, fixtures. The calculation joins the event roster
@@ -22,6 +22,6 @@ under a 240 s deadline; past it, 504 and no table. The report is never stored an
 reaches the board. The URL lives on the event.
 
 ## refutations
-- a Smoothcomp match counts only when both names resolve to roster kids on teams: dropped the teamId === null checks -> RED, "1 failed | 2 passed" in computeStandings
-- a Smoothcomp win method maps to a win type and an unknown method earns one point: winTypeFor falls back to 'points' instead of null -> RED, "1 failed | 1 passed" in winTypeFor
-- a Smoothcomp URL parses to one event: removed the smoothcomp.com host check -> RED, "1 failed | 5 passed" in parseSmoothcompUrl
+- a Smoothcomp match counts only when both names resolve to roster kids on teams: dropped the teamId === null checks -> RED, "1 failed | 2 passed" in a Smoothcomp match counts only when both names resolve to roster kids on teams
+- a Smoothcomp win method maps to a win type and an unknown method earns one point: winTypeFor falls back to 'points' instead of null -> RED, "1 failed | 1 passed" in a Smoothcomp win method maps to a win type and an unknown method earns one point
+- a Smoothcomp URL parses to one event: removed the smoothcomp.com host check -> RED, "1 failed | 5 passed" in a Smoothcomp URL parses to one event

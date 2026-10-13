@@ -2,7 +2,7 @@ import pkg from '../package.json' with { type: 'json' }
 import { describe, it, expect } from 'vitest'
 import { createApp } from '../src/app.js'
 
-describe('health', () => {
+describe('the served version equals the package version', () => {
   it('returns ok and a version', async () => {
     const app = createApp({ port: 8422 } as never)
     const res = await app.request('/api/health')

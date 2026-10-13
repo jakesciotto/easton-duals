@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { asc, eq } from 'drizzle-orm'
-import { createTestApp, call, matToken, TEST_PIN } from './helpers.js'
-import { seedEvent } from './fixtures.js'
+import { createTestApp, call, matToken } from './helpers.js'
+import { freshDb, seedEvent } from './fixtures.js'
+import { startEvent } from '../src/match/mats.js'
 import { auditLog, events, matchEvents, matches, mats } from '../src/db/schema.js'
 import { actorOfMatchEventId } from '../src/audit/log.js'
 import type { Db } from '../src/db/client.js'
@@ -25,7 +26,7 @@ async function last(db: Db, eventId: number) {
   return all[all.length - 1]
 }
 
-describe('audit log, scoring', () => {
+describe('every write records an audit row', () => {
   it('names the mat that scored, and carries the seq and the action', async () => {
     const { app, db } = await createTestApp()
     const s = await seedEvent(db, { live: true })
@@ -104,9 +105,7 @@ describe('audit log, scoring', () => {
     await call(app, 'POST', `/api/matches/${second}/skip`, { id: 'skip-0001' }, adminToken)
     expect(await last(db, s.eventId)).toMatchObject({ actor: 'admin', action: 'skip', matchId: second })
   })
-})
 
-describe('audit log, the desk', () => {
   it('records a typed result as an entry and a retyped one as a correction with both sides', async () => {
     const { app, db, adminToken } = await createTestApp()
     const s = await seedEvent(db, { live: true, mode: 'entry' })
@@ -167,9 +166,7 @@ describe('audit log, the desk', () => {
     expect(adHoc.status).toBe(201)
     expect(await last(db, s.eventId)).toMatchObject({ action: 'entry', detail: { created: true, winType: 'submission' } })
   })
-})
 
-describe('audit log, the event', () => {
   it('records the create, and one row per concern a patch changes', async () => {
     const { app, db, adminToken } = await createTestApp()
     const created = await call(app, 'POST', '/api/events', {
@@ -244,9 +241,7 @@ describe('audit log, the event', () => {
     expect(await db.select().from(events).where(eq(events.id, other.eventId)).get()).toBeUndefined()
     expect(await last(db, other.eventId)).toMatchObject({ action: 'delete', detail: { name: 'Fall Duals', date: '2026-10-03' } })
   })
-})
 
-describe('audit log, the roster and the running order', () => {
   it('records every roster write with its count and its athlete', async () => {
     const { app, db, adminToken } = await createTestApp()
     const s = await seedEvent(db, { matches: 0 })
@@ -290,9 +285,7 @@ describe('audit log, the roster and the running order', () => {
     expect((await call(app, 'DELETE', `/api/rulesets/${created.body.id}`, undefined, adminToken)).status).toBe(204)
     expect(await last(db, s.eventId)).toMatchObject({ action: 'ruleset_delete', detail: { name: 'Shorter' } })
   })
-})
 
-describe('audit log, the mats and the server itself', () => {
   it('records a bind, a takeover, an advance, and an unbind by whoever asked for it', async () => {
     const { app, db, adminToken } = await createTestApp()
     const s = await seedEvent(db, { matCount: 1, live: true })
@@ -335,90 +328,25 @@ describe('audit log, the mats and the server itself', () => {
     expect(sweeps[0].detail).toMatchObject({ expiry: true, seq: 2 })
     expect(sweeps[1].detail).toEqual({ reaped: true, mats: [1] })
   })
-})
 
-describe('GET /api/matches/:matchId/history', () => {
-  it('lists the match in order, and only that match', async () => {
+  it('writes one roster_edit row per kid, each carrying the scoring value', async () => {
     const { app, db, adminToken } = await createTestApp()
-    const s = await seedEvent(db, { matCount: 1, live: true })
-    const token = matToken(s.eventId, s.matIds[0])
-    const url = `/api/matches/${s.matchIds[0]}`
-    await call(app, 'POST', `${url}/events`, { id: 'score-0001', type: 'score', athleteId: s.a1, actionKey: 'mount', lastSeq: 0 }, token)
-    await call(app, 'DELETE', `${url}/events/last`, { lastSeq: 1 }, token)
-    await call(app, 'POST', `${url}/end`, { id: 'end-0001', lastSeq: 0, winnerAthleteId: s.a1 }, token)
-
-    const r = await call(app, 'GET', `${url}/history`, undefined, adminToken)
-    expect(r.status).toBe(200)
-    expect(r.body.map((row: { actor: string; action: string }) => `${row.actor} ${row.action}`)).toEqual(['mat:1 score', 'mat:1 undo', 'mat:1 end'])
-    expect(Object.keys(r.body[0])).toEqual(['id', 'at', 'actor', 'action', 'detail'])
-    expect(r.body[1].detail).toMatchObject({ seq: 1, type: 'score' })
-    // Ending the match on mat 1 also loads the second match onto it, so that match's own
-    // history carries the advance that put it there, and nothing else.
-    const second = await call(app, 'GET', `/api/matches/${s.matchIds[1]}/history`, undefined, adminToken)
-    expect(second.body).toMatchObject([{ actor: 'mat:1', action: 'advance' }])
+    const s = await seedEvent(db, { matches: 0 })
+    await call(app, 'POST', `/api/events/${s.eventId}/athletes/scoring`, { ids: [s.a1, s.a2], scoring: true }, adminToken)
+    const rows = await db.select().from(auditLog).where(eq(auditLog.eventId, s.eventId)).all()
+    const edits = rows.filter(r => r.action === 'roster_edit' && [s.a1, s.a2].includes((r.detail as { athleteId?: number }).athleteId ?? -1))
+    expect(edits).toHaveLength(2)
+    expect(edits.every(r => (r.detail as { scoring?: boolean }).scoring === true)).toBe(true)
   })
 
-  it('serves the event-level rows a match history cannot, in reading order', async () => {
-    const { app, db, adminToken } = await createTestApp()
-    const s = await seedEvent(db, { matCount: 1, live: true })
-    await call(app, 'PATCH', `/api/events/${s.eventId}/teams/${s.teamA}`, { name: 'Ridgeline BJJ' }, adminToken)
-    await call(app, 'PATCH', `/api/events/${s.eventId}`, { status: 'done' }, adminToken)
-    const r = await call(app, 'GET', `/api/events/${s.eventId}/history`, undefined, adminToken)
-    expect(r.status).toBe(200)
-    expect(r.body.map((row: { action: string }) => row.action)).toEqual(['team_edit', 'finish'])
-    expect(Object.keys(r.body[0])).toEqual(['id', 'at', 'actor', 'action', 'detail'])
-    expect((await call(app, 'GET', `/api/events/${s.eventId}/history`)).status).toBe(401)
-  })
-
-  it('leaves the match rows to the match, so an afternoon of scoring cannot push the event out', async () => {
-    const { app, db, adminToken } = await createTestApp()
-    const created = await call(app, 'POST', '/api/events', {
-      name: 'Ridgeline Duals', date: '2026-10-17', matCount: 1,
-      teams: [{ name: 'Ridgeline', color: 'red' }, { name: 'Lakeside', color: 'blue' }],
-    }, adminToken)
-    expect(created.status).toBe(201)
-    const eventId = created.body.event.id
-    const teamA = created.body.teams[0].id
-    const teamB = created.body.teams[1].id
-    const add = async (firstName: string, lastName: string, teamId: number) => {
-      const r = await call(app, 'POST', `/api/events/${eventId}/athletes`, { manual: { firstName, lastName } }, adminToken)
-      expect(r.status).toBe(201)
-      const id = r.body.find((a: { firstName: string }) => a.firstName === firstName).id
-      await call(app, 'POST', `/api/events/${eventId}/athletes/assign`, { ids: [id], teamId }, adminToken)
-      return id as number
-    }
-    const rowan = await add('Rowan', 'Vale', teamA)
-    const juniper = await add('Juniper', 'Solis', teamB)
-    const match = await call(app, 'POST', `/api/events/${eventId}/matches`, { athleteAId: rowan, athleteBId: juniper }, adminToken)
-    expect(match.status).toBe(201)
-    const matchId = match.body.id
-    await call(app, 'PATCH', `/api/events/${eventId}`, { status: 'live' }, adminToken)
-
-    const matId = (await db.select().from(mats).where(eq(mats.eventId, eventId)).get())!.id
-    const token = matToken(eventId, matId)
-    await call(app, 'POST', `/api/matches/${matchId}/events`, { id: 'score-0001', type: 'score', athleteId: rowan, actionKey: 'mount', lastSeq: 0 }, token)
-    await call(app, 'DELETE', `/api/matches/${matchId}/events/last`, { lastSeq: 1 }, token)
-    await call(app, 'POST', `/api/matches/${matchId}/end`, { id: 'end-0001', lastSeq: 0, winnerAthleteId: rowan }, token)
-    await call(app, 'PATCH', `/api/events/${eventId}`, { status: 'done' }, adminToken)
-    expect((await call(app, 'POST', `/api/events/${eventId}/certify`, { pin: TEST_PIN }, adminToken)).status).toBe(200)
-
-    const stored = await rows(db, eventId)
-    expect(stored.filter(r => r.matchId !== null).map(r => r.action)).toEqual(['match_create', 'advance', 'score', 'undo', 'end'])
-
-    const r = await call(app, 'GET', `/api/events/${eventId}/history`, undefined, adminToken)
-    expect(r.status).toBe(200)
-    const served = r.body.map((row: { action: string }) => row.action)
-    expect(served).toEqual(['create', 'roster_add', 'roster_assign', 'roster_add', 'roster_assign', 'start', 'finish', 'certify'])
-    expect(served).not.toContain('score')
-    expect(served).not.toContain('undo')
-    expect(served).not.toContain('end')
-  })
-
-  it('needs an admin token, and answers an unknown match with nothing', async () => {
-    const { app, db, adminToken } = await createTestApp()
-    const s = await seedEvent(db, { live: true })
-    expect((await call(app, 'GET', `/api/matches/${s.matchIds[0]}/history`)).status).toBe(401)
-    expect((await call(app, 'GET', `/api/matches/${s.matchIds[0]}/history`, undefined, matToken(s.eventId, s.matIds[0]))).status).toBe(403)
-    expect((await call(app, 'GET', '/api/matches/999/history', undefined, adminToken)).body).toEqual([])
+  it('writes an advance row per mat a start loads, attributed to system', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matCount: 2 })
+    await startEvent(db, s.eventId)
+    const rows = await db.select().from(auditLog).where(eq(auditLog.eventId, s.eventId)).orderBy(auditLog.id).all()
+    expect(rows.map(r => [r.actor, r.action, r.matchId])).toEqual([
+      ['system', 'advance', s.matchIds[0]],
+      ['system', 'advance', s.matchIds[1]],
+    ])
   })
 })

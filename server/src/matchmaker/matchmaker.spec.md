@@ -8,11 +8,11 @@ The proposer that drafts cross-team pairs for the organizer to confirm, swap or 
 - a hand-designed pair warns and never refuses
 
 ## works when
-- boundary "pair cost ranks class, then age, then belt, then rating" at pairCost via guard "pairCost"
-- boundary "the proposer offers each free kid at most once, across teams only, and never a division kid" at proposeMatches via guard "proposeMatches"
-- boundary "the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5" at proposeMatches via guard "proposeMatches, the lowest total cost"
+- boundary "pair cost ranks class, then age, then belt, then rating" at pairCost via guard "pair cost ranks class, then age, then belt, then rating"
+- boundary "the proposer offers each free kid at most once, across teams only, and never a division kid" at proposeMatches via guard "the proposer offers each free kid at most once, across teams only, and never a division kid"
+- boundary "the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5" at proposeMatches via guard "the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5"
 - passes test "maximumWeightMatching"
-- boundary "a hand-designed pair warns and never refuses" at pairWarnings via guard "pairWarnings"
+- boundary "a hand-designed pair warns and never refuses" at pairWarnings via guard "a hand-designed pair warns and never refuses"
 - passes test "beltDistance"
 - passes test "pairWhy"
 - passes test "proposing"
@@ -43,7 +43,7 @@ count is its roster size. ERP is null on every real roster (the leaderboard link
 for test events only), so the rating term stays a tiebreak until ratings arrive.
 
 ## refutations
-- pair cost ranks class, then age, then belt, then rating: class-gap term zeroed -> RED, "1 failed | 1 passed" in pairCost
-- the proposer offers each free kid at most once, across teams only, and never a division kid: dropped the division filter from the free pool -> RED, "1 failed | 19 passed" in proposeMatches; a same-team pair admitted went RED only in the lowest total cost describe, "2 failed | 18 passed"
-- the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5: weight set to the cost instead of 21 minus the cost -> RED, "2 failed | 18 passed" in proposeMatches, the lowest total cost
-- a hand-designed pair warns and never refuses: removed the style scope on the Already met query -> RED, "1 failed | 0 passed" in pairWarnings; a class-gap warning replaced by a throw stayed GREEN, so the guard covers Already met only and the never-refuses half waits for the oracle alignment order
+- pair cost ranks class, then age, then belt, then rating: class-gap term zeroed -> RED, "1 failed | 1 passed" in pair cost ranks class, then age, then belt, then rating
+- the proposer offers each free kid at most once, across teams only, and never a division kid: dropped the division filter from the free pool -> RED, "1 failed | 19 passed" in the proposer offers each free kid at most once, across teams only, and never a division kid; a same-team pair admitted went RED only in the lowest total cost describe, "2 failed | 18 passed"
+- the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5: weight set to the cost instead of 21 minus the cost -> RED, "2 failed | 18 passed" in the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5
+- a hand-designed pair warns and never refuses: removed the style scope on the Already met query -> RED, "1 failed | 0 passed" in a hand-designed pair warns and never refuses; a class-gap warning replaced by a throw stayed GREEN, so the guard covers Already met only and the never-refuses half waits for the oracle alignment order

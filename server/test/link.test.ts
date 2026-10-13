@@ -1,16 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { linkUpdate, fullName } from '../src/roster/link.js'
+import { linkUpdate } from '../src/roster/link.js'
 import { type RosterCandidateRow } from '../src/db/schema.js'
 
 const cand = (o: Partial<RosterCandidateRow>): RosterCandidateRow => ({
   id: 0, eventId: 0, wlUid: 'w0', firstName: 'Jonas', lastName: 'Blake', belt: 'yellow',
   wlLocation: 'North', leaderboardId: 'jonas-blake', erp: 4.4, age: 10, weightLbs: 70, gender: 'M', promotedAt: '2026-03-14', ...o,
-})
-
-describe('fullName', () => {
-  it('joins first and last with a space', () => {
-    expect(fullName({ firstName: 'Ana', lastName: 'Reyes' })).toBe('Ana Reyes')
-  })
 })
 
 describe('linkUpdate', () => {

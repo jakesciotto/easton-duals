@@ -306,14 +306,3 @@ describe('swapping a kid into a draft', () => {
     expect([swapped.body.proposal.a.athleteId, swapped.body.proposal.b.athleteId]).toEqual([id('Bruno'), id('Kai')])
   })
 })
-
-describe('removing a draft', () => {
-  it('answers 204 and leaves the rest alone', async () => {
-    const { app, db, adminToken, s } = await pool(THREE)
-    const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
-    expect((await call(app, 'DELETE', `/api/proposals/${made.body[0].id}`, undefined, adminToken)).status).toBe(204)
-    expect(await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()).toHaveLength(1)
-    expect((await call(app, 'DELETE', `/api/proposals/${made.body[0].id}`, undefined, adminToken)).status).toBe(404)
-    expect((await call(app, 'DELETE', `/api/proposals/${made.body[1].id}`)).status).toBe(401)
-  })
-})

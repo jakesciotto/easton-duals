@@ -7,125 +7,9 @@ afterEach(() => {
   ;(document.activeElement as HTMLElement | null)?.blur()
 })
 
-describe('operatorEngaged', () => {
-  it('is false with nothing in progress', () => {
-    expect(operatorEngaged()).toBe(false)
-  })
-
-  it('is true while a tab root is mid drag', () => {
-    document.body.innerHTML = '<div data-dragging="1"></div>'
-    expect(operatorEngaged()).toBe(true)
-  })
-
-  it('is false when data-dragging is explicitly false', () => {
-    document.body.innerHTML = '<div data-dragging="false"></div>'
-    expect(operatorEngaged()).toBe(false)
-  })
-
-  it('is true while an input is focused', () => {
-    const input = document.createElement('input')
-    document.body.appendChild(input)
-    input.focus()
-    expect(operatorEngaged()).toBe(true)
-  })
-
-  it('is true while a select is focused', () => {
-    const select = document.createElement('select')
-    document.body.appendChild(select)
-    select.focus()
-    expect(operatorEngaged()).toBe(true)
-  })
-
-  it('is false while a plain button is focused', () => {
-    const button = document.createElement('button')
-    document.body.appendChild(button)
-    button.focus()
-    expect(operatorEngaged()).toBe(false)
-  })
-
-  it('is true while a dialog is open', () => {
-    document.body.innerHTML = '<div data-slot="dialog-content" data-open=""></div>'
-    expect(operatorEngaged()).toBe(true)
-  })
-
-  it('is true while the app Select trigger is focused', () => {
-    document.body.innerHTML = '<button data-slot="select-trigger"></button>'
-    const trigger = document.querySelector('button')!
-    trigger.focus()
-    expect(operatorEngaged()).toBe(true)
-  })
-
-  // The one dialog that must not be held is the one whose content is the live match: held,
-  // it shows the operator a stale reading and lets them commit against it. It has to ask for
-  // that by name, so a dialog that forgets to ask is still held.
-  it('lets a dialog that carries the opt out see the poll', () => {
-    document.body.innerHTML = '<div data-slot="dialog-content" data-open="" data-poll-through=""></div>'
-    expect(operatorEngaged()).toBe(false)
-  })
-
-  it('still holds every dialog that does not carry the opt out, including beside one that does', () => {
-    document.body.innerHTML =
-      '<div data-slot="dialog-content" data-open="" data-poll-through=""></div>'
-      + '<div role="dialog"></div>'
-    expect(operatorEngaged()).toBe(true)
-  })
-
-  it('is true while a Select listbox is open, even if focus has moved to an item', () => {
-    document.body.innerHTML = '<div role="listbox"><div role="option" tabindex="0"></div></div>'
-    const option = document.querySelector('[role="option"]') as HTMLElement
-    option.focus()
-    expect(operatorEngaged()).toBe(true)
-  })
-
-  // base-ui leaves a closed popup in its portal, so the bare role match went on matching
-  // for the life of the page and one pick from one Select held the screen for ever.
-  it('is false once a Select listbox has closed but stayed in the portal', () => {
-    document.body.innerHTML =
-      '<div data-closed hidden><div data-slot="select-content" data-closed><div role="listbox"></div></div></div>'
-    expect(operatorEngaged()).toBe(false)
-  })
-
-  it('is true for an open listbox standing beside a closed one', () => {
-    document.body.innerHTML =
-      '<div data-closed hidden><div role="listbox"></div></div><div role="listbox"></div>'
-    expect(operatorEngaged()).toBe(true)
-  })
-})
-
-describe('focusWithoutEngaging', () => {
-  const trigger = () => {
-    document.body.innerHTML = '<button data-slot="select-trigger"></button>'
-    return document.querySelector('button') as HTMLButtonElement
-  }
-
-  it('leaves the field the app focused out of the count', () => {
-    const el = trigger()
-    focusWithoutEngaging(el)
-    expect(el).toHaveFocus()
-    expect(operatorEngaged()).toBe(false)
-  })
-
-  it('ends the grant at the operator first touch of that field', () => {
-    const el = trigger()
-    focusWithoutEngaging(el)
-    el.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }))
-    expect(operatorEngaged()).toBe(true)
-  })
-
-  it('grants one field at a time', () => {
-    const first = trigger()
-    focusWithoutEngaging(first)
-    const second = document.createElement('input')
-    document.body.appendChild(second)
-    focusWithoutEngaging(second)
-    first.focus()
-    expect(operatorEngaged()).toBe(true)
-  })
-})
-
 // 4.4's held commit is one mechanism for both data paths, so its own contract is pinned
 // here rather than only through the two hooks that use it.
-describe('useHeldWhileEngaged', () => {
+describe('an open dialog holds the snapshot unless it opts out by name', () => {
   const settle = async (ms: number) => { await act(async () => { await new Promise(r => setTimeout(r, ms)) }) }
 
   it('passes a value straight through while nobody is engaged', async () => {
@@ -188,5 +72,61 @@ describe('useHeldWhileEngaged', () => {
     unmount()
     expect(spy).toHaveBeenCalled()
     spy.mockRestore()
+  })
+
+  // The one dialog that must not be held is the one whose content is the live match: held,
+  // it shows the operator a stale reading and lets them commit against it. It has to ask for
+  // that by name, so a dialog that forgets to ask is still held. base-ui leaves a closed popup
+  // in its portal, so a closed listbox must not count.
+  it('counts an open dialog, a drag, a focused field and an open listbox as engaged, and a dialog that opts out by name as not', () => {
+    const cases: { name: string; html: string; focus?: string; engaged: boolean }[] = [
+      { name: 'nothing in progress', html: '', engaged: false },
+      { name: 'a tab root mid drag', html: '<div data-dragging="1"></div>', engaged: true },
+      { name: 'data-dragging explicitly false', html: '<div data-dragging="false"></div>', engaged: false },
+      { name: 'a focused input', html: '<input>', focus: 'input', engaged: true },
+      { name: 'a focused select', html: '<select></select>', focus: 'select', engaged: true },
+      { name: 'a focused plain button', html: '<button></button>', focus: 'button', engaged: false },
+      { name: 'an open dialog', html: '<div data-slot="dialog-content" data-open=""></div>', engaged: true },
+      { name: 'a focused app Select trigger', html: '<button data-slot="select-trigger"></button>', focus: 'button', engaged: true },
+      { name: 'a dialog that carries the opt out', html: '<div data-slot="dialog-content" data-open="" data-poll-through=""></div>', engaged: false },
+      { name: 'a dialog without the opt out beside one with it', html: '<div data-slot="dialog-content" data-open="" data-poll-through=""></div><div role="dialog"></div>', engaged: true },
+      { name: 'an open listbox with focus on an item', html: '<div role="listbox"><div role="option" tabindex="0"></div></div>', focus: '[role="option"]', engaged: true },
+      { name: 'a closed listbox left in the portal', html: '<div data-closed hidden><div data-slot="select-content" data-closed><div role="listbox"></div></div></div>', engaged: false },
+      { name: 'an open listbox beside a closed one', html: '<div data-closed hidden><div role="listbox"></div></div><div role="listbox"></div>', engaged: true },
+    ]
+    for (const c of cases) {
+      document.body.innerHTML = c.html
+      if (c.focus) (document.querySelector(c.focus) as HTMLElement).focus()
+      expect(operatorEngaged(), c.name).toBe(c.engaged)
+      ;(document.activeElement as HTMLElement | null)?.blur()
+    }
+  })
+  const trigger = () => {
+    document.body.innerHTML = '<button data-slot="select-trigger"></button>'
+    return document.querySelector('button') as HTMLButtonElement
+  }
+
+  it('leaves the field the app focused out of the count', () => {
+    const el = trigger()
+    focusWithoutEngaging(el)
+    expect(el).toHaveFocus()
+    expect(operatorEngaged()).toBe(false)
+  })
+
+  it('ends the grant at the operator first touch of that field', () => {
+    const el = trigger()
+    focusWithoutEngaging(el)
+    el.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }))
+    expect(operatorEngaged()).toBe(true)
+  })
+
+  it('grants one field at a time', () => {
+    const first = trigger()
+    focusWithoutEngaging(first)
+    const second = document.createElement('input')
+    document.body.appendChild(second)
+    focusWithoutEngaging(second)
+    first.focus()
+    expect(operatorEngaged()).toBe(true)
   })
 })
