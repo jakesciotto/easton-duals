@@ -4,6 +4,8 @@ All notable changes to Easton Duals. The format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-13
+
 ### Changed
 - The test suite is the set of oracles the specs name: 547 cases in 48 files, down from 1825 in 137. Every boundary guard describe carries its invariant text; unnamed server cases folded into their invariant or cut; the web screen tests cut by decision.
 - The proposer makes the pairing with the lowest total cost (Edmonds' blossom over the general graph) instead of taking the closest pair first. A kid without a pair costs 10.5, so a pair is made only when it beats both kids sitting out; a pair over 20 (two classes, or one class and five years) is never offered.
