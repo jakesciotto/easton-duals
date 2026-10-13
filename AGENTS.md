@@ -1,4 +1,4 @@
-# wt-oracle — map for agents
+# easton-duels — map for agents
 
 > Generated from the spec tree by the coherence harness. Do not edit by hand.
 
@@ -18,7 +18,7 @@ _works when:_
 - coherence.config.json exists at root
 - CHANGELOG.md exists at root
 
-_files:_ `index.ts`, `drizzle.config.ts`, `app.ts`, `context.ts`, `dev.ts`, `index.ts`, `env.ts`, `lanIp.ts`, `validate.ts`, `app.test.ts`, `audit.test.ts`, `auth.test.ts`, `blossom.test.ts`, `certify.test.ts`, `clock.test.ts`, `db.test.ts`, `derive.test.ts`, `divisions-routes.test.ts`, `divisions.test.ts`, `entry.test.ts`, `fill.test.ts`, `fixtures.ts`, `generate.test.ts`, `health.test.ts`, `helpers.ts`, `lan.test.ts`, `lazy-expiry.test.ts`, `link.test.ts`, `match-events.test.ts`, `matches.test.ts`, `matchmaker.test.ts`, `mats.test.ts`, `migration-0012.test.ts`, `plan.test.ts`, `proposals.test.ts`, `propose.test.ts`, `rate-limit.test.ts`, `roster.test.ts`, `round-label.test.ts`, `schedule.test.ts`, `scoring-cap.test.ts`, `scoring.test.ts`, `similarity.test.ts`, `smoothcomp-fixtures.ts`, `smoothcomp-parse.test.ts`, `smoothcomp-route.test.ts`, `smoothcomp-standings.test.ts`, `smoothcomp-url.test.ts`, `snapshot.test.ts`, `sync.test.ts`, `team-leaderboard.test.ts`, `team-scoring.test.ts`, `weight-class.test.ts`, `vitest.config.ts`, `vitest.config.ts`, `EventPage.test.tsx`, `board-css.test.ts`, `fakes.ts`, `match-paste.test.ts`, `operatorEngaged.test.ts`, `roster-paste.test.ts`, `setup.ts`, `team-guard.test.ts`, `useSnapshot.test.tsx`, `vite.config.ts`
+_files:_ `index.ts`, `drizzle.config.ts`, `app.ts`, `context.ts`, `dev.ts`, `index.ts`, `env.ts`, `lanIp.ts`, `validate.ts`, `app.test.ts`, `audit.test.ts`, `auth.test.ts`, `blossom.test.ts`, `certify.test.ts`, `clock.test.ts`, `db.test.ts`, `derive.test.ts`, `divisions-routes.test.ts`, `divisions.test.ts`, `entry.test.ts`, `fill.test.ts`, `fixtures.ts`, `generate.test.ts`, `health.test.ts`, `helpers.ts`, `lan.test.ts`, `lazy-expiry.test.ts`, `link.test.ts`, `match-events.test.ts`, `matches.test.ts`, `matchmaker.test.ts`, `mats.test.ts`, `migration-0012.test.ts`, `plan.test.ts`, `proposals.test.ts`, `propose.test.ts`, `rate-limit.test.ts`, `roster.test.ts`, `round-label.test.ts`, `route-auth.test.ts`, `schedule.test.ts`, `scoring-cap.test.ts`, `scoring.test.ts`, `similarity.test.ts`, `smoothcomp-fixtures.ts`, `smoothcomp-parse.test.ts`, `smoothcomp-route.test.ts`, `smoothcomp-standings.test.ts`, `smoothcomp-url.test.ts`, `snapshot.test.ts`, `sync.test.ts`, `team-leaderboard.test.ts`, `team-scoring.test.ts`, `weight-class.test.ts`, `vitest.config.ts`, `vitest.config.ts`, `EventPage.test.tsx`, `board-css.test.ts`, `fakes.ts`, `match-paste.test.ts`, `operatorEngaged.test.ts`, `roster-paste.test.ts`, `setup.ts`, `team-guard.test.ts`, `useSnapshot.test.tsx`, `vite.config.ts`
 
 ### Audit and certification  `server/src/audit`
 The append-only audit log and the lock a certified event puts on every write.
@@ -147,9 +147,10 @@ _files:_ `belts.ts`, `config.ts`, `join.ts`, `leaderboard.ts`, `link.ts`, `parse
 ### Routes  `server/src/routes`
 The Hono routes: events, teams, athletes, roster, proposals, matches, divisions, mats, scoring, entries, board, Smoothcomp.
 
-_why:_ Every write route calls the certification lock first and records an audit row. An event that is not certified can be deleted; the PIN is re-entered once the event left setup; a certified event must be unlocked first. While the event is in setup, scoring routes answer 409. The admin event detail returns the divisions (a web fallback once hid that it did not). A totality oracle over every exported route method, bare, with every service mocked as a trap, is a planned work order; until then the route suites above are the evidence.
+_why:_ Every write route calls the certification lock first and records an audit row. An event that is not certified can be deleted; the PIN is re-entered once the event left setup; a certified event must be unlocked first. While the event is in setup, scoring routes answer 409. The admin event detail returns the divisions (a web fallback once hid that it did not). One oracle walks every route the app registers under /api, bare, and holds a double-entry list of the five open by design: health, lan, the PIN check, the public snapshot, and the mat bind (gated by the mat code and the rate limit). Everything else must answer 401.
 
 _works when:_
+- boundary "every protected route rejects a request without a valid token" at requireAdmin via guard "every protected route rejects a request without a valid token"
 - passes test "match routes"
 - passes test "the sync asks WellnessLiving for the roster's own names only"
 - passes test "entry routes"
@@ -227,7 +228,7 @@ _files:_ `AdminShell.tsx`, `BeltDot.tsx`, `Clock.tsx`, `CodeField.tsx`, `ColourS
 ## Structure
 
 ```
-wt-oracle/
+easton-duels/
 ├─ api/
 │  └─ index.ts
 ├─ server/
@@ -343,6 +344,7 @@ wt-oracle/
 │  │  ├─ rate-limit.test.ts
 │  │  ├─ roster.test.ts
 │  │  ├─ round-label.test.ts
+│  │  ├─ route-auth.test.ts
 │  │  ├─ schedule.test.ts
 │  │  ├─ scoring-cap.test.ts
 │  │  ├─ scoring.test.ts
