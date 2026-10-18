@@ -4,6 +4,14 @@ All notable changes to Easton Duals. The format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-10-18
+
+### Fixed
+- `undici` is declared as a server dependency. The libSQL 401 retry imports it, and until now it reached the tree only through the web's `shadcn` chain as a dev package.
+
+### Changed
+- `@modelcontextprotocol/sdk` and `source-map-js` moved past their advisories inside their declared ranges.
+
 ## [0.18.0] - 2026-10-13
 
 ### Changed
