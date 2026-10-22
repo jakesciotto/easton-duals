@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "concepts": [
+    {
+      "name": "mat",
+      "definition": "A numbered mat at an event. It runs matches in its order, and at most one bound tablet scores it at a time."
+    },
+    {
+      "name": "team",
+      "definition": "A gym's side at an event, with a colour and a position. Its kids earn the team points the leaderboard ranks."
+    },
+    {
+      "name": "roster",
+      "definition": "The kids of one event, copied from a paste, a WellnessLiving sync or a hand entry, never a live reference."
+    },
+    {
+      "name": "pair",
+      "definition": "Two kids from different teams set to meet in one match, proposed by the matchmaker or designed by the organizer."
+    },
+    {
+      "name": "snapshot",
+      "definition": "The one view of an event that every board, tablet and console polls, keyed by the event version."
+    },
+    {
+      "name": "board",
+      "definition": "The television view of an event: the team leaderboard, the mats and the results, read with no token."
+    },
+    {
+      "name": "win type",
+      "definition": "How a match was won: submission, points, decision, walkover or dq. It sets the team points the win earns."
+    },
+    {
+      "name": "feed",
+      "definition": "A link from an empty bracket side to the winner or the loser of another match, filled when that match ends."
+    },
+    {
+      "name": "division",
+      "definition": "A named set of kids across teams with one format and one styles setting, generated into matches once per style."
+    },
+    {
+      "name": "belt",
+      "definition": "A kid's jiu jitsu rank, read from WellnessLiving or a paste, that the pair cost weighs at a half per step."
+    },
+    {
+      "name": "clock",
+      "definition": "A match's running time, kept as elapsed time plus a start instant and expired lazily when a screen reads it."
+    }
+  ]
+}

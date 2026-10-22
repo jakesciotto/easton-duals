@@ -1,42 +1,52 @@
 # Easton Duals
 A team duels scoring app for a kids jiu jitsu gym: one Hono server on libSQL, one React console, a TV board, and a tablet scorer.
 
+## trust levels
+- internet: a browser, a television or a tablet on the internet or the gym LAN, before a bearer verifies
+- admin: a request whose bearer verifies as an admin token minted from the PIN
+- mat: a request whose bearer verifies as a mat token for one mat at its current bind epoch
+- store: the libSQL rows, a file on the gym box or Turso in production
+- operator: a developer or the CI runner at a shell, with the database credentials in env
+- wellnessliving: the WellnessLiving belts report the roster sync reads with the gym's client credentials
+- leaderboard: the easton-leaderboard rows the ERP join reads
+- smoothcomp: the public Smoothcomp JSON endpoints the standings read
+
+## entrances
+- route GET /api/health: the served version, for anyone
+  handler: createApp in server/src/app.ts
+  trust: internet
+- route GET /api/lan: the address a tablet types to reach the server, for anyone
+  handler: createApp in server/src/app.ts
+  trust: internet
+- function api/index: the Vercel function that serves every api request in production
+  handler: handler in api/index.ts
+  trust: internet
+- script start: the LAN entry on the gym box, which serves the app and the built console
+  handler: server/src/index.ts
+  trust: internet
+- script db:migrate: an operator applies the pending migrations to a remote database on purpose
+  handler: server/scripts/migrate.mjs
+  trust: operator
+- script e2e: an operator runs the built server against a browser flow
+  handler: scripts/e2e.mjs
+  trust: operator
+- script smoke cloud: an operator probes a deployed build
+  handler: scripts/smoke-cloud.mjs
+  trust: operator
+- script smoke proposals: an operator probes the proposer against a running server
+  handler: scripts/smoke-proposals.mjs
+  trust: operator
+- script smoke sync: an operator probes the roster sync against a running server
+  handler: scripts/smoke-sync.mjs
+  trust: operator
+- script design lint: the root lint greps the web sources for the design rules
+  handler: scripts/design-lint.mjs
+  trust: operator
+
 ## invariants
-- the served version equals the package version
-
-## works when
-- typechecks
-- boundary "the served version equals the package version" at VERSION via guard "the served version equals the package version"
-- passes test "the write routes this suite covers"
-- coherence.config.json exists at root
-- CHANGELOG.md exists at root
-
-## why
-One npm workspace: `server` (Hono, drizzle, libSQL) and `web` (React, Vite, Tailwind v4).
-Production runs the server as one Vercel function on Turso at www.eastonduals.com. The LAN
-entry (`server/src/index.ts`) runs the same app on a file database for a gym box with no
-internet. Every screen polls a snapshot keyed by the event's `version`; a write bumps the
-version inside its transaction. No sockets, no server timers: the clock expires lazily on read.
-
-Auth: an admin PIN (six digits) mints a token for the console; a mat code binds a tablet to
-one mat and its token dies when another tablet takes the mat over. Public boards need no token.
-
-Release: feature branch to staging to main, fast-forward only. A release moves the version in
-package.json, server/package.json, web/package.json (`npm version X --no-git-tag-version
---workspaces --include-workspace-root` moves all three plus the lock) AND `VERSION` in
-server/src/app.ts by hand. The health test compares the served version to the package version
-and fails when they differ; v0.17.2 missed the constant and CI went red four times. Run the
-server tests after the release commit, before the tag. Tags follow semantic versioning. The
-release chain runs one command per line with `|| exit 1`; a heredoc in the middle of an `&&`
-list once split the chain and tagged one commit early (v0.8.0). The build runs before the e2e,
-because the e2e spawns `node dist/index.js`.
-
-The repository is public. No ids, URLs or keys in code; env only. Fixtures use invented
-names. gitleaks runs as a pre-commit hook and in CI.
-
-The record before 2026-10-01 (plans, mockups, the decisions log) sits in
-`~/backups/claude-project-dirs/easton-duals` on vinelab. Decisions from that date on live in
-the coherence journal.
-
-## refutations
-- the served version equals the package version: set VERSION to '0.0.0' -> RED, "1 failed | 0 passed" in the served version equals the package version
+- version parity: The served version equals the package version.
+  over: the version field of the health answer against the root package.json version
+  via: the served version equals the package version
+  because: a release moves the three package files and the VERSION constant together, so a deployed build can be matched to its tag; v0.17.2 missed the constant
+  refuted: set VERSION to '0.0.0' -> the test the served version equals the package version went red (2026-10-22)
+  kinds: none

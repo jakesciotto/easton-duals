@@ -2,32 +2,32 @@
 The paste, the WellnessLiving sync, the leaderboard ERP join and the link suggestions.
 
 ## invariants
-- a hand-edited age or weight sticks through a re-sync
-- the sync asks WellnessLiving for the roster's own names only
-
-## works when
-- boundary "a hand-edited age or weight sticks through a re-sync" at profileChanges via guard "a hand-edited age or weight sticks through a re-sync"
-- boundary "the sync asks WellnessLiving for the roster's own names only" at rosterFilter via guard "the sync asks WellnessLiving for the roster's own names only"
-- passes test "the bulk paste"
-- passes test "the WellnessLiving search"
-- passes test "linkUpdate"
-
-## why
-Athletes are copies, never references: a roster does not change under a running event. A
-paste creates kids (First, Last, Age, Weight, Belt, Gender, Team, Birth, Scoring) or matches,
-names resolved against the roster by the shared similarity module. Birth gives the age at the
-event date, because WellnessLiving exposes no birth date to the app's OAuth token (the one
-endpoint that carries it needs the legacy signed API; the credential ask is open).
-
-The sync asks the belts report for the roster's own names, location by location, with
-`` lower(`o_client.text_last`) like '%token%' ``. The report's `like` is case sensitive and
-`ilike`, `collate nocase` and `regexp` hang it; prove any filter with a Title case name. An
-exact match links; a near match waits for a person (Confirm or Not them). An empty location
-list answers 503 rather than stamping every row "Not in WellnessLiving". Pool inserts go in
-slices of 500 rows because one insert once bound 60723 variables against SQLite's 32766. ERP
-comes from the leaderboard app. WellnessLiving and the leaderboard overwrite a paste's values at
-the link; an age or weight the organizer edits by hand afterwards sticks through a re-run.
-
-## refutations
-- a hand-edited age or weight sticks through a re-sync: profileChanges no longer skips fields the update leaves undefined -> RED, "2 failed | 0 passed" in a hand-edited age or weight sticks through a re-sync
-- the sync asks WellnessLiving for the roster's own names only: rosterFilter fills firstTokens with the roster last-name tokens -> RED, "1 failed | 10 passed" in the sync asks WellnessLiving for the roster's own names only; the syncRoster describe stayed GREEN under two mutations because it never reaches rosterFilter, so the claim moved to roster routes
+- manual values stick: A hand-edited age or weight sticks through a re-sync.
+  over: profileChanges on an update that carries some fields, on an empty update and on an absent value; a sync of a linked kid whose weight was set by hand; a candidate upsert after a hand edit of the age
+  via: a hand-edited age or weight sticks through a re-sync
+  because: the sync overwrites a field only when the update carries it, and linkUpdate skips an age or weight whose source is manual, so the organizer's edit wins over WellnessLiving and the leaderboard
+  crossing: leaderboard -> store
+  entrances: none
+  refuted: profileChanges no longer skips the fields the update leaves undefined -> the test a hand-edited age or weight sticks through a re-sync went red (2026-10-22)
+  kinds: state
+  checklist: revalidated-permission dismissed: the sync runs inside the admin request that asked for it and defers no work
+  checklist: separation-of-duties dismissed: no approval policy exists on a sync
+  checklist: legal-state-succession declared as manual values stick
+  checklist: supersession-safety declared as manual values stick
+  checklist: worker-fencing dismissed: no worker owns a roster row
+  checklist: commit-ordered-effects dismissed: the WellnessLiving and leaderboard reads come before the transaction and change nothing outside it
+  checklist: resumption-coverage dismissed: a sync that runs out of budget answers 503 and writes nothing, and a person runs it again whole
+- roster names only: The sync asks WellnessLiving for the roster's own names only.
+  over: a sync with WellnessLiving not configured, with two locations, with a name typed in capitals, with a body that names other businesses, with no location, with a spent budget and with an unknown event; and the report query built from a filter of uids and tokens, from a title case token and from an empty filter
+  via: the sync asks WellnessLiving for the roster's own names only
+  because: rosterFilter builds the filter from the uids and last name tokens of the event's own rows, and searchQuery compares them through lower() because the report's like is case sensitive, so the report never lists the whole gym
+  crossing: store -> wellnessliving
+  entrances: none
+  refuted: rosterFilter fills firstTokens with the roster last name tokens -> the test the sync asks WellnessLiving for the roster's own names only went red (2026-10-22)
+  kinds: output, read
+  checklist: destination-confinement declared as roster names only
+  checklist: redaction dismissed: the filter carries only the uids and last name tokens the report needs to find the roster's kids
+  checklist: commit-ordered-effects dismissed: the report read changes nothing at WellnessLiving
+  checklist: circuit-breaker-policy dismissed: a failed or slow location answers 503 under the sync budget and opens no breaker
+  checklist: declared-target-coverage declared as roster names only
+  checklist: scoped-reads declared as roster names only

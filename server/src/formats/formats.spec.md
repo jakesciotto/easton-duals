@@ -2,35 +2,27 @@
 Round robin, single and double elimination, generated once per style with feeds between rounds.
 
 ## invariants
-- a division generates its matches once per style in dependency order
-- seeds are the listed order and seed by rating reorders by ERP
-- a same-team round one pair is swapped away or warned
-- double elimination ends in one grand final with no reset
-
-## works when
-- boundary "a division generates its matches once per style in dependency order" at generateDivision via guard "a division generates its matches once per style in dependency order"
-- boundary "seeds are the listed order and seed by rating reorders by ERP" at seedByRating via guard "seeds are the listed order and seed by rating reorders by ERP"
-- boundary "a same-team round one pair is swapped away or warned" at arrangeSlots via guard "a same-team round one pair is swapped away or warned"
-- boundary "double elimination ends in one grand final with no reset" at generateDivision via guard "double elimination ends in one grand final with no reset"
-- passes test "round robin"
-- passes test "single elimination"
-- passes test "createDivision"
-- passes test "regenerateDivision"
-- passes test "deleteDivision"
-
-## why
-A division is a named set of kids across teams with one format (round robin, single or
-double elimination) and one styles setting (gi, nogi, both). "Pairs" is not a format. Limits:
-round robin 2 to 10, single elimination 2 to 16, double elimination 3 to 16. The generator
-builds a division's matches once per style, in dependency order: round robin as every
-cross-team pair; single elimination as a seeded bracket (slot order 1, 8, 4, 5, 2, 7, 3, 6 for
-eight) with byes to the top seeds; double elimination with a losers side and one grand final.
-A bracket round exists from generation as a row with empty sides that carry a feed (the
-winner or the loser of another match). Seeds are the listed order; "Seed by rating" is an
-action, never a default.
-
-## refutations
-- a division generates its matches once per style in dependency order: styles 'both' generates gi only -> RED, "1 failed | 2 passed" in a division generates its matches once per style in dependency order
-- seeds are the listed order and seed by rating reorders by ERP: seedByRating sorts ERP ascending -> RED, "1 failed | 1 passed" in seeds are the listed order and seed by rating reorders by ERP
-- a same-team round one pair is swapped away or warned: arrangeSlots skips every pair -> RED, "3 failed | 0 passed" in a same-team round one pair is swapped away or warned
-- double elimination ends in one grand final with no reset: emitted the grand final twice -> RED, "4 failed | 0 passed" in double elimination ends in one grand final with no reset
+- once per style: A division generates its matches once per style in dependency order.
+  over: a single elimination of both styles, its shared same-team warning, and a nogi round robin
+  via: a division generates its matches once per style in dependency order
+  because: generateDivision emits the gi set and then the nogi set, and shifts each feed by the set's offset, so every feed points at an earlier match of its own style
+  refuted: styles both generates gi only -> the test a division generates its matches once per style in dependency order went red (2026-10-22)
+  kinds: none
+- seed order: Seeds are the listed order and seed by rating reorders by ERP.
+  over: seedByRating over a set of rated and unrated kids with a rating tie, and over a wholly unrated set
+  via: seeds are the listed order and seed by rating reorders by ERP
+  because: seedByRating puts the rated kids first by ERP descending, breaks a tie on the listed seed, and keeps the unrated kids after them in listed order
+  refuted: seedByRating sorts ERP ascending -> the test seeds are the listed order and seed by rating reorders by ERP went red (2026-10-22)
+  kinds: none
+- same-team split: A same-team round one pair is swapped away or warned.
+  over: a four kid bracket with one pair to split, one already cross-team, one with every kid on one team, and a three kid bracket with a bye
+  via: a same-team round one pair is swapped away or warned
+  because: arrangeSlots moves the lower seed of a same-team pair to the nearest seed that splits both pairs, and warns when no swap splits it, so the division still exists
+  refuted: arrangeSlots skips every pair -> the test a same-team round one pair is swapped away or warned went red (2026-10-22)
+  kinds: none
+- one grand final: Double elimination ends in one grand final with no reset.
+  over: double elimination brackets of three, four, five and eight members
+  via: double elimination ends in one grand final with no reset
+  because: generateStyle resolves the winners champion against the losers champion once and emits no reset match
+  refuted: emitted the grand final twice -> the test double elimination ends in one grand final with no reset went red (2026-10-22)
+  kinds: none

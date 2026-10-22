@@ -2,48 +2,27 @@
 The proposer that drafts cross-team pairs for the organizer to confirm, swap or reject.
 
 ## invariants
-- pair cost ranks class, then age, then belt, then rating
-- the proposer offers each free kid at most once, across teams only, and never a division kid
-- the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5
-- a hand-designed pair warns and never refuses
-
-## works when
-- boundary "pair cost ranks class, then age, then belt, then rating" at pairCost via guard "pair cost ranks class, then age, then belt, then rating"
-- boundary "the proposer offers each free kid at most once, across teams only, and never a division kid" at proposeMatches via guard "the proposer offers each free kid at most once, across teams only, and never a division kid"
-- boundary "the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5" at proposeMatches via guard "the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5"
-- passes test "maximumWeightMatching"
-- boundary "a hand-designed pair warns and never refuses" at pairWarnings via guard "a hand-designed pair warns and never refuses"
-- passes test "beltDistance"
-- passes test "pairWhy"
-- passes test "proposing"
-- passes test "confirming"
-- passes test "swapping a kid into a draft"
-
-## why
-Proposals are drafts in their own table; nothing reaches the board until confirmed. One
-proposal set per style; a propose replaces the event's drafts of that style whole. A kid with a
-match of this style already, whatever its status, is never offered a second one. A division kid
-is never offered. Same-gender is a veto when the event asks for it.
-
-Cost: a weight class is worth ten, a year of age two, a belt step a half, a rating point a
-tenth. The organizer ruled weight class first, then age (2026-09-11). A pair costing more than
-20 (two classes, or one class and five years) is never offered; the organizer adds it by hand
-and the dialog warns.
-
-The pairing is a maximum weight matching over the general graph (teams number two to eight, so
-Edmonds' blossom in `blossom.ts`, not Hungarian), with each admitted pair weighing 21 minus its
-cost. That is the same as charging 10.5 for every kid left without a pair: the matching makes
-a pair only when it beats both kids sitting out. Measured on the four real rosters of September
-2026 (40 to 56 kids, two or three teams) against the greedy pass it replaced: one to two more
-pairs on the three-team rosters, the worst pair in every roster no further than a class and
-five years, and the one 26.5 pair greedy made (two classes and three years) gone. Maximum
-cardinality was measured and rejected: it doubles the total cost to force the last three pairs.
-Team balance is moot under this format: each kid holds one match per style, so a team's match
-count is its roster size. ERP is null on every real roster (the leaderboard link has filled it
-for test events only), so the rating term stays a tiebreak until ratings arrive.
-
-## refutations
-- pair cost ranks class, then age, then belt, then rating: class-gap term zeroed -> RED, "1 failed | 1 passed" in pair cost ranks class, then age, then belt, then rating
-- the proposer offers each free kid at most once, across teams only, and never a division kid: dropped the division filter from the free pool -> RED, "1 failed | 19 passed" in the proposer offers each free kid at most once, across teams only, and never a division kid; a same-team pair admitted went RED only in the lowest total cost describe, "2 failed | 18 passed"
-- the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5: weight set to the cost instead of 21 minus the cost -> RED, "2 failed | 18 passed" in the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5
-- a hand-designed pair warns and never refuses: removed the style scope on the Already met query -> RED, "1 failed | 0 passed" in a hand-designed pair warns and never refuses; a class-gap warning replaced by a throw stayed GREEN, so the guard covers Already met only and the never-refuses half waits for the oracle alignment order
+- pair cost: Pair cost ranks class, then age, then belt, then rating.
+  over: a pair with no gap, a gap on each axis alone, a gap on every axis at once, a side without a rating, and a side without an age, a weight or a belt
+  via: pair cost ranks class, then age, then belt, then rating
+  because: pairCost weighs a weight class ten, a year of age two, a belt step a half and a rating point a tenth, so a class gap always outranks the other terms, as the organizer ruled on 2026-09-11
+  refuted: the class gap term of pairCost is zero -> the test pair cost ranks class, then age, then belt, then rating went red (2026-10-22)
+  kinds: none
+- free kids: The proposer offers each free kid at most once, across teams only, and never a division kid.
+  over: pools of two and three teams with a cost tie, a pair past two classes and one at two, the same-gender veto, a kid who holds a live, pending or done match of the style, a kid in a division, a pair who already met in the style, a kid without a team, an age or a weight, and a repeat propose of each style
+  via: the proposer offers each free kid at most once, across teams only, and never a division kid
+  because: proposeMatches builds the free pool without a kid who holds a match of the style or sits in a division, admits only cross-team pairs, and replaces the drafts of that style whole, so a confirmed draft never gives a kid a second match of one style
+  refuted: dropped the division filter from the free pool -> the test the proposer offers each free kid at most once, across teams only, and never a division kid went red (2026-10-22)
+  kinds: none
+- lowest total cost: The proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5.
+  over: a four kid pool where the closest pair first strands two kids, and twelve seeded random pools of five to nine kids checked against a brute force optimum
+  via: the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5
+  because: proposeMatches runs the blossom maximum weight matching with each admitted pair weighing 21 minus its cost, so a pair forms only when it beats both kids sitting out at 10.5 each
+  refuted: the edge weight is the cost instead of 21 minus the cost -> the test the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5 went red (2026-10-22)
+  kinds: none
+- hand-designed pairs: A hand-designed pair warns and never refuses.
+  over: a done gi match read as Already met for gi and not for nogi, and a create and a patch through the match routes that answer with an Already met warning
+  via: a hand-designed pair warns and never refuses
+  because: pairWarnings only returns warning strings and scopes Already met to the style, so the organizer can add a pair the proposer would never offer
+  refuted: removed the style scope from the Already met query -> the test a hand-designed pair warns and never refuses went red (2026-10-22)
+  kinds: none

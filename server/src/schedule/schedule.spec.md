@@ -2,30 +2,27 @@
 One static plan in waves across the mats, built on demand from every pending match.
 
 ## invariants
-- every gi match runs before any nogi match
-- a feeder runs at least two waves before its dependent
-- a kid never fights in two adjacent waves unless nothing else fits
-- the plan is deterministic for the same input
-
-## works when
-- boundary "every gi match runs before any nogi match" at planSchedule via guard "every gi match runs before any nogi match"
-- boundary "a feeder runs at least two waves before its dependent" at planSchedule via guard "a feeder runs at least two waves before its dependent"
-- boundary "a kid never fights in two adjacent waves unless nothing else fits" at planSchedule via guard "a kid never fights in two adjacent waves unless nothing else fits"
-- boundary "the plan is deterministic for the same input" at planSchedule via guard "the plan is deterministic for the same input"
-- passes test "planSchedule priority order"
-- passes test "planSchedule estimate"
-- passes test "the schedule route"
-
-## why
-"Order matches" plans every pending match in waves, one slot per mat: every gi match before
-any nogi match (hard), younger first, a feeder at least two waves before its dependent, no kid
-in two adjacent waves (relaxed with a warning when nothing else fits), gaps recorded. The
-order index is wave-major, mat-minor. The estimate is the longest match per wave plus a
-minute. A live kid is fixed at wave -1. The pilot notes asked for gi first, younger first, one
-match of rest, nogi at the end; the planner factors in the number of mats.
-
-## refutations
-- every gi match runs before any nogi match: removed the unplacedGi > 0 break in findCandidate -> RED, "3 failed | 1 passed" in every gi match runs before any nogi match
-- a feeder runs at least two waves before its dependent: feeder gap wave - 2 changed to wave - 1 -> RED, "3 failed | 3 passed" in a feeder runs at least two waves before its dependent
-- a kid never fights in two adjacent waves unless nothing else fits: strict rest check drops the wave - 1 exclusion -> RED, "2 failed | 1 passed" in a kid never fights in two adjacent waves unless nothing else fits
-- the plan is deterministic for the same input: final priority tiebreak replaced with Math.random() -> RED, "1 failed | 0 passed" in the plan is deterministic for the same input
+- gi first: Every gi match runs before any nogi match.
+  over: a gi match delayed by its feeder beside a free nogi match, and an all nogi list
+  via: every gi match runs before any nogi match
+  because: planSchedule sorts gi first and stops at the first nogi match while a gi match is unplaced, so a mat idles rather than run nogi early
+  refuted: the nogi break never fires while gi matches wait -> the test every gi match runs before any nogi match went red (2026-10-22)
+  kinds: none
+- feeder spacing: A feeder runs at least two waves before its dependent.
+  over: a final fed by two feeders on two mats, a feed that names neither a pending nor a live match, a feed that names a live match, and a feed that can never clear
+  via: a feeder runs at least two waves before its dependent
+  because: planSchedule places a match only when every feeder sits at least two waves earlier, counts a live feeder at wave -1, treats an unknown feeder as done, and throws on a feed that never clears
+  refuted: the feeder gap is one wave instead of two -> the test a feeder runs at least two waves before its dependent went red (2026-10-22)
+  kinds: none
+- rest between waves: A kid never fights in two adjacent waves unless nothing else fits.
+  over: a kid with a filler match available, a three way round robin with nothing else to run, a simple back to back pair, and a kid live at the start
+  via: a kid never fights in two adjacent waves unless nothing else fits
+  because: planSchedule first refuses a kid in the wave after their last one and relaxes that only when no match fits, and then it names the kid and both matches in a warning
+  refuted: the strict rest check drops the previous wave -> the test a kid never fights in two adjacent waves unless nothing else fits went red (2026-10-22)
+  kinds: none
+- deterministic plan: The plan is deterministic for the same input.
+  over: six matches with equal priority on three mats given in a shuffled mat order, planned twice
+  via: the plan is deterministic for the same input
+  because: comparePriority ends on the match number and the mats sort by number, so the same pending set always gives the same order and the console can show a stable plan
+  refuted: the final priority tiebreak is Math.random -> the test the plan is deterministic for the same input went red (2026-10-22)
+  kinds: none
