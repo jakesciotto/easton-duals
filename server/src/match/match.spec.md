@@ -88,7 +88,7 @@ The event log per match, the derived caches, the mats, the bracket feeds and the
   checklist: resumption-coverage dismissed: the next poll finds every clock still overdue, so an interrupted expiry needs no plan
 - outcome at the end: A win type is derived only when a match ends.
   protects: deriveOutcome
-  chokepoint: endMatch
+  chokepoint: endMatch in server/src/match/events.ts
   from: anywhere
   because: endMatch derives the outcome inside the transaction that writes the end event, after the guard checks the event, the match status and the sequence, so no other path decides a winner from the events
   kinds: state

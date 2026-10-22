@@ -6,9 +6,18 @@ The rules live in the coherence specs, one `*.spec.md` per component. This file 
 
 The coherence 0.37 specs carried this prose in a `## why` section. Coherence 1.x keeps rationale on the invariant as a `because:` line, so the longer account lives here.
 
+Every 0.37 boundary claim held a test with the same title, so each one is an invariant now; no `via guard` claim was dropped. The other 0.37 claims had no 1.x form and are listed under their component. A `passes test` claim named a describe with no rule to refute; the describe still runs in `npm test`.
+
 ### Easton Duals
 
 Spec: `easton-duals.spec.md`.
+
+Dropped 0.37 claims:
+
+- `typechecks`: dropped, `npm run typecheck` runs in CI
+- `passes test "the write routes this suite covers"`: kept as the audit invariant write coverage
+- `coherence.config.json exists at root`: dropped, 1.x has no file existence claim
+- `CHANGELOG.md exists at root`: dropped, 1.x has no file existence claim
 
 One npm workspace: `server` (Hono, drizzle, libSQL) and `web` (React, Vite, Tailwind v4).
 Production runs the server as one Vercel function on Turso at www.eastonduals.com. The LAN
@@ -40,6 +49,12 @@ the coherence journal.
 
 Spec: `server/src/match/match.spec.md`.
 
+Dropped 0.37 claims:
+
+- `passes test "undoLastMatchEvent"`: dropped, the describe still runs
+- `passes test "enterResult"`: dropped, the describe still runs
+- `passes test "skipMatch"`: dropped, the describe still runs
+
 `match_events` is the source of truth for a match. The cache columns on `matches` (points,
 clock, status, result) are rewritten in the same transaction as every event insert or undo.
 Undo deletes the newest event and the audit row carries the deleted row, so the scorer's seq
@@ -68,6 +83,15 @@ the designed match.
 
 Spec: `server/src/matchmaker/matchmaker.spec.md`.
 
+Dropped 0.37 claims:
+
+- `passes test "maximumWeightMatching"`: dropped, the describe still runs
+- `passes test "beltDistance"`: dropped, the describe still runs
+- `passes test "pairWhy"`: dropped, the describe still runs
+- `passes test "proposing"`: dropped, the describe still runs
+- `passes test "confirming"`: dropped, the describe still runs
+- `passes test "swapping a kid into a draft"`: dropped, the describe still runs
+
 Proposals are drafts in their own table; nothing reaches the board until confirmed. One
 proposal set per style; a propose replaces the event's drafts of that style whole. A kid with a
 match of this style already, whatever its status, is never offered a second one. A division kid
@@ -94,6 +118,14 @@ for test events only), so the rating term stays a tiebreak until ratings arrive.
 
 Spec: `server/src/formats/formats.spec.md`.
 
+Dropped 0.37 claims:
+
+- `passes test "round robin"`: dropped, the describe still runs
+- `passes test "single elimination"`: dropped, the describe still runs
+- `passes test "createDivision"`: dropped, the describe still runs
+- `passes test "regenerateDivision"`: dropped, the describe still runs
+- `passes test "deleteDivision"`: dropped, the describe still runs
+
 A division is a named set of kids across teams with one format (round robin, single or
 double elimination) and one styles setting (gi, nogi, both). "Pairs" is not a format. Limits:
 round robin 2 to 10, single elimination 2 to 16, double elimination 3 to 16. The generator
@@ -108,6 +140,12 @@ action, never a default.
 
 Spec: `server/src/schedule/schedule.spec.md`.
 
+Dropped 0.37 claims:
+
+- `passes test "planSchedule priority order"`: dropped, the describe still runs
+- `passes test "planSchedule estimate"`: dropped, the describe still runs
+- `passes test "the schedule route"`: dropped, the describe still runs
+
 "Order matches" plans every pending match in waves, one slot per mat: every gi match before
 any nogi match (hard), younger first, a feeder at least two waves before its dependent, no kid
 in two adjacent waves (relaxed with a warning when nothing else fits), gaps recorded. The
@@ -118,6 +156,11 @@ match of rest, nogi at the end; the planner factors in the number of mats.
 ### Shared rules
 
 Spec: `server/src/shared/shared.spec.md`.
+
+Dropped 0.37 claims:
+
+- `passes test "formatClock"`: dropped, the describe still runs
+- `passes test "roundLabel"`: dropped, the describe still runs
 
 Teams rank by, in order: team points descending, wins descending, match points descending,
 then team position (creation order) ascending, which never ties. Two teams level on the first
@@ -143,6 +186,10 @@ match is a suggestion for a person, never a link.
 
 Spec: `server/src/audit/audit.spec.md`.
 
+Dropped 0.37 claims:
+
+- `passes test "certify and uncertify"`: dropped, the describe still runs
+
 `audit_log` is append only and has no foreign keys: it outlives the rows it describes. One
 table for every write, not an actor column on match events. Certify and unlock both re-enter
 the PIN; unlock adds a reason. Certification locks everything on the event, all write routes,
@@ -154,6 +201,11 @@ the match until the organizer certifies.
 
 Spec: `server/src/auth/auth.spec.md`.
 
+Dropped 0.37 claims:
+
+- `passes test "POST /api/auth/admin"`: dropped, the describe still runs
+- `passes test "PIN and mat code shapes"`: dropped, the describe still runs
+
 `ADMIN_PIN` (six digits, env) gates every setup mutation server-side through HMAC tokens with
 a 24 hour life. Each event gets a mat code so parents at the tables never see the admin PIN; a
 tablet's token dies when another tablet takes the mat over (`bind_epoch`). Board and snapshot
@@ -164,6 +216,17 @@ per IP, stored in the database because Vercel functions share no memory. The cli
 ### Routes
 
 Spec: `server/src/routes/routes.spec.md`.
+
+Dropped 0.37 claims:
+
+- `passes test "match routes"`: dropped, the describe still runs
+- `passes test "the sync asks WellnessLiving for the roster's own names only"`: kept as the roster invariant roster names only
+- `passes test "entry routes"`: dropped, the describe still runs
+- `passes test "division routes"`: dropped, the describe still runs
+- `passes test "the delete and patch guards"`: dropped, the describe still runs
+- `passes test "the scoring cap at the routes"`: dropped, the describe still runs
+- `passes test "the scoring cap on a move"`: dropped, the describe still runs
+- `passes test "the event connect route"`: dropped, the describe still runs
 
 Every write route calls the certification lock first and records an audit row. An event that
 is not certified can be deleted; the PIN is re-entered once the event left setup; a certified
@@ -177,6 +240,12 @@ the five open by design: health, lan, the PIN check, the public snapshot, and th
 
 Spec: `server/src/live/live.spec.md`.
 
+Dropped 0.37 claims:
+
+- `passes test "buildSnapshot"`: dropped, the describe still runs
+- `passes test "snapshot polling"`: dropped, the describe still runs
+- `passes test "unbind"`: dropped, the describe still runs
+
 Every screen polls one snapshot keyed by the event's version. `toMatchView` takes a name form:
 full for an admin token, public (initials) otherwise. Public is the default so a new caller
 must ask for the full form. The board layout is one leaderboard for every team count, two
@@ -187,6 +256,12 @@ none.
 ### Roster
 
 Spec: `server/src/roster/roster.spec.md`.
+
+Dropped 0.37 claims:
+
+- `passes test "the bulk paste"`: dropped, the describe still runs
+- `passes test "the WellnessLiving search"`: dropped, the describe still runs
+- `passes test "linkUpdate"`: dropped, the describe still runs
 
 Athletes are copies, never references: a roster does not change under a running event. A
 paste creates kids (First, Last, Age, Weight, Belt, Gender, Team, Birth, Scoring) or matches,
@@ -207,6 +282,11 @@ the link; an age or weight the organizer edits by hand afterwards sticks through
 
 Spec: `server/src/smoothcomp/smoothcomp.spec.md`.
 
+Dropped 0.37 claims:
+
+- `passes test "parseBracket"`: dropped, the describe still runs
+- `passes test "the Smoothcomp standings route"`: dropped, the describe still runs
+
 Four public JSON endpoints, a pure parser, fixtures. The calculation joins the event roster
 (names, teams, scoring marks) to Smoothcomp's finished matches through the shared scoring
 rules. A match counts only when both names resolve to a roster kid on a team; the rest are
@@ -217,6 +297,11 @@ reaches the board. The URL lives on the event.
 ### Database
 
 Spec: `server/src/db/db.spec.md`.
+
+Dropped 0.37 claims:
+
+- `passes test "createDb retry wiring"`: dropped, the describe still runs
+- `passes test "migration 0012 adds divisions, numbers, styles and feeds"`: kept as the database invariant rebuild keeps events
 
 A boot may migrate only a `file:` database; a remote target is migrated on purpose with `npm
 run db:migrate`, which takes `--to <tag>`. On 2026-09-08 a dev server in the main checkout ran
@@ -238,6 +323,13 @@ guard fetch injected into createClient.
 ### Console, scorer and board
 
 Spec: `web/src/web.spec.md`.
+
+Dropped 0.37 claims:
+
+- `passes test "one poll for the whole event"`: dropped, the describe still runs
+- `passes test "the board greps in 5.1"`: dropped, the describe still runs
+- `passes test "team colour guards"`: dropped, the describe still runs
+- `passes test "useSnapshot"`: dropped, the describe still runs
 
 Design: one language, two dialects, and the dialect is chosen by viewing distance. The console
 refuses to shout; the board raises its voice only through geometry and size. Black ground,
