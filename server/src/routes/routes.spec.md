@@ -47,11 +47,11 @@ The Hono routes: events, teams, athletes, roster, proposals, matches, divisions,
   over: every GET, POST, PATCH, PUT and DELETE route the app registers under /api, sent with no token, against a double entry list of the five open routes
   via: every protected route rejects a request without a valid token
   because: a route added without requireAdmin or requireMatOrAdmin fails this walk, and a listed open route that starts to answer 401 fails it too, so the open set is health, lan, the PIN check, the public snapshot and the mat bind and nothing else
-  crossing: internet -> admin
+  crossing: internet -> mat
   entrances: routes auth, routes board, routes events, routes athletes, routes divisions, routes entries, routes matches, routes proposals, routes rulesets, routes roster, routes schedule, routes scoring, routes smoothcomp, route GET /api/health, route GET /api/lan
   refuted: attachAuth resolves a missing header as an admin -> the test every protected route rejects a request without a valid token went red (2026-10-22)
   kinds: credential
-  checklist: capability-authorization declared as route auth totality
+  checklist: capability-authorization dismissed: tokenless requests only; the scope check is admin only's
   checklist: revalidated-permission dismissed: every request verifies its bearer again and no work is deferred
   checklist: message-authenticity dismissed: the token signature is the auth component's signed tokens invariant
   checklist: encrypted-storage dismissed: the server never stores a token

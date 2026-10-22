@@ -18,9 +18,16 @@ The event log per match, the derived caches, the mats, the bracket feeds and the
 - derived outcome: A score and a win type derive from the events.
   over: a pending terminal against a higher score, a points lead, a tie, running totals with a negative score clamped at zero, set_score events, an end then a reopen then an edited result, a tie ended with and without a winner, a tie ended with a chosen win type, and a client win type sent after a terminal or a points lead decided the match
   via: a score and a win type derive from the events
-  because: deriveMatch sums the scored actions per athlete, floored at zero, and deriveOutcome picks a terminal, then the points lead, then asks for a decision, so a client cannot choose a win type the events already decided
+  because: deriveMatch sums the scored actions per athlete, floored at zero, and deriveOutcome picks a terminal, then the points lead, then asks for a decision, so a client cannot choose a win type the events already decided; enterResult takes the win type the desk types and derives none
   refuted: deriveOutcome decides on scoreA below scoreB -> the test a score and a win type derive from the events went red (2026-10-22)
-  kinds: none
+  kinds: state
+  checklist: revalidated-permission dismissed: a derivation reads the events in the request that asks, and no work is deferred
+  checklist: separation-of-duties dismissed: no approval policy exists on a derivation
+  checklist: legal-state-succession dismissed: deriveMatch and deriveOutcome are pure functions of the events and commit no state; the guard on an end is source of truth's
+  checklist: supersession-safety dismissed: no late work publishes; a derivation reads the events it is given
+  checklist: worker-fencing dismissed: no worker claims a match here
+  checklist: commit-ordered-effects dismissed: a derivation writes nothing, and the caller's transaction commits the rows
+  checklist: resumption-coverage dismissed: a derivation is a pure function and resumes nothing
 - runnable only: A mat starts only a runnable match.
   over: a match waiting on a feeder ahead of a runnable one, a match whose kid is live on another mat, a bracket match its feeder fills, a skip that frees the kids of a live match, entry mode and live mode at the event start, an advance after an end, an advance while the current match is live, desk mode, an empty queue and an event in setup
   via: a mat starts only a runnable match
@@ -74,9 +81,9 @@ The event log per match, the derived caches, the mats, the bracket feeds and the
   checklist: commit-ordered-effects dismissed: the reopen is rows in one transaction, and nothing leaves the process
   checklist: resumption-coverage dismissed: a reopen is one transaction
 - lazy clock: The clock expires lazily on read.
-  over: a snapshot poll after the clock elapsed, a clock re-armed at a new length after added time, two immediate polls at the same instant, a poll with no elapsed clock, a pause written at the expiry instant, and an expiry on a paused clock or a done match
+  over: a snapshot poll after the clock elapsed, a clock re-armed at a new length after added time, two immediate polls at the same instant, a poll with no elapsed clock, a pause stamped at the poll instant with elapsed capped at the length, and an expiry call on a paused clock
   via: the clock expires lazily on read
-  because: expireOverdue runs before a snapshot read and writes one pause at the expiry instant, its audit row and one version bump in one transaction, so no server timer exists and two pollers write one pause
+  because: expireOverdue runs before a snapshot read and writes one pause stamped at the poll instant, its audit row and one version bump in one transaction, and deriveMatch caps elapsed at the length, so no server timer exists and two pollers write one pause
   refuted: expireOverdue inverts the overdue test -> the test the clock expires lazily on read went red (2026-10-22)
   kinds: state
   checklist: revalidated-permission dismissed: the expiry reads the running clocks at the poll and acts on no earlier grant
@@ -86,11 +93,11 @@ The event log per match, the derived caches, the mats, the bracket feeds and the
   checklist: worker-fencing dismissed: no background worker exists, and a poller that loses the write lock drops out
   checklist: commit-ordered-effects dismissed: the pause, the audit row and the bump are rows in one transaction, and nothing leaves the process
   checklist: resumption-coverage dismissed: the next poll finds every clock still overdue, so an interrupted expiry needs no plan
-- outcome at the end: A win type is derived only when a match ends.
+- outcome at the end: deriveOutcome is called only by endMatch; the desk types its result.
   protects: deriveOutcome
   chokepoint: endMatch in server/src/match/events.ts
   from: anywhere
-  because: endMatch derives the outcome inside the transaction that writes the end event, after the guard checks the event, the match status and the sequence, so no other path decides a winner from the events
+  because: endMatch derives the outcome inside the transaction that writes the end event, after the guard checks the event, the match status and the sequence; enterResult stores the win type the desk typed, so no other path derives a winner from the events
   kinds: state
   checklist: revalidated-permission dismissed: the outcome is derived inside the request transaction, and no work is deferred
   checklist: separation-of-duties dismissed: no approval policy exists on an end

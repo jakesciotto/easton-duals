@@ -17,10 +17,12 @@ The winner of a Smoothcomp event computed from its finished matches against the 
 - smoothcomp host: A Smoothcomp URL parses to one event.
   over: a results URL, a promoter subdomain, an empty and a blank input, text that is no URL, a host outside smoothcomp.com and a path with no event id
   via: a Smoothcomp URL parses to one event
-  because: every later request is built from the origin and event id this parse answers, so a host outside smoothcomp.com must be refused before any fetch
+  because: parseSmoothcompUrl refuses a host outside smoothcomp.com before the first fetch and keeps the origin and the event id; the bracket list and the render data come from that origin, a related bracket link in a payload is fetched from its own link when its host equals the origin host, and fetch follows redirects with no check
+  crossing: admin -> smoothcomp
+  entrances: none
   refuted: removed the smoothcomp.com host check -> the test a Smoothcomp URL parses to one event went red (2026-10-22)
   kinds: output
-  checklist: destination-confinement declared as smoothcomp host
+  checklist: destination-confinement dismissed: the test refuses example.com, and the route test follows a same-host related link only; a look-alike host, an off-host related link and a redirect have no test
   checklist: redaction dismissed: the request carries only the public event id and asks for public JSON
   checklist: commit-ordered-effects dismissed: the standings read changes nothing at Smoothcomp and nothing is stored
   checklist: circuit-breaker-policy dismissed: one request runs under a 240 second deadline and answers 504 past it, and no breaker exists

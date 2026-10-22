@@ -16,7 +16,10 @@ libSQL through drizzle: a file on the gym box, Turso in production, migrations o
   via: the database url comes from the environment with a local file default
   because: an explicit DB_PATH wins over Turso so the e2e and a local run never reach the remote database, and a gym box that still holds duels.db keeps it after the rename
   refuted: removed the DB_PATH branch of dbUrlFromEnv -> the test the database url comes from the environment with a local file default went red (2026-10-22)
-  kinds: none
+  kinds: deploy
+  checklist: graceful-drain dismissed: the function picks a url and admits no work
+  checklist: readiness-evidence dismissed: the function picks a url and reports no readiness
+  checklist: declared-target-coverage dismissed: one environment names one database url
 - rebuild keeps events: Migration 0012 keeps every scoring event, numbers each event's matches by order index and puts the foreign keys back.
   over: a database migrated to 0011 and seeded with two events, four matches and five scoring events, then migrated to 0012
   via: migration 0012 adds divisions, numbers, styles and feeds

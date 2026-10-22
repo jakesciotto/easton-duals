@@ -38,7 +38,7 @@ Context for agents working in this repository. The durable truth about the code 
 (`server/test/**/*.test.ts`, `web/test/**/*.test.{ts,tsx}`). `npx --no -- coherence run` runs every
 totality oracle the specs name in one batched vitest invocation.
 
-A test exists only as the oracle a spec names. To add one:
+A spec names an oracle by its describe title. An unnamed describe is kept until it is promoted to a bullet or retired by decision. To add an oracle:
 
 1. Write the invariant as a bullet in the component spec's `## invariants` list.
 2. Write one oracle whose `describe` title is the bullet's `via:` line. A uniform domain gets one loop over the live set with a floor; a non-uniform domain gets double-entry.

@@ -8,6 +8,17 @@ The coherence 0.37 specs carried this prose in a `## why` section. Coherence 1.x
 
 Every 0.37 boundary claim held a test with the same title, so each one is an invariant now; no `via guard` claim was dropped. The other 0.37 claims had no 1.x form and are listed under their component. A `passes test` claim named a describe with no rule to refute; the describe still runs in `npm test`.
 
+### Rules held by unnamed describes
+
+About 25 describes run in `npm test` and no bullet names them. Each one keeps a rule that touches data integrity or the state machine. Keep each describe until a bullet names it or a decision retires it.
+
+- Confirm and swap busy guards: now the matchmaker bullets busy guard on confirm and busy guard on swap.
+- Scoring cap: the server answers 422 on the eleventh marked kid, through PATCH and the bulk route, and a move to another team unmarks the kid (`scoring-cap.test.ts`).
+- Division edit, seed and delete: refused once a match of the division is live or done, and nothing changes (`divisions-routes.test.ts`, `divisions.test.ts`).
+- `enterResult`: the desk types the result, a correction goes through `edit_result`, a winner outside the match is refused, and the same entry id replays without a second write (`entry.test.ts`).
+- Undo: removes the last event and recomputes the caches, and a terminal undo leaves the clock paused (`match-events.test.ts`).
+- Skip: moves the match to the end once, refuses a match with scoring events, and leaves a blocked match in its slot (`mats.test.ts`).
+
 ### Easton Duals
 
 Spec: `easton-duals.spec.md`.
@@ -61,8 +72,8 @@ Undo deletes the newest event and the audit row carries the deleted row, so the 
 contract holds. Undo is refused on a done match. A desk entry writes a `set_score` event
 (absolute set) so the log stays append only.
 
-An athlete's match score is the running total of scored actions, floored at zero. The win type
-is derived: a terminal gives its own type, points ahead gives `points`, a tie needs a decision.
+An athlete's match score is the running total of scored actions, floored at zero. At an end the win type
+is derived: a terminal gives its own type, points ahead gives `points`, a tie needs a decision. A desk entry stores the win type the desk typed.
 Win types: `submission`, `points`, `decision`, `walkover`, `dq`.
 
 States: `pending` to `live` to `done`; `reopen` returns a done match to live and is refused
@@ -89,8 +100,8 @@ Dropped 0.37 claims:
 - `passes test "beltDistance"`: dropped, the describe still runs
 - `passes test "pairWhy"`: dropped, the describe still runs
 - `passes test "proposing"`: dropped, the describe still runs
-- `passes test "confirming"`: dropped, the describe still runs
-- `passes test "swapping a kid into a draft"`: dropped, the describe still runs
+- `passes test "confirming"`: kept as the matchmaker invariant busy guard on confirm
+- `passes test "swapping a kid into a draft"`: kept as the matchmaker invariant busy guard on swap
 
 Proposals are drafts in their own table; nothing reaches the board until confirmed. One
 proposal set per style; a propose replaces the event's drafts of that style whole. A kid with a
