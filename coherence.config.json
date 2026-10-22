@@ -1,21 +1,9 @@
 {
+  "name": "easton-duals",
   "language": "typescript",
-  "codeExt": ["ts", "tsx"],
-  "outputDir": ".coherence/out",
-  "entryDir": ".",
-  "tooling": ["scripts", "server/scripts", "server/drizzle"],
-  "sources": ["server/src", "web/src"],
-  "testDir": "test",
-  "typecheck": ["npm", "run", "typecheck"],
-  "test": ["npx", "vitest", "run", "-t"],
-  "ignore": ["node_modules", ".git", "dist", ".vercel", ".coherence", "public", "data", ".superpowers", ".claude"],
-  "mass": {
-    "measures": [
-      {
-        "key": "test-cases",
-        "cmd": ["sh", "-c", "grep -rhoE '^[[:space:]]*(it|test)\\(' server/test web/test | wc -l"],
-        "unit": "cases"
-      }
-    ]
-  }
+  "ignore": ["node_modules", "dist", ".vercel", "public", "data", ".superpowers", ".claude", ".coherence/archive-0.37"],
+  "wellKnown": ["Easton", "Hono", "Vercel", "Turso", "libSQL", "drizzle", "Smoothcomp", "WellnessLiving", "React", "Vite", "Tailwind", "Geist", "ERP", "IBJJF"],
+  "test": "npx vitest run -t {filter}",
+  "testMatch": "Tests +[1-9][0-9]* passed",
+  "testJson": "npx vitest run -t {filter} --reporter=json --outputFile={out}"
 }

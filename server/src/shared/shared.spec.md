@@ -2,45 +2,36 @@
 Pure modules the server, the console and the board read through: the leaderboard, team scoring, weight classes, clock arithmetic and name similarity.
 
 ## invariants
-- teams rank by team points, then wins, then match points, then position, and ties share a rank
-- team points come only from scoring athletes by win type
-- a team over ten kids scores only with its marked kids
-- a stored weight falls in one registration band
-- a name resolves through one similarity module
-
-## works when
-- boundary "teams rank by team points, then wins, then match points, then position, and ties share a rank" at rankTeams via guard "teams rank by team points, then wins, then match points, then position, and ties share a rank"
-- boundary "team points come only from scoring athletes by win type" at teamPointsFor via guard "team points come only from scoring athletes by win type"
-- boundary "a team over ten kids scores only with its marked kids" at scoringSet via guard "a team over ten kids scores only with its marked kids"
-- boundary "a stored weight falls in one registration band" at weightClass via guard "a stored weight falls in one registration band"
-- boundary "a name resolves through one similarity module" at nameScore via guard "a name resolves through one similarity module"
-- passes test "formatClock"
-- passes test "roundLabel"
-
-## why
-Teams rank by, in order: team points descending, wins descending, match points descending,
-then team position (creation order) ascending, which never ties. Two teams level on the first
-three share a rank and the ranks they use up are skipped: a table reads 1, 1, 3, never 1, 1, 2.
-One function, `rankTeams`, answers the standing for the snapshot, the console and the board.
-
-Team points come only from scoring athletes: 3 for a submission, 2 for a points win, 1 for a
-decision, a walkover or a DQ. A loss earns nothing. A team with at most ten kids scores with
-every kid and ignores the flags; a team with more than ten scores only with its marked kids, at
-most ten (the server refuses the eleventh with 422). A move to another team unmarks the kid.
-Wins count every done match a team's kid won, scoring athlete or not. Match points are the sum
-of the team's kids' match scores across the event.
-
-Weight class derives from the stored weight through the registration sheet's ten bands (upper
-bounds 39, 46, 53, 61, 70, 80, 90, 100, 110, 120, then tens). There is no weight class column.
-A weight is rounded before the band is read because a sync can carry a fraction.
-
-Name similarity: accents, hyphens, middle names and a nickname table count as exact; everything
-else scores by Dice over tokens with a suggestion floor of 0.6 and a margin of 0.05. A near
-match is a suggestion for a person, never a link.
-
-## refutations
-- teams rank by team points, then wins, then match points, then position, and ties share a rank: flipped the wins and match-points sort directions -> RED, "3 failed | 6 passed" in teams rank by team points, then wins, then match points, then position, and ties share a rank
-- team points come only from scoring athletes by win type: teamPointsFor returns 1 for every win type -> RED, "1 failed | 0 passed" in team points come only from scoring athletes by win type
-- a team over ten kids scores only with its marked kids: scoringSet no longer filters on the scoring flag -> RED, "1 failed | 1 passed" in a team over ten kids scores only with its marked kids
-- a stored weight falls in one registration band: weightClass boundary `<=` changed to `<` -> RED, "2 failed | 3 passed" in a stored weight falls in one registration band
-- a name resolves through one similarity module: nameScore same-last-name bonus inverted -> RED, "2 failed | 3 passed" in a name resolves through one similarity module
+- team ranking: Teams rank by team points, then wins, then match points, then position, and ties share a rank.
+  over: an order decided by each key alone, a tie on the first three keys at the top and lower in the table, an event with no teams, and the input list left unchanged
+  via: teams rank by team points, then wins, then match points, then position, and ties share a rank
+  because: rankTeams is the one standing the snapshot, the console and the board show, and teams level on the first three keys share a rank and skip the ranks they use
+  refuted: flipped the wins and match points sort directions -> the test teams rank by team points, then wins, then match points, then position, and ties share a rank went red (2026-10-22)
+  kinds: none
+- team points: Team points come only from scoring athletes by win type.
+  over: the team points of each of the five win types
+  via: team points come only from scoring athletes by win type
+  because: teamPointsFor reads the points from the TEAM_POINTS table, three for a submission, two for points and one for a decision, a walkover or a DQ
+  refuted: teamPointsFor answers 1 for every win type -> the test team points come only from scoring athletes by win type went red (2026-10-22)
+  kinds: none
+- scoring cap: A team over ten kids scores only with its marked kids.
+  over: teams of three, ten and eleven kids, with and without marked kids
+  via: a team over ten kids scores only with its marked kids
+  because: scoringSet returns every kid of a team inside the cap and only the marked kids of a larger team
+  refuted: scoringSet no longer filters on the scoring flag -> the test a team over ten kids scores only with its marked kids went red (2026-10-22)
+  kinds: none
+- weight band: A stored weight falls in one registration band.
+  over: every band edge, each band label, the bands above 120 pounds, fractional weights and a zero weight
+  via: a stored weight falls in one registration band
+  because: weightClass rounds a weight to the pound and reads the first band whose upper bound holds it, so a kid falls in exactly one band of the registration sheet
+  refuted: the weightClass band bound is strict -> the test a stored weight falls in one registration band went red (2026-10-22)
+  kinds: none
+- name similarity: A name resolves through one similarity module.
+  over: a hyphenated surname, the exact last name bonus, the cap at 1, a near and a far candidate, the floor and margin constants, and eight exact name cases
+  via: a name resolves through one similarity module
+  because: exactName and nameScore are the one rule the roster sync, the Smoothcomp standings and the match paste use to compare names, so an accent, a hyphen, a middle name or a nickname never splits one kid in two
+  refuted: the same last name bonus of nameScore is inverted -> the test a name resolves through one similarity module went red (2026-10-22)
+  kinds: identity
+  checklist: capability-authorization dismissed: a name comparison grants no credential and authorizes nothing
+  checklist: canonical-encoding declared as name similarity
+  checklist: identity-continuity dismissed: the module compares names and writes no link, the roster sync owns every link

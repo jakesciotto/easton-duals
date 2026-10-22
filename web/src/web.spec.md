@@ -2,44 +2,65 @@
 The React client: the admin console, the tablet scorer, the TV board, the pastes and the polling.
 
 ## invariants
-- a roster paste maps columns by header or by position
-- a match paste creates pairs and division lines
-- the scoring cap is checked before the paste is sent
-- an open dialog holds the snapshot unless it opts out by name
-
-## works when
-- boundary "a roster paste maps columns by header or by position" at parseRosterPaste via guard "a roster paste maps columns by header or by position"
-- boundary "a match paste creates pairs and division lines" at parseMatchPaste via guard "a match paste creates pairs and division lines"
-- boundary "the scoring cap is checked before the paste is sent" at scoringCapProblems via guard "the scoring cap is checked before the paste is sent"
-- boundary "an open dialog holds the snapshot unless it opts out by name" at useHeldWhileEngaged via guard "an open dialog holds the snapshot unless it opts out by name"
-- passes test "one poll for the whole event"
-- passes test "the board greps in 5.1"
-- passes test "team colour guards"
-- passes test "useSnapshot"
-
-## why
-Design: one language, two dialects, and the dialect is chosen by viewing distance. The console
-refuses to shout; the board raises its voice only through geometry and size. Black ground,
-near-black surfaces with hairlines, a twelve step neutral ramp, 6px controls and 8px cards, a
-4px spacing grid, Geist for text and Geist Mono for numbers, three weights (400, 500, 600) and
-nothing above. Exactly three state accents: `--live` (running now), `--attend` (a person is
-needed), `--fault` (failed, refused or ran out). Team colour appears only as dots, rules,
-plates and tinted names. The console is authored in CSS pixels; the board in `cqh` on a 16:9
-stage, no `px` font size on the board and no `cqh` anywhere else; no hex literal in the app
-except the QR code's white tile; no forbidden grey token on the board. `scripts/design-lint.mjs`
-enforces those greps at the root lint and CI. The full brief (the Caliper rebuild, v0.5.0) is
-archived with the project folder on vinelab. Jake rejected the default shadcn dark look,
-brutalist, glow and glass, and gradients on the way to this.
-
-Polling: one poll per event; the snapshot commit is suspended while the operator is engaged
-(any open dialog), and a dialog whose content is the live state opts out by name with
-`data-poll-through`. The client never clears the admin token on a 401. A grid column minimum
-must exceed the row's fixed tracks (the roster name column once collapsed to zero). Buttons
-step 36, 40, 44, and the scorer's 64. Board rules: the leaderboard for every team count, far
-clamped by team count, no plate and no "Wins" word on leaderboard rows.
-
-## refutations
-- a roster paste maps columns by header or by position: header rows read cells by the positional columns -> RED, "6 failed | 3 passed" in a roster paste maps columns by header or by position
-- a match paste creates pairs and division lines: pair branch requires 3 names instead of 2 -> RED, "16 failed | 11 passed" in a match paste creates pairs and division lines
-- the scoring cap is checked before the paste is sent: cap threshold raised by 100 -> RED, "1 failed | 2 passed" in the scoring cap is checked before the paste is sent
-- an open dialog holds the snapshot unless it opts out by name: useHeldWhileEngaged commits the incoming value while the operator is engaged -> RED, "2 failed | 3 passed" in an open dialog holds the snapshot unless it opts out by name
+- roster paste columns: A roster paste maps columns by header or by position.
+  over: a tab separated sheet with a header, split first and last name columns, header aliases such as Weight (lbs) and Rank, an unknown column, two columns for one field, a header with no name column, a team column, positional lines with optional fields, bad and out of range lines, the boundary values, one cell lines, a bare number line and the Scoring column in header and positional pastes
+  via: a roster paste maps columns by header or by position
+  because: parseRosterPaste reads a detected header through its mapped columns and every other paste through the fixed positional columns, so a cell lands in the field the organizer meant
+  refuted: header rows read their cells by the positional columns -> the test a roster paste maps columns by header or by position went red (2026-10-22)
+  kinds: encoding
+  checklist: key-rotation-compatibility dismissed: nothing is encrypted
+  checklist: semantic-preservation declared as roster paste columns
+  checklist: canonical-encoding dismissed: a paste row is a new kid, not an identity the parse must keep stable
+- match paste lines: A match paste creates pairs and division lines.
+  over: an empty paste, comma and tab cells, vs and v separators, four name cells, style tokens, refused lines (one name, one kid twice, a kid on no team, an unknown or shared name), same team and already met warnings, exact and near names, a double surname, division lines with format, style, member limits and near notes, a paste with a problem and a paste of both kinds
+  via: a match paste creates pairs and division lines
+  because: parseMatchPaste turns each line into a pair or a division through the shared similarity rules, and creates nothing while any line carries a problem
+  refuted: the pair branch requires three names -> the test a match paste creates pairs and division lines went red (2026-10-22)
+  kinds: encoding
+  checklist: key-rotation-compatibility dismissed: nothing is encrypted
+  checklist: semantic-preservation declared as match paste lines
+  checklist: canonical-encoding dismissed: a name resolves to one roster kid through the similarity module, which the shared spec owns
+- scoring cap before send: The scoring cap is checked before the paste is sent.
+  over: a paste whose marks plus the team's existing marks pass ten, marked rows with no team, and a paste with no marks
+  via: the scoring cap is checked before the paste is sent
+  because: scoringCapProblems counts the existing marks and the paste's marks per team against SCORING_CAP, so the dialog names the problem before the server refuses the eleventh with 422
+  refuted: the cap threshold is raised by 100 -> the test the scoring cap is checked before the paste is sent went red (2026-10-22)
+  kinds: none
+- open dialog hold: An open dialog holds the snapshot unless it opts out by name.
+  over: a free pass through, a hold and release on the first free recheck, a change of subject, the first arrival, an unmount, the engaged signals (an open dialog, a drag, a focused field, an open listbox, a dialog that opts out) and the field grant the app focuses
+  via: an open dialog holds the snapshot unless it opts out by name
+  because: useHeldWhileEngaged commits a new snapshot only while operatorEngaged answers false and then commits the newest arrival, so a poll never replaces state under the operator's hand
+  refuted: useHeldWhileEngaged commits the incoming value while the operator is engaged -> the test an open dialog holds the snapshot unless it opts out by name went red (2026-10-22)
+  kinds: state
+  checklist: revalidated-permission dismissed: the hold carries no permission
+  checklist: separation-of-duties dismissed: no approval policy exists in the client
+  checklist: legal-state-succession dismissed: the hold moves a value forward only, it has no state machine
+  checklist: supersession-safety declared as open dialog hold
+  checklist: worker-fencing dismissed: no worker owns the snapshot
+  checklist: commit-ordered-effects dismissed: the hold issues no external effect
+  checklist: resumption-coverage dismissed: the next poll replaces any snapshot lost on unmount
+- engaged check through the hold: The engaged check is read only by the snapshot hold.
+  protects: operatorEngaged
+  chokepoint: useHeldWhileEngaged
+  from: anywhere
+  because: one mechanism decides when a polled value may replace what the operator works on, so no screen can commit under a dialog by its own rule
+  kinds: state
+  checklist: revalidated-permission dismissed: the hold carries no permission
+  checklist: separation-of-duties dismissed: no approval policy exists in the client
+  checklist: legal-state-succession dismissed: the hold moves a value forward only, it has no state machine
+  checklist: supersession-safety declared as open dialog hold
+  checklist: worker-fencing dismissed: no worker owns the snapshot
+  checklist: commit-ordered-effects dismissed: the hold issues no external effect
+  checklist: resumption-coverage dismissed: the next poll replaces any snapshot lost on unmount
+- token stored by the gate: An admin token is stored only by the PIN gate.
+  protects: setAdminToken
+  chokepoint: PinGate
+  from: anywhere
+  because: the console holds an admin token only after the PIN route answered one, so no screen can sign itself in
+  kinds: credential
+  checklist: capability-authorization dismissed: the server verifies the token on every request, and the client only stores what the PIN route answered
+  checklist: revalidated-permission dismissed: the server checks the token signature and expiry on every request
+  checklist: message-authenticity dismissed: the client never verifies the token and keeps it as an opaque string
+  checklist: encrypted-storage dismissed: the token sits in the browser's localStorage in plain text for its 24 hour life, as the console session
+  checklist: key-rotation-compatibility dismissed: nothing is encrypted
+  checklist: separation-of-duties dismissed: one admin role exists and no approval policy

@@ -27,7 +27,7 @@
     "esbuild": "^0.28.0"
   },
   "devDependencies": {
-    "@danilocampos/coherence": "^0.37.1",
+    "@posthog/coherence": "^1.8.0",
     "vite": "^8.2.0"
   }
 }
