@@ -6,6 +6,7 @@ import type { Db } from '../src/db/client.js'
 import { auditLog, events, proposals } from '../src/db/schema.js'
 import { createDivision } from '../src/formats/divisions.js'
 import { CERTIFIED_MESSAGE } from '../src/audit/certify.js'
+import { recordAudit } from '../src/audit/log.js'
 
 type App = Awaited<ReturnType<typeof createTestApp>>['app']
 
@@ -258,5 +259,47 @@ describe('certify and uncertify', () => {
     const s = await seedEvent(db)
     expect((await call(app, 'POST', `/api/events/${s.eventId}/certify`, { pin: TEST_PIN })).status).toBe(401)
     expect((await call(app, 'POST', '/api/events/999/certify', { pin: TEST_PIN }, adminToken)).status).toBe(404)
+  })
+})
+
+describe('the certified lock holds inside the write transaction', () => {
+  async function racedApp() {
+    const { db } = await createTestApp()
+    const seeded = await seedEvent(db, { matCount: 1 })
+    let armed = true
+    const raced = new Proxy(db, {
+      get(target, key, receiver) {
+        if (key !== 'transaction') return Reflect.get(target, key, receiver)
+        return async (fn: (tx: unknown) => Promise<unknown>) => {
+          if (armed) {
+            armed = false
+            await db.update(events).set({ status: 'certified', certifiedAt: '2026-10-24T16:00:00.000Z' }).where(eq(events.id, seeded.eventId)).run()
+          }
+          return target.transaction(fn as never)
+        }
+      },
+    }) as Db
+    const { app, adminToken } = await createTestApp({ db: raced })
+    return { app, db, adminToken, s: seeded }
+  }
+
+  it('refuses a write whose event was certified after the request guard read it, and leaves no row', async () => {
+    const { app, db, adminToken, s } = await racedApp()
+    const before = await db.select().from(auditLog).where(eq(auditLog.eventId, s.eventId)).all()
+    const r = await call(app, 'PATCH', `/api/athletes/${s.a1}`, { age: 9 }, adminToken)
+    expect(r.status).toBe(409)
+    expect(r.body.error.message).toBe(CERTIFIED_MESSAGE)
+    const after = await db.select().from(auditLog).where(eq(auditLog.eventId, s.eventId)).all()
+    expect(after).toHaveLength(before.length)
+  })
+
+  it('lets certify, uncertify, unbind and the standings record their rows on a certified event', async () => {
+    const { db } = await createTestApp()
+    const s = await seedEvent(db, { matCount: 1 })
+    await db.update(events).set({ status: 'certified', certifiedAt: '2026-10-24T16:00:00.000Z' }).where(eq(events.id, s.eventId)).run()
+    for (const action of ['certify', 'uncertify', 'unbind', 'smoothcomp_standings'] as const) {
+      await expect(db.transaction(tx => recordAudit(tx, { eventId: s.eventId, actor: 'admin', action }))).resolves.toBeUndefined()
+    }
+    await expect(db.transaction(tx => recordAudit(tx, { eventId: s.eventId, actor: 'admin', action: 'roster_edit' }))).rejects.toThrow(CERTIFIED_MESSAGE)
   })
 })

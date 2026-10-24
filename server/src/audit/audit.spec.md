@@ -12,11 +12,24 @@ The append-only audit log and the lock a certified event puts on every write.
   kinds: state
   checklist: revalidated-permission dismissed: no work is deferred, and each write reads the event status in its own request
   checklist: separation-of-duties dismissed: one admin certifies and unlocks, both with the PIN, and no second approver exists
-  checklist: legal-state-succession dismissed: the status is read before the write transaction opens, not inside it, so the lock is a request guard and not a serialized recheck
+  checklist: legal-state-succession declared as lock inside the transaction
   checklist: supersession-safety dismissed: no late work publishes; a write that read the status before a certify commits as it would have before
   checklist: worker-fencing dismissed: no worker owns an event
   checklist: commit-ordered-effects dismissed: a refused write has no effect, and the guard issues none
   checklist: resumption-coverage dismissed: no work resumes after an unlock; the organizer repeats the write
+- lock inside the transaction: Every audited write rechecks the certified lock inside its own transaction.
+  over: a write whose event is certified between the request guard and the transaction, and the four actions that stay open on a certified event (certify, uncertify, unbind, smoothcomp_standings) beside one that does not
+  via: the certified lock holds inside the write transaction
+  because: recordAudit reads the event status on the transaction handle it is given and throws CERTIFIED_MESSAGE before it inserts, so a certify that lands after the request guard read the status still refuses the write and rolls it back; certify, uncertify, unbind and smoothcomp_standings are the four actions a certified event accepts, the same four the certify suite excludes by name
+  refuted: recordAudit skips the status read -> the test the certified lock holds inside the write transaction went red, 2 of 2 (2026-10-24)
+  kinds: state
+  checklist: revalidated-permission declared as lock inside the transaction
+  checklist: separation-of-duties dismissed: one admin certifies and unlocks
+  checklist: legal-state-succession declared as lock inside the transaction
+  checklist: supersession-safety declared as lock inside the transaction
+  checklist: worker-fencing dismissed: no worker owns an event
+  checklist: commit-ordered-effects dismissed: the recheck and the row are in one transaction
+  checklist: resumption-coverage dismissed: the organizer repeats a refused write
 - write coverage: Every write route is in the certify suite's write list or its excluded list.
   over: every non-GET route the app registers, against the write list and the seven excluded routes
   via: the write routes this suite covers

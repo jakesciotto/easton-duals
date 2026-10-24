@@ -4,6 +4,7 @@ import { events, matches, matchEvents, rulesets, type MatchRow, type MatchEventR
 import { deriveMatch, deriveOutcome, effectiveLengthMs } from './derive.js'
 import { fillDependents } from './fill.js'
 import { EXTEND_MAX_MS, EXTEND_MIN_MS, type AuditActor, type MatchResult } from '../shared/types.js'
+import { MatchStateError } from '../shared/errors.js'
 
 export class SeqConflict extends Error {
   constructor(public readonly currentSeq: number) {
@@ -12,12 +13,7 @@ export class SeqConflict extends Error {
   }
 }
 
-export class MatchStateError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'MatchStateError'
-  }
-}
+export { MatchStateError } from '../shared/errors.js'
 
 /**
  * A write the server refuses because the body does not describe something it can do, as

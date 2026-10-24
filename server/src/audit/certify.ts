@@ -5,7 +5,8 @@ import { MatchStateError } from '../match/events.js'
 
 // The one sentence every locked write answers with. The web client matches on it, so it
 // is a contract rather than wording.
-export const CERTIFIED_MESSAGE = 'event is certified'
+export { CERTIFIED_MESSAGE } from './log.js'
+import { CERTIFIED_MESSAGE } from './log.js'
 
 /**
  * The lock. Certification is the organizer's signature on the record, so it stops every
