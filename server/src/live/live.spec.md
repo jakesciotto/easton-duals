@@ -28,7 +28,7 @@ The one snapshot every screen polls, the public name form and the tablet binding
 - mat takeover: A mat binding dies when another tablet takes the mat.
   over: a bind on a desk event after the code check, a right code then twenty wrong codes, a second tablet on a held mat with and without a takeover and the first tablet's token after it, a mat whose scorer stopped answering, and an unknown event or mat
   via: a mat binding dies when another tablet takes the mat
-  because: bindMat mints the next bind epoch inside one transaction and requireMatOrAdmin refuses a token whose epoch is not the mat's current one, so two tablets never score one match
+  because: bindMat mints the next bind epoch inside one transaction and requireMatOrAdmin refuses a token whose epoch is not the mat's current one, so two tablets never score one match; a mat token is a write credential, so in a desk-entry event the tablet is refused and a wrong mat code still answers as a wrong code, and switching back to live mode hands out a token again
   crossing: internet -> mat
   entrances: routes scoring, routes board
   refuted: bindMat never refuses a held mat -> the test a mat binding dies when another tablet takes the mat went red (2026-10-22)
@@ -39,9 +39,3 @@ The one snapshot every screen polls, the public name form and the tablet binding
   checklist: encrypted-storage dismissed: the server stores the bind epoch, never the token
   checklist: key-rotation-compatibility dismissed: nothing encrypted is retained
   checklist: separation-of-duties dismissed: one tablet holds a mat and no approval policy exists
-
-A mat token is a write credential. In a desk-entry event the tablet is refused and a wrong
-mat code still answers as a wrong code, so a caller learns nothing about how the event is run;
-switching back to live mode hands out a token again. The client sends every snapshot request
-with a deadline, because a dropped access point otherwise leaves the await unsettled forever
-while the screen still reads connected.
