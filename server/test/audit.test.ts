@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { asc, eq } from 'drizzle-orm'
 import { createTestApp, call, matToken } from './helpers.js'
-import { freshDb, seedEvent } from './fixtures.js'
+import { freshDb, seedEvent, failingWrites } from './fixtures.js'
 import { startEvent } from '../src/match/mats.js'
-import { auditLog, events, matchEvents, matches, mats } from '../src/db/schema.js'
+import { athletes, auditLog, events, matchEvents, matches, mats, rosterCandidates } from '../src/db/schema.js'
 import { actorOfMatchEventId } from '../src/audit/log.js'
 import type { Db } from '../src/db/client.js'
 import { BOUND_WINDOW_MS } from '../src/live/bound.js'
@@ -348,5 +348,67 @@ describe('every write records an audit row', () => {
       ['system', 'advance', s.matchIds[0]],
       ['system', 'advance', s.matchIds[1]],
     ])
+  })
+
+  it('records the proposals, the divisions, a schedule apply, a link, a dismiss, a certify and an uncertify, and the standings', async () => {
+    const smoothcompFetch = (async () => new Response('{"brackets":[]}', { status: 200 })) as typeof fetch
+    const { app, db, adminToken } = await createTestApp({ adminPin: '123456', smoothcomp: { fetchFn: smoothcompFetch, backoffMs: 0 } })
+    const s = await seedEvent(db, { matches: 0 })
+    const added = async (send: () => Promise<{ status: number }>) => {
+      const before = (await rows(db, s.eventId)).length
+      const r = await send()
+      expect(r.status).toBeLessThan(300)
+      return (await rows(db, s.eventId)).slice(before).map(row => row.action)
+    }
+
+    expect(await added(() => call(app, 'POST', `/api/events/${s.eventId}/proposals`, { style: 'gi' }, adminToken))).toEqual(['propose'])
+    const [draft] = (await call(app, 'GET', `/api/events/${s.eventId}/proposals`, undefined, adminToken)).body
+    expect(await added(() => call(app, 'POST', `/api/proposals/${draft.id}/confirm`, undefined, adminToken))).toContain('match_create')
+
+    let divisionId = 0
+    expect(await added(async () => {
+      const r = await call(app, 'POST', `/api/events/${s.eventId}/divisions`, { name: 'Novice', format: 'round_robin', styles: 'gi', athleteIds: [s.a2, s.b2] }, adminToken)
+      divisionId = r.body.division.id
+      return r
+    })).toContain('division_create')
+    expect(await added(() => call(app, 'PATCH', `/api/divisions/${divisionId}`, { name: 'Novice gi' }, adminToken))).toContain('division_edit')
+    expect(await added(() => call(app, 'DELETE', `/api/divisions/${divisionId}`, undefined, adminToken))).toContain('division_delete')
+
+    expect(await added(() => call(app, 'POST', `/api/events/${s.eventId}/schedule`, { apply: true }, adminToken))).toEqual(['schedule'])
+
+    await db.insert(rosterCandidates).values([
+      { eventId: s.eventId, wlUid: 'wl-1', firstName: 'Mateo', lastName: 'Rivera' },
+      { eventId: s.eventId, wlUid: 'wl-2', firstName: 'Matteo', lastName: 'Rivero' },
+    ]).run()
+    expect(await added(() => call(app, 'POST', `/api/athletes/${s.a1}/link`, { wlUid: 'wl-1' }, adminToken))).toEqual(['roster_link'])
+    expect(await added(() => call(app, 'POST', `/api/athletes/${s.a2}/dismiss`, { wlUid: 'wl-2' }, adminToken))).toEqual(['roster_edit'])
+
+    await db.update(events).set({ status: 'done', smoothcompUrl: 'https://smoothcomp.com/en/event/29499' }).where(eq(events.id, s.eventId)).run()
+    expect(await added(() => call(app, 'POST', `/api/events/${s.eventId}/smoothcomp/standings`, undefined, adminToken))).toEqual(['smoothcomp_standings'])
+    expect(await added(() => call(app, 'POST', `/api/events/${s.eventId}/certify`, { pin: '123456' }, adminToken))).toEqual(['certify'])
+    expect(await added(() => call(app, 'POST', `/api/events/${s.eventId}/uncertify`, { pin: '123456', reason: 'a result was typed on the wrong match' }, adminToken))).toEqual(['uncertify'])
+  })
+
+  it('leaves no audit row behind when a later write in the same transaction fails', async () => {
+    const { db } = await createTestApp()
+    const s = await seedEvent(db, { live: true })
+    const broken = failingWrites(db, w => w.op === 'update' && w.table === events && 'version' in (w.payload as object))
+    const { app, adminToken } = await createTestApp({ db: broken })
+    const token = matToken(s.eventId, s.matIds[0])
+    await db.insert(rosterCandidates).values({ eventId: s.eventId, wlUid: 'wl-1', firstName: 'Mateo', lastName: 'Rivera' }).run()
+    const before = await rows(db, s.eventId)
+    const writes: [string, string, unknown, string][] = [
+      ['POST', `/api/matches/${s.matchIds[0]}/events`, { id: 'score-0001', type: 'score', athleteId: s.a1, actionKey: 'mount', lastSeq: 0 }, token],
+      ['POST', `/api/events/${s.eventId}/schedule`, { apply: true }, adminToken],
+      ['POST', `/api/athletes/${s.a1}/link`, { wlUid: 'wl-1' }, adminToken],
+      ['PATCH', `/api/athletes/${s.a2}`, { age: 11 }, adminToken],
+    ]
+    for (const [method, path, body, bearer] of writes) {
+      const r = await call(app, method, path, body, bearer)
+      expect([path, r.status]).toEqual([path, 500])
+    }
+    expect(await rows(db, s.eventId)).toEqual(before)
+    expect(await db.select().from(matchEvents).where(eq(matchEvents.matchId, s.matchIds[0])).all()).toEqual([])
+    expect((await db.select().from(athletes).where(eq(athletes.id, s.a2)).get())?.age).toBe(9)
   })
 })

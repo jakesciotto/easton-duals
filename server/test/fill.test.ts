@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { asc, eq } from 'drizzle-orm'
-import { freshDb, seedEvent } from './fixtures.js'
+import { freshDb, seedEvent, failingWrites } from './fixtures.js'
 import { createTestApp, call } from './helpers.js'
 import { auditLog, events, matches, mats, type MatchRow } from '../src/db/schema.js'
 import { appendMatchEvent, endMatch, loadMatch, MatchStateError } from '../src/match/events.js'
@@ -68,6 +68,19 @@ describe('an ended feeder fills its dependents in the same transaction', () => {
     const match = await reload(db, s.matchIds[0])
     await win(db, match, s.a1)
     expect(await db.select().from(auditLog).where(eq(auditLog.action, 'fill')).all()).toEqual([])
+  })
+
+  it('takes the end back with the fill when the fill row fails to write', async () => {
+    const { db, s, rows } = await bracket('double_elim')
+    const auditBefore = await db.select().from(auditLog).all()
+    const broken = failingWrites(db, w => w.op === 'insert' && w.table === auditLog && (w.payload as { action?: string }).action === 'fill')
+    await expect(win(broken, rows[0], s.a1)).rejects.toThrow('staged write failure')
+    expect(await reload(db, rows[0].id)).toMatchObject({ status: 'pending', winnerAthleteId: null, winType: null })
+    expect(sides(await reload(db, rows[2].id))).toEqual([null, null])
+    expect(sides(await reload(db, rows[3].id))).toEqual([null, null])
+    expect(await db.select().from(auditLog).all()).toEqual(auditBefore)
+    await win(db, rows[0], s.a1)
+    expect(sides(await reload(db, rows[2].id))).toEqual([s.a1, null])
   })
 })
 

@@ -21,10 +21,10 @@ The proposer that drafts cross-team pairs for the organizer to confirm, swap or 
   refuted: the edge weight is the cost instead of 21 minus the cost -> the test the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5 went red (2026-10-22)
   kinds: none
 - hand-designed pairs: A hand-designed pair warns on class, age and rematch, and refuses only a same-team, an off-event and a teamless pair.
-  over: a done gi match read as Already met for gi and not for nogi, and a create and a patch through the match routes that answer with an Already met warning for the style
+  over: a done gi match read as Already met for gi and not for nogi; a create and a patch through the match routes that answer with an Already met warning for the style; and six creates across three teams at two, three and six classes apart and at three, four and six years apart, a repeat pair, three refusals (same team, off the event, no team) that write nothing, and a patch that gathers all three warnings
   via: a hand-designed pair warns and never refuses
-  because: pairWarnings only returns warning strings and scopes Already met to the style, and resolvePair alone refuses a same-team, an off-event or a teamless pair with 422; this describe runs the Already met warning, and the refusals sit in the match routes test
-  refuted: removed the style scope from the Already met query -> the test a hand-designed pair warns and never refuses went red (2026-10-22)
+  because: pairWarnings only returns warning strings, warns past two weight classes and past three years, and scopes Already met to the style, and resolvePair alone refuses a same-team, an off-event or a teamless pair with 422, so a far pair is created with its warnings and the organizer decides
+  refuted: resolvePair refuses a pair more than three years apart -> the test a hand-designed pair warns and never refuses went red, 1 of 3 (2026-10-24)
   kinds: none
 - three in a class: Three kids alone in a weight class from three teams become one round robin draft.
   over: three identical kids from three teams; a third kid in another class, on a side's team, past the cost cap or behind the gender veto; and a four kid pool where the fourth sits two classes off

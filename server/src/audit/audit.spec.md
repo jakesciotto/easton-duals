@@ -37,12 +37,12 @@ The append-only audit log and the lock a certified event puts on every write.
   refuted: registered a POST /api/health route that neither list names -> the test the write routes this suite covers went red (2026-10-22)
   kinds: none
 - audit on write: Each write route in the audit list records an audit row.
-  over: a score, a duplicate press, an undo, an end, an extend, a reopen and a skip, a typed result and its correction, event create, patch, far, start, finish and delete, team edits, roster writes, match create, edit, reorder and delete, ruleset writes, a bind, a takeover, an advance and an unbind, and a server expiry and reap, sent through the app with admin and mat tokens
+  over: a score, a duplicate press, an undo, an end, an extend, a reopen and a skip, a typed result and its correction, event create, patch, far, start, finish and delete, team edits, roster writes, match create, edit, reorder and delete, ruleset writes, a bind, a takeover, an advance and an unbind, a server expiry and reap, a propose and a confirm, a division create, edit and delete, a schedule apply, an athlete link and a dismiss, the smoothcomp standings, a certify and an uncertify, sent through the app with admin and mat tokens; and a score, a schedule apply, a link and a roster edit whose version bump fails after the audit row, each leaving no row
   via: every write records an audit row
-  because: recordAudit inserts one row inside the transaction its caller passes, and an undo row carries the match event it deleted because the match log no longer has it
+  because: recordAudit inserts one row inside the transaction its caller passes, so a write that rolls back takes its row with it, and an undo row carries the match event it deleted because the match log no longer has it; a draft swap and a draft reject write only the proposals table and record no row by decision
   crossing: mat -> store
   entrances: none
-  refuted: recordAudit returns before the insert -> the test every write records an audit row went red (2026-10-22)
+  refuted: the schedule apply records its audit row before its transaction instead of inside it -> the test every write records an audit row went red, 1 of 23 (2026-10-24)
   kinds: storage
   checklist: scoped-reads dismissed: this invariant writes rows and scopes no read
   checklist: encrypted-storage dismissed: an audit row holds names, scores and actions, and nothing in it is designated secret

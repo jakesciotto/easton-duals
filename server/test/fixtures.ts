@@ -104,3 +104,32 @@ export async function seedEvent(db: Db, opts: { matCount?: number; live?: boolea
     a1: kids[0].id, a2: kids[1].id, b1: kids[2].id, b2: kids[3].id, matchIds: matchRows.map(m => m.id),
   }
 }
+
+export type StagedWrite = { op: 'insert' | 'update'; table: unknown; payload: unknown }
+
+export function failingWrites(db: Db, fails: (write: StagedWrite) => boolean): Db {
+  const refused = (): unknown => new Proxy({}, {
+    get: (_, key) => key === 'then' ? undefined
+      : ['run', 'get', 'all'].includes(String(key)) ? () => Promise.reject(new Error('staged write failure'))
+        : () => refused(),
+  })
+  const wrap = (tx: Db): Db => new Proxy(tx, {
+    get(target, key) {
+      if (key === 'insert') return (table: unknown) => ({
+        values: (payload: unknown) => fails({ op: 'insert', table, payload }) ? refused() : target.insert(table as never).values(payload as never),
+      })
+      if (key === 'update') return (table: unknown) => ({
+        set: (payload: unknown) => fails({ op: 'update', table, payload }) ? refused() : target.update(table as never).set(payload as never),
+      })
+      const value = Reflect.get(target, key)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
+  return new Proxy(db, {
+    get(target, key) {
+      if (key === 'transaction') return (fn: (tx: Db) => Promise<unknown>) => target.transaction(tx => fn(wrap(tx as unknown as Db)))
+      const value = Reflect.get(target, key)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
+}

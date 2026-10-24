@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from 'drizzle-orm'
-import { freshDb, seedEvent } from './fixtures.js'
+import { freshDb, seedEvent, failingWrites } from './fixtures.js'
 import { appendMatchEvent, endMatch, extendClock, undoLastMatchEvent, loadEvents, loadMatch, bumpVersion, SeqConflict, MatchStateError } from '../src/match/events.js'
-import { events, mats } from '../src/db/schema.js'
+import { events, mats, matches } from '../src/db/schema.js'
 import { heartbeatMat, reapBound, BOUND_WINDOW_MS } from '../src/live/bound.js'
 
 const T = (s: number) => new Date(Date.parse('2026-08-27T18:00:00.000Z') + s * 1000).toISOString()
@@ -103,6 +103,17 @@ describe('match events are the source of truth and the caches follow in the same
     expect((await loadMatch(db, matchId)).extensionMs).toBe(120_000)
     expect((await undoLastMatchEvent(db, { matchId, lastSeq: 4 })).match.extensionMs).toBe(90_000)
     expect((await undoLastMatchEvent(db, { matchId, lastSeq: 3 })).match.extensionMs).toBe(0)
+  })
+
+  it('leaves no event row and no cache change when a write inside the transaction fails', async () => {
+    const { db, s, matchId } = await liveMatch()
+    await appendMatchEvent(db, { id: 'e1', matchId, type: 'score', athleteId: s.a1, actionKey: 'takedown', lastSeq: 0 })
+    const broken = failingWrites(db, w => w.op === 'update' && w.table === matches)
+    await expect(appendMatchEvent(broken, { id: 'e2', matchId, type: 'score', athleteId: s.a1, actionKey: 'mount', lastSeq: 1 })).rejects.toThrow('staged write failure')
+    await expect(endMatch(broken, { id: 'end1', matchId, lastSeq: 1 })).rejects.toThrow('staged write failure')
+    await expect(undoLastMatchEvent(broken, { matchId, lastSeq: 1 })).rejects.toThrow('staged write failure')
+    expect((await loadEvents(db, matchId)).map(e => e.id)).toEqual(['e1'])
+    expect(await loadMatch(db, matchId)).toMatchObject({ pointsA: 2, pointsB: 0, lastSeq: 1, status: 'live', winnerAthleteId: null })
   })
 })
 
