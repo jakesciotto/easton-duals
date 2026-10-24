@@ -59,7 +59,7 @@ A spec names an oracle by its describe title. An unnamed describe is kept until 
 - A table rebuild never drops a table that something references (Turso enforces foreign keys; the pragma is a no-op inside the migrator's transaction). Rehearse on a copy of production first.
 - A dialog whose content is the live state opts out of the snapshot hold with `data-poll-through`.
 - A grid column minimum must exceed the row's fixed tracks.
-- The client never clears the admin token on a 401.
+- The client never clears the admin token on a 401 `bad_pin`: certify, unlock and delete re-check the PIN and a mistyped PIN must not sign the desk out. Any other 401 means the session is gone, and clearing the token sends the desk to the PIN gate on purpose.
 - `vercel ls` prints to stderr; a piped command reports the last command's exit code.
 - Treat Jake as a competent engineer. Start with the non-obvious cause.
 
