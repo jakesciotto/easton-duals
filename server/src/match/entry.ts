@@ -14,8 +14,6 @@ export interface EntryInput {
   pointsB: number
   winnerAthleteId: number
   winType: WinType
-  // Only a correction keeps this: a first result has nothing to explain, and the payload
-  // it writes is an end rather than an edit_result.
   reason?: string
   at?: string
 }
@@ -27,13 +25,6 @@ export interface CreateEntryInput extends EntryInput {
   style?: Style
 }
 
-// `created` is set only by createEntry, and says whether the pair had no open match and
-// one was made for it. The audit row for an entry carries it.
-//
-// `wasDone` and `before` are the match as this write found it, read inside the same
-// transaction that then replaced it. The audit row is built from these rather than from a
-// read of its own, so what the row calls the write and what it prints as the old result
-// are the one state the write actually acted on.
 export interface EntryResult {
   duplicate: boolean
   match: MatchRow
@@ -51,16 +42,6 @@ async function replayed(db: DbLike, entryId: string): Promise<EntryResult | null
   return row ? { duplicate: true, match: await loadMatch(db, row.matchId) } : null
 }
 
-/**
- * The three states, from the outside in. Setup and live take anything: entries are how a
- * rehearsal is filled in. Done refuses a new result, because the board has announced the
- * final score and a stray keystroke at the desk must not invent a match after Finish, but
- * it takes a correction of a match that is already settled: fixing the record after the
- * afternoon is exactly what Finish and then certify are for. Certified refuses both, and
- * that is the lock.
- *
- * A replay of an entry taken before Finish still answers, because it changes nothing.
- */
 async function assertEventOpen(db: DbLike, eventId: number, correcting: boolean): Promise<void> {
   const ev = await db.select({ status: events.status }).from(events).where(eq(events.id, eventId)).get()
   if (!ev) throw new MatchStateError('event not found')
@@ -76,9 +57,6 @@ export async function enterResult(db: DbLike, matchId: number, input: EntryInput
     const wasDone = match.status === 'done'
     await assertEventOpen(tx, match.eventId, wasDone)
     if (input.winnerAthleteId !== match.athleteAId && input.winnerAthleteId !== match.athleteBId) throw new MatchStateError('athlete not in match')
-    // A correction that names the other kid changes who came out of this match, so every
-    // side it fed has to still be waiting. The check runs before anything is written, so a
-    // refusal leaves the result the board is showing exactly as it was.
     const winnerMoved = wasDone && input.winnerAthleteId !== match.winnerAthleteId
     if (winnerMoved) await assertDependentsPending(tx, matchId)
     const at = input.at ?? new Date().toISOString()
@@ -101,13 +79,9 @@ export async function enterResult(db: DbLike, matchId: number, input: EntryInput
     await tx.insert(matchEvents).values(rows).run()
 
     const updated = await recompute(tx, matchId)
-    // A first result hands the winner and the loser on. A correction only does so when it
-    // moved the winner: one that fixes the points alone leaves every side as it was.
     if (!wasDone || winnerMoved) await fillDependents(tx, updated, 'desk')
     if (updated.matId !== null) {
       const mat = await tx.select().from(mats).where(eq(mats.id, updated.matId)).get()
-      // Both entry routes attribute their own writes to 'desk', so the mat this result frees
-      // up advances under the same actor.
       if (mat && mat.currentMatchId === matchId) await advanceMat(tx, mat.id, 'desk')
     }
     await releaseIdleMats(tx, updated.eventId, 'desk')
@@ -115,15 +89,6 @@ export async function enterResult(db: DbLike, matchId: number, input: EntryInput
   })
 }
 
-// The desk types a result for a pair, not for a match id, so the pair has to resolve to
-// whatever match already holds it. A live one counts: in live mode the mats load the first
-// designed pair, and the desk is the fallback when a tablet fails. Preferring the match a
-// mat is currently showing means that entry ends the match on that mat rather than a
-// duplicate, and the mat then advances.
-//
-// A pair can hold an open match in each style at once. The requested style narrows the
-// pool first, so a desk entry for a pair with both a gi and a nogi match open lands on
-// the one asked for rather than whichever sorts first.
 async function findOpenMatch(db: DbLike, eventId: number, pair: { a: number; b: number }, style: Style): Promise<MatchRow | undefined> {
   const open = await db.select().from(matches)
     .where(and(
@@ -143,7 +108,6 @@ export async function createEntry(db: DbLike, eventId: number, input: CreateEntr
   return db.transaction(async tx => {
     const replay = await replayed(tx, input.entryId)
     if (replay) return replay
-    // A pair with no settled match is a new result, and Finish closed those.
     await assertEventOpen(tx, eventId, false)
     const pair = await resolvePair(tx, eventId, input.athleteAId, input.athleteBId)
     if (typeof pair === 'string') throw new MatchStateError(pair)

@@ -25,8 +25,6 @@ const matIdFromMatch = async (c: Context<Env>): Promise<number | null> => {
   return row?.matId ?? null
 }
 
-// These routes take either token, so the mat number is looked up once per write rather
-// than being carried in the token, which predates the audit log.
 async function actorFor(c: Context<Env>): Promise<AuditActor> {
   const auth = c.get('auth')
   return actorOf(auth, await matNumberOf(c.get('ctx').db, auth))
@@ -41,13 +39,10 @@ async function matchView(c: Context<Env>, match: MatchRow) {
   return toMatchView(match, new Map(kids.map(a => [a.id, a])), await latestEndedAt(db, match.id), nameFormFor(c.get('auth')), numberOf)
 }
 
-// Every caller bumps the version inside its own write transaction, so this only reads.
 export async function respond(c: Context<Env>, match: MatchRow) {
   return respondOptional(c, match.eventId, match)
 }
 
-// The same envelope for a write that can legitimately produce no match, which is what an
-// advance onto an empty queue does.
 export async function respondOptional(c: Context<Env>, eventId: number, match: MatchRow | null) {
   const { db } = c.get('ctx')
   const snap = await buildSnapshot(db, eventId, { nowMs: Date.now(), names: nameFormFor(c.get('auth')) })
@@ -55,9 +50,6 @@ export async function respondOptional(c: Context<Env>, eventId: number, match: M
   return c.json({ match: view, version: snap.version })
 }
 
-// Choke point for the three mat-scoring writes (events, undo, end): expiry runs at
-// write entry so a clock that ran out gets closed before the response reflects it.
-// Admin CRUD routes (reopen, skip, result) call respond() directly and skip this.
 async function respondToScoringEvent(c: Context<Env>, match: MatchRow) {
   await expireOverdue(c.get('ctx').db, match.eventId, Date.now())
   return respond(c, match)
@@ -82,15 +74,6 @@ scoringRoutes.post('/events/:eventId/mats/:matId/bind', validate('json', z.objec
     await recordFailure(ctx.db, 'bind', ip, Date.now())
     return errorJson(c, 401, 'bad_code', 'wrong mat code')
   }
-  // A mat token is a write credential, and in a desk event the desk is already typing the
-  // results, so a second writer would fight it over the same matches. The tablet refuses
-  // too, but that guard is advisory: a stale tab, a bookmarked link or a retried request
-  // reaches here without it. Checked after the code so an unauthenticated caller learns
-  // nothing about the event. Existing tokens keep working, because the desk path is the
-  // fallback for tablets that failed and cutting them off mid-afternoon helps nobody.
-  //
-  // A certified event is signed off, so there is nothing left for a tablet to score
-  // either. Both refusals sit here, after the code, for the same reason.
   await assertNotCertified(ctx.db, eventId)
   if (ev.mode === 'entry') {
     return errorJson(c, 409, 'desk_mode',
@@ -108,9 +91,6 @@ scoringRoutes.post('/events/:eventId/mats/:matId/bind', validate('json', z.objec
   })
 })
 
-// The mats advance themselves when a match ends, but a mat that is idle when a match is
-// added or moved onto it has nothing to trigger on, and neither does a mat created after
-// Start. This is the Live panel's Call the next match.
 scoringRoutes.post('/mats/:matId/advance', requireAdmin, async c => {
   const { db } = c.get('ctx')
   const matId = Number(c.req.param('matId'))
@@ -165,9 +145,6 @@ scoringRoutes.post('/matches/:matchId/events', requireMatOrAdmin(matIdFromMatch)
     const r = await db.transaction(async tx => {
       const appended = await appendMatchEvent(tx, { ...body, matchId })
       if (!appended.duplicate) {
-        // The points and the label are what the ruleset said at the moment of the press.
-        // The sheet reads them back rather than looking the action up again, so editing a
-        // ruleset after the match cannot rewrite a match that already happened.
         await recordAudit(tx, {
           eventId: appended.match.eventId, matchId, actor, action: body.type,
           detail: {
@@ -194,8 +171,6 @@ scoringRoutes.delete('/matches/:matchId/events/last', requireMatOrAdmin(matIdFro
   try {
     const match = await db.transaction(async tx => {
       const { match: undone, deleted } = await undoLastMatchEvent(tx, { matchId, lastSeq: c.req.valid('json').lastSeq })
-      // The deleted row is gone from the match log, so everything about it that a person
-      // would want to see afterwards has to live in this one detail.
       await recordAudit(tx, {
         eventId: undone.eventId, matchId, actor, action: 'undo',
         detail: {
@@ -216,8 +191,6 @@ scoringRoutes.delete('/matches/:matchId/events/last', requireMatOrAdmin(matIdFro
 
 scoringRoutes.post('/matches/:matchId/end', requireMatOrAdmin(matIdFromMatch), validate('json', z.object({
   id: clientEventId, lastSeq: z.number().int().min(0), winnerAthleteId: z.number().int().optional(),
-  // Only meaningful on a tie: a terminal or a points lead already carries its own type,
-  // and endMatch ignores this field in that case.
   winType: z.enum(['decision', 'walkover', 'dq']).optional(),
 })), async c => {
   const { db } = c.get('ctx')
@@ -225,10 +198,6 @@ scoringRoutes.post('/matches/:matchId/end', requireMatOrAdmin(matIdFromMatch), v
   const actor = await actorFor(c)
   await assertNotCertifiedVia(db, 'match', matchId)
   try {
-    // advanceMat sits outside the idempotency guard so a retry whose advance never landed
-    // still advances the mat. The bump is therefore unconditional: on a replay the advance
-    // is real visible state, and a version pinned to the duplicate flag would hide it from
-    // every poller. A spurious bump costs one snapshot rebuild.
     const r = await db.transaction(async tx => {
       const ended = await endMatch(tx, { ...c.req.valid('json'), matchId, actor })
       if (!ended.duplicate) {
@@ -238,8 +207,6 @@ scoringRoutes.post('/matches/:matchId/end', requireMatOrAdmin(matIdFromMatch), v
         })
       }
       if (ended.match.matId !== null) await advanceMat(tx, ended.match.matId, actor)
-      // The kids of this match are free again and its winner may have filled a bracket
-      // side, so a mat that had nothing runnable a moment ago can start something now.
       await releaseIdleMats(tx, ended.match.eventId, actor)
       await bumpVersion(tx, ended.match.eventId)
       return ended
@@ -251,10 +218,6 @@ scoringRoutes.post('/matches/:matchId/end', requireMatOrAdmin(matIdFromMatch), v
   }
 })
 
-// The clock is the only state a referee cannot correct after the fact, so a match that
-// ran out gets time added rather than a result nobody agrees with. Expiry runs first: a
-// clock past its length is still marked running until something sweeps it, and time can
-// only be added to a stopped clock.
 scoringRoutes.post('/matches/:matchId/clock/extend', requireMatOrAdmin(matIdFromMatch), validate('json', z.object({
   id: clientEventId,
   lastSeq: z.number().int().min(0),
@@ -296,8 +259,6 @@ scoringRoutes.post('/matches/:matchId/reopen', requireAdmin, async c => {
   }))
 })
 
-// Older clients send no body at all, so an absent one parses as an empty object and the
-// write keeps its server-minted event id.
 const optionalClientId = z.object({ id: clientEventId.optional() }).optional()
 
 async function clientIdOf(c: Context<Env>): Promise<{ id?: string } | Response> {

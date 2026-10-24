@@ -27,12 +27,6 @@ function validate(n: number, edges: WeightedEdge[]): void {
   }
 }
 
-/**
- * Maximum weight matching on a general graph (Edmonds blossom, Galil's O(n^3) form), ported from
- * Joris van Rantwijk's mwmatching.py without the maximum-cardinality option. Vertices are 0..n-1.
- * Returns mate[v] = partner or -1. Deterministic for the same edge order. Integer weights keep the
- * dual arithmetic exact; other weights are compared without tolerance, as in the reference.
- */
 export function maximumWeightMatching(n: number, edges: WeightedEdge[]): number[] {
   validate(n, edges)
   const nvertex = n

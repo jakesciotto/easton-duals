@@ -30,8 +30,6 @@ export function verifyToken(token: string, secret: string, nowMs = Date.now()): 
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as TokenPayload
     if (typeof payload.exp !== 'number' || payload.exp * 1000 < nowMs) return null
     if (payload.role !== 'admin' && payload.role !== 'mat') return null
-    // Tokens minted before mats carried an epoch predate any takeover, and every mat
-    // starts at epoch 0, so they keep working until a second tablet claims the mat.
     if (payload.role === 'mat' && typeof payload.epoch !== 'number') payload.epoch = 0
     return payload
   } catch {

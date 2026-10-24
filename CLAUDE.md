@@ -47,7 +47,7 @@ A spec names an oracle by its describe title. An unnamed describe is kept until 
 ## Environments
 
 - Production is one Vercel function on Turso at https://www.eastonduals.com. Every push builds a preview.
-- `npm run dev` uses a local file database (`data/dev.db`). `DUELS_DEV_REMOTE=1` points it at Turso; never do that with pending migration files in the tree.
+- `npm run dev` uses a local file database (`data/dev.db`). `DUALS_DEV_REMOTE=1` points it at Turso (the old spelling `DUELS_DEV_REMOTE` still works); never do that with pending migration files in the tree.
 - Turso is migrated on purpose with `npm run db:migrate` (`--to <tag>` for a release whose newest migration drops a column). Migration first, then deploy, always.
 - The LAN entry (`server/src/index.ts`) is the gym box; it migrates its own file database at boot.
 - Run `npm` under Node 22 (`/opt/homebrew/opt/node@22/bin`). npm 10 crashes resolving this tree; use npm 11 for a lock change and validate the lock with `npm ci` plus the gates.
@@ -61,6 +61,20 @@ A spec names an oracle by its describe title. An unnamed describe is kept until 
 - A grid column minimum must exceed the row's fixed tracks.
 - The client never clears the admin token on a 401 `bad_pin`: certify, unlock and delete re-check the PIN and a mistyped PIN must not sign the desk out. Any other 401 means the session is gone, and clearing the token sends the desk to the PIN gate on purpose.
 - `vercel ls` prints to stderr; a piped command reports the last command's exit code.
+- The fetch wrapper in `server/src/db/client.ts` rebuilds every libSQL request from primitives and retries a 401, because libsql intermittently drops the Authorization header on Vercel (Turso answers "empty JWT token"). Do not simplify it to pass Request objects through.
+- SQLite binds at most 32766 variables in one statement, so bulk inserts go in slices.
+- `server/src/roster/slug.ts` is a byte-for-byte copy of easton-leaderboard's `makeCompetitorId`; the ERP join depends on byte equality, so never change one without the other.
+- `TEAM_COLORS` keys are stored in `teams.color`; renaming one needs a data migration. `TEAM_COLOR_LABELS` is what people see.
+- The snapshot queue depth serves the deepest consumer (the board's one-mat view); a shallower cap starves a line the board reserved room for.
+- `lanIp` ranks a Tailscale address below every private LAN address, because an iPad on the gym wifi cannot reach it.
+- A test database is a unique temp file per `freshDb`, because libsql opens a fresh connection after each transaction and `:memory:` gives that connection an empty database.
+- `overflow-x: auto` makes `overflow-y` compute to `auto`, so a table wrapper nested in a caller's scroll box makes the sticky head stick to the inner container; fold the caller's scroll into Table's `wrapperClassName`.
+- tailwind-merge does not group the plain `.label` and t1, t2, t3 utility classes, so a consumer's className cannot override them; components spell those out or take a size prop.
+- iOS Safari zooms on focus of any control under 16px and never zooms back; never fix it with `user-scalable=no`.
+- Safari refuses `navigator.wakeLock.request()` and iOS refuses audio outside a user gesture; request both from the first tap, never from an effect.
+- A disabled button has `pointer-events: none`, so a reason in its own title is unreachable; put the title on the cell and the reason in text named by aria-describedby.
+- A closed base-ui popup stays in the portal with `data-closed`; a `[role=listbox]` query must exclude it.
+- No comments in code, at all, tests and SQL included. `scripts/design-lint.mjs` fails on any. A fact worth keeping lives in the component spec or here.
 - Treat Jake as a competent engineer. Start with the non-obvious cause.
 
 ## Coherence

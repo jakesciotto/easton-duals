@@ -1,6 +1,3 @@
-// Smoothcomp runs one host per promoter: smoothcomp.com, naga.smoothcomp.com,
-// grapplingindustries.smoothcomp.com. The origin travels with the event id, so every
-// later request is built from what the admin pasted here.
 const EVENT_PATH = /\/event\/(\d+)/
 
 export type ParsedSmoothcompUrl = { ok: true; origin: string; eventId: string } | { ok: false; message: string }

@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export interface TeamDraft {
-  /** Present once the team is a row on the server, absent while it is still a draft. */
   id?: number
   name: string
   color: TeamColor
@@ -26,30 +25,16 @@ const AT_LEAST = 'An event holds at least two teams.'
 
 const colorsOf = (teams: TeamDraft[], except = -1) => teams.filter((_, i) => i !== except).map(t => t.color)
 
-/**
- * 2.4's two guards, enforced from the tables rather than from memory, and against every
- * other team on the event rather than one opponent. A colour another team holds is not on
- * the grid at all; one that would read as another team's is offered at 40 percent with
- * `aria-disabled` and refused with the reason named, because a swatch that silently does
- * nothing teaches nothing.
- */
 function ColourGrid({ value, taken, label, quiet = false, onChange }: {
   value: TeamColor
   taken: TeamColor[]
   label: string
-  /** A refusal is still named; the standing note under the chosen colour is not printed. */
   quiet?: boolean
   onChange: (c: TeamColor) => void
 }) {
   const [refused, setRefused] = useState<TeamColor | null>(null)
   const offered = TEAM_COLOR_KEYS.filter(c => c === value || !taken.includes(c))
   const verdicts = new Map(offered.map(c => [c, colourVerdict(c, taken)]))
-  /**
-   * Eight hues spread 45 degrees apart cannot all clear a 60 degree floor, so past three
-   * or four teams every remaining colour reads as one already in use. A guard that leaves
-   * nothing to pick cannot refuse: it states the problem and lets the organizer keep the
-   * event, which is the same call spec 8 makes about a hand designed pair.
-   */
   const anyLegal = offered.some(c => verdicts.get(c)?.level !== 'block')
   const levelOf = (c: TeamColor): GuardLevel => {
     const level = verdicts.get(c)?.level ?? 'ok'
@@ -93,15 +78,8 @@ function Panel({ children }: { children: ReactNode }) {
   return <div className="grid content-start gap-3 bg-gray-1 p-4">{children}</div>
 }
 
-/**
- * The one team list, in the New event dialog where the rows are still a draft and in the
- * event settings where they are rows on the server. Both add through the same draft row,
- * so an organizer learns one control and the two screens cannot drift into two accounts
- * of what a team is.
- */
 export function TeamList({ teams, locked = false, pending = false, error = null, onChange, onAdd, onRemove }: {
   teams: TeamDraft[]
-  /** True where the rows already exist on the server: they are added and removed, not retyped. */
   locked?: boolean
   pending?: boolean
   error?: string | null
@@ -110,8 +88,6 @@ export function TeamList({ teams, locked = false, pending = false, error = null,
   onRemove: (index: number) => void
 }) {
   const [draft, setDraft] = useState<TeamDraft | null>(null)
-  // The draft row closes when the team it made lands, which is the same signal whether the
-  // caller appended it here or the server answered and the event refetched.
   const [count, setCount] = useState(teams.length)
   if (count !== teams.length) {
     setCount(teams.length)
@@ -180,8 +156,6 @@ export function TeamList({ teams, locked = false, pending = false, error = null,
                 autoFocus
                 value={draft.name}
                 onChange={e => setDraft({ ...draft, name: e.target.value })}
-                // This list sits inside the New event form, where a bare Enter would
-                // create the event and leave the team nobody added behind.
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submitDraft() } }}
               />
             </div>

@@ -18,16 +18,8 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { EmptyState } from '@/components/ui/empty-state'
 
-// 6.17b: a FLOOR of 4, not a fixed count, so mat 2 sits in the same grid cell whether
-// the event runs 2 mats or 4 -- a thumb learns a position and the position never moves.
-// events.ts accepts matCount up to 8, so an event with more than 4 mats grows the grid
-// past the floor rather than hiding mats 5 and up with no toggle and no explanation.
 const MIN_MAT_SLOTS = 4
 
-// 6.17b's guard. 900 CSS px is a device floor, not a breakpoint that should ever be
-// crossed by resizing a desktop window, so it is read from matchMedia rather than from
-// a CSS class -- the fallback copy below is different markup, not a hidden variant of
-// the same one.
 const GUARD_QUERY = '(min-width: 900px) and (orientation: landscape)'
 
 function isBindableViewport(): boolean {
@@ -60,13 +52,6 @@ function TooSmallToScore({ eventId }: { eventId: number | null }) {
   )
 }
 
-/**
- * G10: an entry mode event has no mat for this iPad to score, so the picker is not a control
- * that happens to be disabled, it is a control that does not apply. Rendering the heading,
- * four 104px mat toggles and a code field above a refusal invited a volunteer to work
- * through all of it before reading the sentence that says none of it does anything. The
- * board URL stays, because watching is the one thing this tablet can still do.
- */
 function DeskEvent({ eventId }: { eventId: number | null }) {
   return (
     <main className="grid min-h-dvh place-items-center p-6">
@@ -90,35 +75,17 @@ export default function MatPickPage() {
   const [matId, setMatId] = useState<number | null>(null)
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
-  // The read's own fault, kept apart from the bind's: they share one Alert, and a re-read
-  // that cleared `error` on its own schedule would wipe "wrong mat code" off the screen a
-  // few seconds after the volunteer read it.
   const [readError, setReadError] = useState<string | null>(null)
-  // 7.12: one banner, one fixed place, on every route. A refusal the server answered is
-  // not an outage, so only a read that never reached it takes the banner down, and the
-  // Alert keeps saying what the server said.
   const [reachable, setReachable] = useState(true)
   const [reads, setReads] = useState(0)
   const [busy, setBusy] = useState(false)
-  // Which mat the server has already refused for this device, and so the only one the
-  // takeover control may be offered for. A plain second press of Bind never carries it.
   const [contested, setContested] = useState<number | null>(null)
   const [binding, setBinding] = useState(() => getMatBinding())
   const [bindable, setBindable] = useState(isBindableViewport)
   const boundToCurrentEvent = binding !== null && (eventQueryId === null || binding.eventId === eventQueryId)
   const otherEventBinding = binding !== null && !boundToCurrentEvent ? binding : null
-  // An entry mode event has no scorer, so binding one hands a volunteer a tablet that sits
-  // on an empty mat all afternoon. Refuse rather than ask: the control is disabled and the
-  // reason is printed beside it.
-  // Optional chained rather than compared against null: a snapshot response the server
-  // truncates leaves this state undefined, which every other read here already tolerates.
   const entryMode = snapshot?.event.mode === 'entry'
 
-  // 6.17b / 7.15: the wake lock is acquired on the code-entry tap, which is the first
-  // user gesture on this route. Safari refuses navigator.wakeLock.request() outside a
-  // gesture, so this cannot move into an effect; requestedRef stops a refocus of the
-  // code field from firing a second request once one is already in flight or held.
-  // Audio needs the same gesture to unlock on iOS (4.1), so the same tap covers both.
   const wakeLock = useWakeLock()
   const requestedRef = useRef(false)
   const onCodeEntryTap = () => {
@@ -141,12 +108,6 @@ export default function MatPickPage() {
     return () => mq.removeEventListener('change', onChange)
   }, [])
 
-  // The refusal below is computed from the event, so it has to track the event. Read once
-  // when the page opened, it did not: a tablet left on this screen at 09:40 kept its Bind
-  // button disabled under a reason the organizer cleared at 10:00, and the only cure was a
-  // reload nobody knows to do. This screen carries no clock, so the data entry rate is
-  // fast enough, and re-reading through the same one-shot keeps the read's own sentence:
-  // a mistyped event number still says what the server said rather than "reconnecting".
   useEffect(() => {
     if (!eventId) return
     const timer = setInterval(() => setReads(n => n + 1), POLL_DATA_ENTRY_MS)
@@ -171,11 +132,6 @@ export default function MatPickPage() {
     return () => { ignore = true }
   }, [eventId, reads])
 
-  /**
-   * G08: taking a mat off another iPad is a decision, so it is a separate control with its
-   * own words rather than a second press of Bind. The server refuses the first attempt and
-   * says why; only the button that answers that refusal carries `takeOver`.
-   */
   const bind = async (e?: FormEvent, takeOver = false) => {
     e?.preventDefault()
     if (matId === null || !snapshot || entryMode) return
@@ -198,8 +154,6 @@ export default function MatPickPage() {
     }
   }
 
-  // Every exit from this route carries the banner, and it is fixed to the viewport, so
-  // one wrapper covers the device guard, the bound state, the desk refusal and the picker.
   const frame = (body: ReactNode) => <><Connecting connected={reachable} />{body}</>
 
   if (!bindable) return frame(<TooSmallToScore eventId={eventQueryId ?? snapshot?.event.id ?? null} />)
@@ -214,9 +168,6 @@ export default function MatPickPage() {
           </div>
           <div className="grid gap-2">
             <Link to={`/mat/${binding.matId}`} className={buttonVariants({ size: 'lg' })}>Open scorer</Link>
-            {/* The server hears about it too, so the mat reads free at once rather than after
-                the reap window, and a re-bind from this same iPad needs no takeover. The local
-                binding goes either way: a tablet that cannot reach the server is not scoring. */}
             <Button
               size="lg"
               variant="destructive"
@@ -239,8 +190,6 @@ export default function MatPickPage() {
     <main className="grid min-h-dvh place-items-center p-6">
       <div className="grid w-full max-w-md gap-4 rounded-lg border border-gray-7 bg-gray-2 p-4">
         <h1 className="t6 text-gray-12">Pick your mat</h1>
-        {/* G04: the tablet did not come back here on its own. Whoever is holding it needs
-            to know why it stopped scoring before they are asked to bind it again. */}
         {loss && (
           <Alert variant="attend">
             <AlertDescription>{loss}</AlertDescription>
@@ -288,9 +237,6 @@ export default function MatPickPage() {
                   onPressedChange={() => setMatId(m.id)}
                 >
                   <span>Mat {m.number}</span>
-                  {/* Section 8: a rule and a word, never a fill, and only on a mat that
-                      already has an iPad. An unbound mat is the normal state on this
-                      screen and carries no colour at all. */}
                   {m.bound && (
                     <span className="grid justify-items-center gap-1">
                       <span aria-hidden className="h-0.5 w-10 bg-attend" />

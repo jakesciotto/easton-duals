@@ -16,12 +16,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { PasteRosterDialog } from './PasteRosterDialog'
 
-/** A numeral inside a sentence carries the figure face; the words around it do not. */
 function Fig({ n }: { n: number }) {
   return <span className="fig">{n}</span>
 }
 
-/** One of the report's four exception lists, printed only when it has something in it. */
 function Listing({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="grid gap-1">
@@ -31,19 +29,6 @@ function Listing({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-/**
- * Spec 4.2. The organizer pastes the roster the event runs on, saves the Smoothcomp event
- * the same children competed at, and reads back who won.
- *
- * The two halves are one dialog because neither answers on its own: Smoothcomp knows the
- * matches and nothing about the teams, the roster knows the teams and nothing about the
- * matches, and a name that is in one and not the other is the whole failure mode. So the
- * roster count sits above the URL rather than a tab away, and the report names every seat
- * it could not place instead of quietly tallying the rest.
- *
- * Nothing here is stored: the report is read and closed, the board never sees it, and a
- * certified event can still be read because reading changes nothing.
- */
 export function SmoothcompDialog({ detail, certified, open, onOpenChange }: {
   detail: EventDetail
   certified: boolean
@@ -56,13 +41,8 @@ export function SmoothcompDialog({ detail, certified, open, onOpenChange }: {
   const [url, setUrl] = useState(stored)
   const [report, setReport] = useState<StandingsReport | null>(null)
   const save = useAdminMutation(eventId, (smoothcompUrl: string) => adminApi(`/api/events/${eventId}`, { method: 'PATCH', body: { smoothcompUrl } }))
-  // A plain mutation, not the admin one: the run writes an audit row and nothing the
-  // event detail carries, so refetching the event after it would be a request for a row
-  // that cannot have changed.
   const run = useMutation({ mutationFn: () => adminApi<StandingsReport>(`/api/events/${eventId}/smoothcomp/standings`, { method: 'POST' }) })
 
-  // Opening reads whatever URL the event carries. Closing puts everything else back, so
-  // the next press cannot open onto the last run's table with this run's URL above it.
   useEffect(() => {
     if (open) { setUrl(stored); return }
     setSub(null)
@@ -76,8 +56,6 @@ export function SmoothcompDialog({ detail, certified, open, onOpenChange }: {
   const canRun = onTeam > 0 && url.trim() !== '' && !save.isPending && !run.isPending
 
   const calculate = async () => {
-    // The table on screen belongs to the read that produced it. A second press that fails
-    // would otherwise leave it standing under an alert, as if it were this run's answer.
     setReport(null)
     if (url.trim() !== stored) {
       try { await save.mutateAsync(url.trim()) } catch { return }
@@ -176,9 +154,6 @@ export function SmoothcompDialog({ detail, certified, open, onOpenChange }: {
                         {team.athletes.map(a => (
                           <TableRow key={a.athleteId}>
                             <TableCell className="text-gray-12">{a.name}</TableCell>
-                            {/* A kid outside the scoring set is a state, not a blank: the
-                                attend colour is reserved for what needs a person, so an
-                                unmarked row recedes the way a missing roster cell does. */}
                             <TableCell className={a.scoring ? 'text-gray-11' : 'text-gray-10'}>{a.scoring ? 'yes' : '--'}</TableCell>
                             <TableCell numeric>{`${a.wins}-${a.losses}`}</TableCell>
                             <TableCell numeric>{a.teamPoints}</TableCell>
@@ -232,8 +207,6 @@ export function SmoothcompDialog({ detail, certified, open, onOpenChange }: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* The roster is pasted in the dialog that already does it, and this one steps out of
-          the way while that runs rather than nesting a second surface inside itself. */}
       <PasteRosterDialog detail={detail} open={sub === 'paste'} onOpenChange={o => { if (!o) setSub(null) }} />
     </>
   )

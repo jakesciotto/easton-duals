@@ -6,12 +6,6 @@ import { effectiveLengthMs } from './derive.js'
 import { expireClock, isBusy } from './expiry.js'
 import { recordAudit } from '../audit/log.js'
 
-// Live matches whose running clock has elapsed by nowMs still show 'live' in the
-// matches table until something checks. Snapshot polls and scoring writes both call
-// this before reading state, so an overdue clock is closed out lazily instead of by
-// a background timer. The expiry events and the version bump commit in one transaction,
-// so concurrent callers with the same nowMs write at most one event: the loser is
-// refused the write lock and drops out.
 export async function expireOverdue(db: Db, eventId: number, nowMs: number): Promise<void> {
   const running = await db.select().from(matches)
     .where(and(eq(matches.eventId, eventId), eq(matches.status, 'live'), isNotNull(matches.clockStartedAt)))
@@ -34,8 +28,6 @@ export async function expireOverdue(db: Db, eventId: number, nowMs: number): Pro
       if (expired) await bumpVersion(tx, eventId)
     })
   } catch (e) {
-    // A concurrent poller holds the write lock and is expiring the same clocks; its event
-    // and its bump commit together, so dropping this attempt loses nothing.
     if (isBusy(e)) return
     throw e
   }

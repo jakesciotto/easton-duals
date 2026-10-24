@@ -3,8 +3,6 @@ import { deriveKidsBelt } from './belts.js'
 import { ageFromAgeGroup, weightFromWeightClass } from './parse.js'
 import { makeCompetitorId } from './slug.js'
 
-// WellnessLiving reports the promotion as a datetime, "2024-05-14 06:00:00". The profile
-// prints the day, so the pool keeps the day.
 function promotionDate(raw: string | null): string | null {
   const m = /^(\d{4}-\d{2}-\d{2})/.exec(raw ?? '')
   return m ? m[1] : raw || null

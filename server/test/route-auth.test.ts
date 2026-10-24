@@ -3,9 +3,6 @@ import { createTestApp } from './helpers.js'
 
 const METHODS = new Set(['GET', 'POST', 'PATCH', 'PUT', 'DELETE'])
 
-// Every route the app registers under /api is either protected (401 with no token) or
-// listed here as open by design. The list is double entry: a route missing from it that
-// answers anything but 401 fails, and a listed route that starts answering 401 fails too.
 const OPEN_BY_DESIGN = new Set<string>([
   'GET /api/health',
   'GET /api/lan',

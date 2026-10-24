@@ -15,7 +15,7 @@ The one snapshot every screen polls, the public name form and the tablet binding
 - version bump: Every write bumps the event version in its transaction.
   over: two direct bumps from zero, a first and a second heartbeat, a reap after the window and a second reap, and two concurrent reaps of one stale mat
   via: every write bumps the event version in its transaction
-  because: every screen polls one snapshot keyed by the event version, so a write that does not bump it stays unseen, and a heartbeat or a reap that changes nothing does not bump it
+  because: every screen polls one snapshot keyed by the event version, so a write that does not bump it stays unseen, and a heartbeat or a reap that changes nothing does not bump it; the mat advance after an end bumps even on a replay, because it sits outside the idempotency guard so a retry whose advance never landed still advances the mat
   refuted: bumpVersion adds 0 instead of 1 -> the test every write bumps the event version in its transaction went red (2026-10-22)
   kinds: state
   checklist: revalidated-permission dismissed: a heartbeat or a reap carries no permission, and the reap runs as the system on a read
@@ -39,3 +39,9 @@ The one snapshot every screen polls, the public name form and the tablet binding
   checklist: encrypted-storage dismissed: the server stores the bind epoch, never the token
   checklist: key-rotation-compatibility dismissed: nothing encrypted is retained
   checklist: separation-of-duties dismissed: one tablet holds a mat and no approval policy exists
+
+A mat token is a write credential. In a desk-entry event the tablet is refused and a wrong
+mat code still answers as a wrong code, so a caller learns nothing about how the event is run;
+switching back to live mode hands out a token again. The client sends every snapshot request
+with a deadline, because a dropped access point otherwise leaves the await unsettled forever
+while the screen still reads connected.

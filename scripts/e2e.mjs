@@ -40,9 +40,6 @@ async function pollSnapshot(eventId, since = -1) {
   throw new Error('no new snapshot')
 }
 
-// The desk path, which shares no route with the live arm above: the mats stay idle all
-// afternoon, every result is typed, and a typed result for a designed pair has to land on
-// that pair's match rather than a second copy of it.
 async function entryArm(admin) {
   const created = await j('POST', '/api/events', {
     name: 'E2E Desk', date: '2026-10-04', matCount: 2, mode: 'entry',
@@ -105,8 +102,6 @@ async function entryArm(admin) {
   assert(final.teams[0].points === 8 && final.teams[1].points === 2, 'typed points on the board')
 }
 
-// The record after the afternoon: the organizer finishes, signs it off, and everything
-// stops moving until somebody unlocks it with a reason.
 async function certifyArm(admin) {
   const created = await j('POST', '/api/events', {
     name: 'E2E Certify', date: '2026-10-05', matCount: 1,
@@ -134,8 +129,6 @@ async function certifyArm(admin) {
   assert((await j('POST', `/api/matches/${matchId}/end`, { id: 'e2e-cert-end-1', lastSeq: 1 }, mat)).status === 200, 'certify arm match ended')
   assert((await j('PATCH', `/api/events/${eventId}`, { status: 'done' }, admin)).status === 200, 'certify arm event finished')
 
-  // Finish ends the afternoon, it does not close the record: the desk can still fix a
-  // result that settled. What it refuses is a new one.
   const correction = (id, reason) => j('POST', `/api/matches/${matchId}/entry`, {
     entryId: id, pointsA: 0, pointsB: 4, winnerAthleteId: athleteB, winType: 'points', reason,
   }, admin)
@@ -168,16 +161,12 @@ async function certifyArm(admin) {
   assert(afterUnlock.status === 200, 'an unlocked event takes the correction again')
   const reordered = await j('POST', `/api/events/${eventId}/matches/reorder`, { ids: [matchId] }, admin)
   assert(reordered.status === 200, 'the running order moves again once unlocked')
-  // The one thing an unlock does not reopen: the event is still finished, so nothing new
-  // gets scored into it.
   const fresh = await j('POST', `/api/events/${eventId}/entries`, {
     entryId: 'e2e-cert-entry-1', athleteAId: athleteA, athleteBId: athleteB, pointsA: 1, pointsB: 0, winnerAthleteId: athleteA, winType: 'points',
   }, admin)
   assert(fresh.status === 409 && fresh.body.error.message === 'event is done', 'a finished event still refuses a new result')
 
   const matchHistory = (await j('GET', `/api/matches/${matchId}/history`, undefined, admin)).body
-  // A confirmed proposal wrote this match into existence, and Start loaded it onto its one
-  // mat, which is the match_create and advance rows ahead of the mat's own score.
   assert(matchHistory.map(r => r.action).join() === 'match_create,advance,score,end,correction,correction', 'the match history lists the match_create, the advance, the mat, and both corrections')
   assert(matchHistory.map(r => r.actor).join() === 'admin,system,mat:1,mat:1,desk,desk', 'the match history names who did each')
   assert(matchHistory[4].detail.reason === 'the mat called the wrong colour', 'a correction carries its reason')
@@ -188,8 +177,6 @@ async function certifyArm(admin) {
   assert(signed[1].detail.reason === 'mat 1 score was called wrong', 'the unlock carries its reason')
 }
 
-// The one destructive path on the console. A setup event goes on a plain confirm; an
-// event with results asks for the PIN, the same way certify does.
 async function deleteArm(admin) {
   const setup = await j('POST', '/api/events', {
     name: 'E2E Delete', date: '2026-10-06', matCount: 1,
@@ -226,10 +213,6 @@ async function deleteArm(admin) {
   assert(withPin.status === 204, 'the right PIN deletes a live event')
 }
 
-// The paste and the bracket. One body makes a plain pair and a single elimination of
-// four, one press lays the whole day out over the mats, and the final fills itself from
-// the two semifinals rather than being typed in. Once it has run, the result it came from
-// is no longer anybody's to change.
 async function formatArm(admin) {
   const created = await j('POST', '/api/events', {
     name: 'E2E Formats', date: '2026-10-08', matCount: 2,
@@ -276,7 +259,6 @@ async function formatArm(admin) {
     entryId, pointsA: 0, pointsB: 0, winnerAthleteId, winType: 'submission',
   }, admin)
 
-  // The plain pair first, so the mat it is holding is free for the bracket behind it.
   const pair = numbered(rows, 1)
   assert((await enter(pair, pair.athleteAId, 'e2e-fmt-pair')).status === 200, 'the pasted pair took a desk result')
 

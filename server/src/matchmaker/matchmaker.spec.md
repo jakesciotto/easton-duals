@@ -17,7 +17,7 @@ The proposer that drafts cross-team pairs for the organizer to confirm, swap or 
 - lowest total cost: The proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5.
   over: a four kid pool where the closest pair first strands two kids, and twelve seeded random pools of five to nine kids checked against a brute force optimum
   via: the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5
-  because: proposeMatches runs the blossom maximum weight matching with each admitted pair weighing 21 minus its cost, so a pair forms only when it beats both kids sitting out at 10.5 each
+  because: proposeMatches runs the blossom maximum weight matching with each admitted pair weighing 21 minus its cost, so a pair forms only when it beats both kids sitting out at 10.5 each; the weights are integers scaled so no sum of tie-break terms outweighs a thousandth of cost, which keeps the matching exact and lets the same roster propose the same rows
   refuted: the edge weight is the cost instead of 21 minus the cost -> the test the proposer makes the pairing with the lowest total cost where a kid without a pair costs 10.5 went red (2026-10-22)
   kinds: none
 - hand-designed pairs: A hand-designed pair warns on class, age and rematch, and refuses only a same-team, an off-event and a teamless pair.

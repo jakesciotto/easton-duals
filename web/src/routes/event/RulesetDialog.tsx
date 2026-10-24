@@ -16,8 +16,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { clockToSec, maskClock } from './clock-input'
 
-// What a terminal records when a mat taps it. A walkover is not one of them: nobody taps
-// a button on a match that was never fought, and the desk records those in the ledger.
 const WIN_TYPE_ITEMS: { value: WinType; label: string }[] = [
   { value: 'submission', label: 'submission' },
   { value: 'points', label: 'points' },
@@ -30,11 +28,6 @@ const KEY_MAX = 20
 const slug = (label: string, fallback: string) =>
   label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, KEY_MAX) || fallback
 
-// Every match event stores the action or terminal KEY, and the log is append only, so a
-// key that has already shipped is the only handle a settled score has on the word it was
-// scored with. A row that came back from the server therefore keeps its key for life,
-// whatever happens to its label; only a row added in this session takes a key from what
-// was typed, and only that new key is disambiguated when it collides.
 function withKeys<T extends { key: string; label: string }>(rows: T[], fallback: string): T[] {
   const taken = new Set(rows.map(r => r.key).filter(k => k !== ''))
   return rows.map(row => {
@@ -51,9 +44,6 @@ function withKeys<T extends { key: string; label: string }>(rows: T[], fallback:
   })
 }
 
-// A penalty prints its sign in the same track as a positive value, which the fixed
-// slot makes free. The draft holds what is being typed so a lone "-" survives long
-// enough to be finished.
 function PointsCell({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null)
   return (
@@ -75,10 +65,6 @@ function PointsCell({ value, onChange }: { value: number; onChange: (n: number) 
   )
 }
 
-// A disabled button sets pointer-events to none, so a reason carried only in its own
-// title is unreachable by everyone. The reason is printed under the field it governs and
-// named here through aria-describedby; the title rides on the cell, which can still take
-// a pointer, as a second channel rather than the only one.
 function RemoveCell({ label, onClick, lockedBy, describedBy }: { label: string; onClick: () => void; lockedBy: string | null; describedBy?: string }) {
   return (
     <TableCell className="w-[var(--col-act)] px-0" title={lockedBy ?? undefined}>
@@ -117,15 +103,9 @@ export function RulesetDialog({ detail, open, onOpenChange, ruleset }: { detail:
     save.reset()
   }, [open, ruleset])
 
-  // Refuse rather than ask. Deleting a word this event has already scored with would
-  // rewrite settled history, which is the one thing an append-only log must never do.
-  // The event log is not on this client, so the lock is per ruleset rather than per
-  // action: once any match under it has been scored, its vocabulary is frozen.
   const scored = ruleset ? detail.matches.filter(m => m.rulesetId === ruleset.id && m.status !== 'pending').length : 0
   const lockedBy = scored > 0 ? `Used by ${scored} scored ${scored === 1 ? 'match' : 'matches'}` : null
 
-  // Every reason a remove control is refused has to be readable next to that control, so
-  // the sentence and the disabled state are computed from the same value.
   const actionLock = lockedBy ?? (actions.length === 1 ? 'A ruleset needs at least one action' : null)
   const terminalLock = lockedBy
 

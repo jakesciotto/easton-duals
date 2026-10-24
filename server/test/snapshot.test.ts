@@ -48,7 +48,6 @@ describe('buildSnapshot', () => {
     const db = await freshDb()
     const s = await seedEvent(db, { matCount: 1, live: true, thirdTeam: true })
     const flat = await buildSnapshot(db, s.eventId, opts)
-    // Nothing has been fought, so every team is tied at the top.
     expect(flat.leaderboard).toEqual([
       { teamId: s.teamA, rank: 1, teamPoints: 0, wins: 0, points: 0 },
       { teamId: s.teamB, rank: 1, teamPoints: 0, wins: 0, points: 0 },
@@ -63,8 +62,6 @@ describe('buildSnapshot', () => {
       { teamId: s.teamA, rank: 2, teamPoints: 0, wins: 0, points: 0 },
       { teamId: s.teamC, rank: 2, teamPoints: 0, wins: 0, points: 0 },
     ])
-    // The tie above pushes the third team to 3, not to 2. Team points rank first, then
-    // wins, then match points, then position.
     expect(rankTeams([
       { id: 10, teamPoints: 5, wins: 2, points: 9, position: 1 },
       { id: 11, teamPoints: 5, wins: 2, points: 9, position: 0 },
@@ -134,8 +131,6 @@ describe('buildSnapshot', () => {
     expect((await buildSnapshot(db, s.eventId, opts)).matches.find(m => m.id === first)?.endedAt).toBe(T(0))
 
     const reopened = await reopenMatch(db, first)
-    // Reopening does not add a new end event, so the last known end time still shows
-    // until the match is scored and ended again.
     expect((await buildSnapshot(db, s.eventId, opts)).matches.find(m => m.id === first)?.endedAt).toBe(T(0))
 
     await endMatch(db, { id: 'end2', matchId: first, lastSeq: reopened.lastSeq, winnerAthleteId: s.b1, at: T(120) })
@@ -144,4 +139,3 @@ describe('buildSnapshot', () => {
     expect(rematched?.result).toEqual({ winnerAthleteId: s.b1, winType: 'decision' })
   })
 })
-

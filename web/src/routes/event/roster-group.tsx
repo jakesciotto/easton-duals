@@ -10,32 +10,15 @@ import { cn } from '@/lib/utils'
 import { DROP_ATTR, dropZoneValue } from './roster-drag'
 import { ROSTER_COLS, RosterRow } from './roster-row'
 
-/**
- * The app shell's header is sticky at the same stacking level and is painted first, so
- * an in-page sticky that matches it wins on document order and covers the mark, the
- * wordmark and the event name. The subhead therefore sits one level below the header
- * (still above the row content, which is not positioned) and clears the header's own
- * height. That height is declared in `AdminShell`, which this file does not own, so it
- * is read as a custom property and falls back to the shell's measured height: 12px of
- * padding each side of a 32px control row, plus its 1px bottom rule.
- */
 const SUBHEAD_STICKY = 'sticky top-[var(--app-header-h,57px)] z-1'
 
 export interface ScoringState {
-  /** True when the cap is moot: the team fits inside it and every competitor scores. */
   everyone: boolean
-  /** Whether the team has its ten, so an unmarked competitor cannot join them. */
   full: boolean
   line: string
-  /** How many marks the team is still short, as the column says it. Null when it is not. */
   shortfall: string | null
 }
 
-/**
- * Spec 1. A team inside the cap scores with every competitor whatever the flags say, so
- * its column states that and offers no toggle; a larger one counts its marks and asks for
- * the rest. The pool is not a team and scores nothing, so it has no state at all.
- */
 export function scoringState(kids: AthleteRow[]): ScoringState {
   const marked = kids.filter(k => k.scoring).length
   if (kids.length <= SCORING_CAP) return { everyone: true, full: false, line: 'Every athlete scores', shortfall: null }
@@ -58,16 +41,13 @@ export function RosterGroup({
   selected: Set<number>
   faults: Set<number>
   inMatch: Set<number>
-  /** Spec C. Narrower than `inMatch`: only a match still pending or live blocks the move. */
   pendingOrLive: Set<number>
-  /** The pool read by uid, so a row can name the candidate its suggestion points at. */
   suggestions: Map<string, RosterCandidate>
   dragging: boolean
   over: boolean
   onSelect: (id: number, v: boolean, range: boolean) => void
   onPatch: (id: number, body: Partial<AthleteRow>) => void
   onRemove: (kid: AthleteRow) => void
-  /** Spec C. A team column's row control moves the kid to Unassigned rather than deleting them. */
   onUnassign: (kid: AthleteRow) => void
   onLink: (kid: AthleteRow) => void
   onConfirm: (kid: AthleteRow, wlUid: string) => void
@@ -79,14 +59,10 @@ export function RosterGroup({
   const scoring = teamId === null ? null : scoringState(kids)
   return (
     <section aria-label={title} className="min-w-0" {...{ [DROP_ATTR]: dropZoneValue(teamId) }}>
-      {/* The columns fall to one field on a narrow window, so the group head pins itself
-          as a subhead over the ground rather than sitting beside its neighbours. */}
       <div className={cn(SUBHEAD_STICKY, 'flex h-10 items-center gap-3 bg-background xl:static xl:h-8 xl:bg-transparent')}>
         {color
           ? <TeamPlate color={color} name={title} className="min-w-0" />
           : <span className="t2 font-medium! text-gray-11">{title}</span>}
-        {/* The state and the shortfall keep their width and the team name yields, because
-            a truncated name is still legible and a truncated count is a wrong number. */}
         {scoring && <span className="shrink-0 whitespace-nowrap t2 text-gray-10">{scoring.line}</span>}
         {scoring?.shortfall && <Badge variant="warn">{scoring.shortfall}</Badge>}
         <span className="ml-auto fig t2 text-gray-10">{kids.length}</span>
@@ -94,8 +70,6 @@ export function RosterGroup({
       <FieldSet
         className={cn(
           'font-mono t2',
-          // The card exists only while it is a target: no box at rest, a boundary
-          // the instant a drag begins, and a fill plus an inner ring where it lands.
           dragging && 'border-gray-7!',
           over && 'bg-gray-3 shadow-[inset_0_0_0_2px_var(--white)]',
         )}
@@ -106,8 +80,6 @@ export function RosterGroup({
           <span className="t1 font-sans">Competitor</span>
           <span className="tick t1 font-sans text-right">Age</span>
           <span className="tick t1 font-sans text-right">lb</span>
-          {/* The Scoring track is named only where a column designates: a team inside the cap
-              and the pool leave it blank, and the group head line says why. */}
           {scoring !== null && !scoring.everyone
             ? <span className="tick t1 font-sans text-center">Scoring</span>
             : <span />}
@@ -117,8 +89,6 @@ export function RosterGroup({
         </FieldHead>
         {kids.length === 0
           ? (
-            // 7.10: an empty state carries a verb on a real control. A sentence with
-            // nothing to press is a dead end on the one screen a new organizer starts on.
             <EmptyState
               message="No competitors here yet."
               action={onAdd && <Button size="sm" variant="ghost" onClick={onAdd}>Add a competitor</Button>}

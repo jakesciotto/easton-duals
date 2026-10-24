@@ -1,6 +1,3 @@
-// Builders for synthetic Smoothcomp payloads. Every name here is invented: never a real
-// child's name, never a payload captured from a live event.
-
 export function seat(o: { name: string; club?: string; won?: boolean; id?: number; player?: boolean }) {
   const [first, ...rest] = o.name.split(' ')
   return {

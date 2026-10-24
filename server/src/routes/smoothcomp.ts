@@ -14,8 +14,6 @@ const DEFAULTS = { concurrency: 4, deadlineMs: 240_000, backoffMs: 1000 }
 
 export const smoothcompRoutes = new Hono<Env>()
 
-// Reads Smoothcomp and writes only the audit row: the report is not stored, and the
-// version is not bumped.
 smoothcompRoutes.post('/events/:eventId/smoothcomp/standings', requireAdmin, async c => {
   const { db, smoothcomp } = c.get('ctx')
   const eventId = Number(c.req.param('eventId'))

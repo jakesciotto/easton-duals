@@ -8,19 +8,12 @@ import { MatchStateError, endedAtByMatch } from '../match/events.js'
 import { effectiveLengthMs } from '../match/derive.js'
 import type { TokenPayload } from '../auth/tokens.js'
 
-/**
- * Which name a view carries. The snapshot is public: the board reads it with no token
- * and the tablets with a mat token, and until 2026-09-08 it served every child's full
- * name to anyone with the URL. Only the console, which holds an admin token, gets the
- * full name. Public is the default so a new caller has to ask for the full form.
- */
 export type NameForm = 'full' | 'public'
 
 export function nameFormFor(auth: TokenPayload | null | undefined): NameForm {
   return auth?.role === 'admin' ? 'full' : 'public'
 }
 
-/** First name plus last initial: "Mateo R.". A single name stays as it is. */
 export function publicName(firstName: string, lastName: string): string {
   const first = firstName.trim()
   const initial = lastName.trim().charAt(0).toUpperCase()
@@ -38,16 +31,10 @@ export function eventContact(ev: Pick<EventRow, 'contactName' | 'contactPhone'>)
   return name && phone ? { name, phone } : null
 }
 
-/** "Winner of M7" or "Loser of M7", which is all an empty side has to print. */
 export function feedLabel(feed: Feed): string {
   return `${feed.take === 'winner' ? 'Winner' : 'Loser'} of M${feed.matchNumber}`
 }
 
-/**
- * `numberOf` turns a feeder's match id into the number every surface prints. A caller
- * that cannot reach the feeder answers null, and the side falls back to 'Unknown' rather
- * than naming a match nobody can look up.
- */
 export function toMatchView(
   m: MatchRow,
   athleteById: Map<number, AthleteRow>,
@@ -99,11 +86,6 @@ export function toMatchView(
   }
 }
 
-/**
- * Why the mat at the head of this queue is not running yet, or null when it is only
- * waiting to be called. An empty side comes first: a kid can be both waiting on a feeder
- * and busy elsewhere, and the feeder is the one that has to happen first.
- */
 function blockedReason(next: MatchView | undefined, liveOn: Map<number, number>): string | null {
   if (!next) return null
   const empty = [next.a, next.b].find(side => side.athleteId === null)
@@ -144,7 +126,6 @@ export async function buildSnapshot(db: DbLike, eventId: number, opts: SnapshotO
     add(v.a.teamId, 0, v.a.score)
     add(v.b.teamId, 0, v.b.score)
     if (v.status === 'done' && v.result) {
-      // Every win counts as a win; only a win by a scoring kid earns the team points.
       const winner = v.result.winnerAthleteId === v.a.athleteId ? v.a : v.b
       const scores = winner.teamId !== null && (scorers.get(winner.teamId)?.has(v.result.winnerAthleteId) ?? false)
       add(winner.teamId, 1, 0, scores ? teamPointsFor(v.result.winType) : 0)
@@ -159,8 +140,6 @@ export async function buildSnapshot(db: DbLike, eventId: number, opts: SnapshotO
       scoring: { marked: kids.filter(k => k.scoring).length, size: kids.length, everyone: kids.length <= SCORING_CAP },
     }
   })
-  // Which mat each kid on a mat right now is on, so an idle mat can say who it is waiting
-  // for by name rather than only that something is in the way.
   const matNumberById = new Map(matRows.map(m => [m.id, m.number]))
   const liveOn = new Map<number, number>()
   for (const v of views) {

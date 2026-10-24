@@ -13,19 +13,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-// 6.17a: matCode lives behind /api/events/:id/connect (requireAdmin), so this page shows
-// the PIN gate rather than falling back to /api/lan's url-only, unauthenticated shape.
 interface ConnectInfo { url: string; matCode: string }
 
 function Connect({ eventId }: { eventId: number }) {
   const [info, setInfo] = useState<ConnectInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // This page has no stream above it, so it polls its own: the mode is a fact about the
-  // event and the connect endpoint does not carry it. Without it this screen went on
-  // handing a code and a QR to a volunteer who walked to a mat, typed the code, and only
-  // there met a Bind button the app had already decided to refuse.
-  // 7.12: one banner, one fixed place, on every route. This page is the one a volunteer
-  // reads before they walk to a mat, so it has to say when the code on it is stale.
   const { snapshot, connected } = useSnapshot(eventId)
   const entryMode = modeOf(snapshot, 'live') === 'entry'
 
@@ -40,16 +32,9 @@ function Connect({ eventId }: { eventId: number }) {
   }, [eventId])
 
   const target = info ? `${info.url}/mat?event=${eventId}` : ''
-  // 6.4: the same footer line the scorer prints, in the same words, because this is the
-  // screen a volunteer reads before they walk to a mat and that one is what they hold when
-  // something goes wrong there.
   const contact = contactLine(snapshot?.event.contact ?? null)
   const footer = contact && <p className="t2 text-gray-10">{contact}</p>
 
-  // The same two sentences the Live tab prints, from the same constants: one screen must
-  // not describe the afternoon differently from the other. The code is fetched either way
-  // and simply never rendered here, because the mode is only known once the first
-  // snapshot lands and withholding the request would cost every healthy open a poll.
   if (entryMode) {
     return (
       <div className="grid max-w-sm justify-items-center gap-2 text-center">
@@ -71,8 +56,6 @@ function Connect({ eventId }: { eventId: number }) {
         <Skeleton className="h-[38px] w-72" />
       )}
       {info ? (
-        // The volunteer reads this and types it into the mat code field, whose wells are
-        // mono. Two faces for one four digit number invites a 1 read as an l.
         <span className="fig fig-4 t9 text-gray-12">{info.matCode}</span>
       ) : (
         <Skeleton className="h-14 w-44" />

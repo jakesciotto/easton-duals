@@ -15,34 +15,17 @@ export type DbLike = Db | Tx
 const DB_FILE = 'duals.db'
 const OLD_DB_FILE = 'duels.db'
 
-// An explicit DB_PATH wins over Turso: e2e and any local run that names its own file must
-// never be redirected to the remote database just because .env carries cloud credentials.
 export function dbUrlFromEnv(env: Record<string, string | undefined>): { url: string; authToken?: string } {
   if (env.DB_PATH) return { url: `file:${env.DB_PATH}` }
   if (env.TURSO_DATABASE_URL) return { url: env.TURSO_DATABASE_URL, authToken: env.TURSO_AUTH_TOKEN }
-  // The file was named duels.db before the rename; a box that already holds one keeps it.
   const dir = env.DATA_DIR ?? './data'
   const file = !fs.existsSync(path.join(dir, DB_FILE)) && fs.existsSync(path.join(dir, OLD_DB_FILE)) ? OLD_DB_FILE : DB_FILE
   return { url: `file:${path.join(dir, file)}` }
 }
 
-// Turso intermittently rejects correctly-authorized requests with 401 from serverless
-// egress (2026-08-31 incident: identical requests flap by instance while residential
-// egress always passes). A short retry at the fetch layer absorbs the flap; real auth
-// failures still surface after the retries. Remote URLs only; file databases skip it.
 const RETRY_401 = 2
-// The libsql client intermittently emits requests WITHOUT its configured Authorization
-// header (2026-08-31 incident: Turso answered "empty JWT token" while the env held the
-// token and the client was constructed with it). This wrapper enforces the header on
-// every outgoing request, logs when it has to inject, and retries 401s on a fresh
-// undici connection with properly cloned requests.
 function guardedFetch(token: string | undefined, base: typeof fetch): typeof fetch {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
-    // Decompose to primitives once and rebuild every attempt from scratch: passing Request
-    // objects through undici (clone, reconstruct) intermittently lost the authorization
-    // header under the serverless runtime (2026-08-31 incident, "empty JWT token" with the
-    // header present at this layer and redirected=false). Plain string-and-bytes inits
-    // leave nothing shared for the runtime to drop.
     const template = input instanceof Request ? input : new Request(input as RequestInfo, init)
     const urlStr = template.url
     const method = template.method
@@ -60,7 +43,7 @@ function guardedFetch(token: string | undefined, base: typeof fetch): typeof fet
       try {
         const body = (await res.clone().text()).slice(0, 160)
         console.warn(`libsql 401 from ${res.url} redirected=${res.redirected} body=${JSON.stringify(body)}`)
-      } catch { /* body unavailable */ }
+      } catch {}
       await new Promise(r => setTimeout(r, 150 * (i + 1)))
       console.warn(`libsql 401, retry ${i + 1} of ${RETRY_401} on a fresh connection`)
       try {
@@ -99,16 +82,6 @@ export async function initDb(db: Db, opts: { url: string }): Promise<void> {
 
 const defaultMigrations = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../drizzle')
 
-/**
- * Whether a server boot may apply pending migrations itself. Only a file database: that is
- * the gym box in LAN mode, where the process that owns the file is the one thing that can
- * migrate it. A remote database is shared with every other build that reads it, and a
- * migration that drops a column the deployed build still selects takes production down
- * the moment it lands. On 2026-09-08 a dev server in a checkout with the Turso credentials
- * in .env did exactly that, hours before the build that stopped reading the columns went
- * live. Remote targets are migrated on purpose, with `npm run db:migrate`, in the order
- * the release calls for.
- */
 export function autoMigrates(url: string): boolean {
   return url.startsWith('file:')
 }
@@ -119,8 +92,6 @@ export async function migrateDb(db: Db, folder = defaultMigrations): Promise<voi
 
 const SECRET_KEY = 'token_secret'
 
-// Two instances cold-starting at once both find no row, so the insert has to tolerate the
-// loser's primary key conflict and read back whichever secret actually landed.
 export async function getOrCreateSecret(db: DbLike): Promise<string> {
   const row = await db.select().from(schema.settings).where(eq(schema.settings.key, SECRET_KEY)).get()
   if (row) return row.value

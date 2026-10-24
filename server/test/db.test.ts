@@ -44,9 +44,6 @@ describe('createDb retry wiring', () => {
   })
 })
 
-// A boot may migrate the one database it owns, the file on the gym box. A remote database
-// is shared with the deployed build, and the dev server that dropped two columns on
-// production hours before the release that stopped reading them is why this exists.
 describe('a boot migrates only a file database', () => {
   it('migrates a file database at boot', () => {
     expect(autoMigrates('file:./data/duals.db')).toBe(true)

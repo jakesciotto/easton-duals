@@ -10,9 +10,6 @@ import { assertNotCertified, assertNotCertifiedVia } from '../audit/certify.js'
 import { createDivision, deleteDivision, loadDivision, loadDivisions, regenerateDivision } from '../formats/divisions.js'
 import { seedByRating } from '../formats/generate.js'
 
-// The member count is left to DIVISION_LIMITS rather than checked here, so a list of one
-// kid is refused with the format's own sentence instead of a schema message naming a
-// minimum the organizer never set.
 export const divisionSchema = z.object({
   name: z.string().trim().min(1).max(60),
   format: z.enum(['round_robin', 'single_elim', 'double_elim']),
@@ -53,8 +50,6 @@ divisionRoutes.patch('/divisions/:divisionId', requireAdmin, validate('json', pa
   return c.json(await regenerateDivision(db, divisionId, c.req.valid('json')))
 })
 
-// Seeding is the listed order, so ordering by rating is an edit to that order and nothing
-// else: the division generates again from the seeds it now has.
 divisionRoutes.post('/divisions/:divisionId/seed', requireAdmin, async c => {
   const { db } = c.get('ctx')
   const divisionId = Number(c.req.param('divisionId'))

@@ -1,11 +1,6 @@
 import { beltDotStyle, beltLabel } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-/**
- * The belt as a dot. The family colour fills it and a stripe belt carries the stripe at
- * its centre. The name rides the title and the accessible label, so colour never carries
- * the belt alone.
- */
 export function BeltDot({ belt, className }: { belt: string | null; className?: string }) {
   const label = beltLabel(belt)
   return (

@@ -8,8 +8,6 @@ import { createDb, initDb, migrateDb } from '../src/db/client.js'
 
 const DRIZZLE = path.join(import.meta.dirname, '../drizzle')
 
-// Match progression rebuilds `matches`, and `match_events` cascades from it. Migrated to
-// 0011 first so the rebuild runs against real scoring events rather than an empty table.
 async function dbAt0011() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-mig-'))
   const folder = path.join(dir, 'drizzle')
@@ -27,8 +25,6 @@ async function dbAt0011() {
   return { db, to0012, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) }
 }
 
-// Two events, so the numbers have to restart. Match 3 is deliberately out of id order at
-// order index 1, because the number is backfilled by order index and only then by id.
 async function seedAt0011(db: Awaited<ReturnType<typeof dbAt0011>>['db']) {
   await db.run(sql`insert into events (id, name, date, mat_count, mat_code, status, mode, same_gender, created_at)
     values (1, 'Fall Duals', '2026-10-03', 1, '0420', 'live', 'live', 0, '2026-10-03T15:00:00.000Z')`)

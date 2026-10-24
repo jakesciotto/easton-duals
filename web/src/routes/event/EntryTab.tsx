@@ -39,9 +39,6 @@ import { ResultDialog } from './ResultDialog'
 
 interface Form extends EntryDraft { touched: boolean }
 
-// The entryId is minted when the form opens and held through every attempt,
-// including retries and a reload, so the server dedupes a resend. Only a 2xx
-// mints the next one.
 const fresh = (): Form => ({
   v: DRAFT_VERSION, entryId: newEventId(), aId: '', bId: '', pointsA: '', pointsB: '',
   winner: null, winType: 'points', touched: false, editingId: null, reason: '',
@@ -52,77 +49,39 @@ const draftOf = (f: Form): EntryDraft => ({
   winner: f.winner, winType: f.winType, editingId: f.editingId, reason: f.reason,
 })
 
-// Gi first, because gi runs first: spec 5 places every gi match before any nogi one. It
-// is component state rather than a field of the stored draft: it describes the match the
-// desk is about to create, a correction never carries one, and a restored draft opens on
-// gi the way a fresh one does.
 const STYLE_OPTIONS: { value: Style; label: string }[] = [
   { value: 'gi', label: styleLabel('gi') },
   { value: 'nogi', label: styleLabel('nogi') },
 ]
 
-// The three outcomes a match played to its end can have. A walkover and a DQ are recorded
-// against a match that already exists, in the Result dialog, so they are not offered here:
-// the form's job is the result of a match that was fought.
 const WIN_TYPES: { value: WinType; label: string; hint: string }[] = [
   { value: 'points', label: 'On points', hint: 'P' },
   { value: 'submission', label: 'By submission', hint: 'S' },
   { value: 'decision', label: 'By decision', hint: 'D' },
 ]
-// Every win type the ledger can be asked to print, which is wider than what the form offers.
 const WIN_TYPE_WORD: Record<WinType, string> = {
   points: 'Points', submission: 'Submission', decision: 'Decision', walkover: 'Walkover', dq: 'DQ',
 }
 
-/**
- * G36 / 7.1's meta line, in the field order the whole product uses: belt word, age,
- * weight. Two kids with the same name were indistinguishable in a picker that showed a
- * name and nothing else, and picking the wrong one writes a win to the wrong child.
- *
- * A missing value keeps its place as `--` rather than closing the gap, because the fields
- * are read by position and a two field line and a three field line do not compare.
- */
 export function kidMeta(kid: AthleteRow): string {
   return [beltLabel(kid.belt), kid.age ?? '--', kid.weightLbs === null ? '--' : `${kid.weightLbs} lb`].join(' · ')
 }
 
-// G30. A 5 to 2 match won by the side with 2 recorded as won on points and nothing said
-// so. The pick is never refused: kids submit from behind all afternoon. It clears the
-// suggestion to the type that explains it and asks once.
 export const FEWER_POINTS_LINE = 'Won with fewer points: check the win type.'
 
-// G31. A forty match event put forty rows under the one control this screen exists for.
-// The Live queue is capped the same way and states its own remainder.
 export const PENDING_CAP = 8
 
 const WIN_TYPE_KEY: Record<string, WinType> = { p: 'points', s: 'submission', d: 'decision' }
 
-// One set of tracks for the head and every row: name, points, the win type as a
-// word, points, name, time, one action. Every numeric track is a Ledger Grid token
-// (2.7) so a score sits in the same register here as on Roster, Matches and Live.
-// Declared on a mono element or ch measures the sans zero and the head stops lining
-// up with its own digits.
-// The win type track is 6.6's 84px, not the 88px the points well happens to be: the two
-// numbers are unrelated and the row was reading a form field's height as a column width.
 const LEDGER_COLS =
   'grid grid-cols-[56px_minmax(0,1fr)_var(--col-num-s)_84px_var(--col-num-s)_minmax(0,1fr)_var(--col-num-l)_var(--col-act)_var(--col-act)] items-center gap-x-3 px-3 font-mono t2'
 
 interface NewEntryBody { entryId: string; athleteAId: number; athleteBId: number; style: Style; pointsA: number; pointsB: number; winnerAthleteId: number; winType: WinType }
 interface CorrectionBody { entryId: string; pointsA: number; pointsB: number; winnerAthleteId: number; winType: WinType; reason?: string }
 interface EntryResponse { match?: EntryMatch | null; version?: number }
-// The POST answers 201 for a write it made and 200 for one it deduped.
 interface EntryResult { res: EntryResponse; duplicate: boolean }
-// The result this attempt asked the server to store, to compare against the one it returns.
 interface Sent { winnerAthleteId: number; winType: WinType; scores: Record<number, number> }
 
-/**
- * One press of Save, frozen whole.
- *
- * 7.12's automatic retry re-sends the write the desk actually pressed Save on, so every
- * part of it -- the body, the held entryId, the pair the guard logs, the sentence the
- * fallback announces -- is captured at the press rather than read off a form the desk may
- * have moved on from.
- */
 interface Attempt {
   payload: Form
   key: string
@@ -131,22 +90,13 @@ interface Attempt {
   request: { kind: 'create'; body: NewEntryBody } | { kind: 'correct'; id: number; body: CorrectionBody }
 }
 
-// The standing of every team, on the tracks the Live tab's own table uses, so a score
-// sits in the same register wherever the console prints one.
 const STANDING_COLS = 'grid grid-cols-[var(--col-num-s)_minmax(0,1fr)_62.4px_60px] items-center gap-x-6'
 
 export function EntryTab({ detail }: { detail: EventDetail }) {
   const eventId = detail.event.id
-  // One fact, one source: the stream the event body already polls, with the stored value
-  // as the fallback until the first snapshot lands. The newest snapshot rather than a
-  // frozen one, because this is a statement about the room and not about a picture.
   const stream = useSnapshot(eventId).live
   const mode = modeOf(stream, detail.event.mode)
-  // The status the same way: Finish pressed on a second device reaches this form through
-  // the stream, and a form left up over a finished event is a form that still says Save.
   const eventStatus = statusOf(stream, detail.event.status)
-  // One read of storage for the three things a restored draft decides: the form, the
-  // banner over it, and the payload the id it carries is already bound to.
   const [restored] = useState(() => {
     const draft = restoreDraft(eventId)
     return {
@@ -166,37 +116,17 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
   const [savedAt, setSavedAt] = useState<Record<number, number>>({})
   const [cue, setCue] = useState<{ id: number; on: boolean } | null>(null)
   const [history, setHistory] = useState<HistorySource | null>(null)
-  // 6.9 takes the form away once the event is finished, and ruling A keeps corrections
-  // open until certification, so the ledger's Edit hands a settled result to the one
-  // correction dialog rather than to a form that is no longer on the screen.
   const [correcting, setCorrecting] = useState<MatchRow | null>(null)
-  // The style the next new entry creates its match in. See STYLE_OPTIONS above for why it
-  // is not a field of the stored draft.
   const [style, setStyle] = useState<Style>('gi')
-  // Whether the desk has answered G30's prompt by naming a win type since the pick.
   const [winTypeChecked, setWinTypeChecked] = useState(false)
-  // Seeded from the ledger so a reload does not reopen the same-pair window on a result
-  // the server already holds.
   const [seededPairs] = useState(() => seedPairLog(detail.matches))
   const pairLog = useRef<Record<string, number>>(seededPairs)
-  // What the current entryId has already been sent with, and whether the server said in so
-  // many words that it stored nothing. Both have to hold before a corrected retry may carry
-  // a new id: a restored draft carries no verdict, so it keeps the id it was stored with.
   const lastAttempt = useRef<{ shape: string; refused: boolean } | null>(
     restored.shape === null ? null : { shape: restored.shape, refused: false },
   )
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const watchdog = useRef<ReturnType<typeof setTimeout> | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
-  /**
-   * 7.12's automatic retry, and the press it is retrying.
-   *
-   * The arm is a rising number rather than a flag, and that is load bearing. A retry
-   * stops the clock and its answer starts it again, and React batches those two updates
-   * into one render whenever the answer lands in the same task: a boolean would go false
-   * and back to true, the effect would see no change, and the loop would stop after
-   * exactly one retry. A number that only ever rises always reads as a change.
-   */
   const [retryArm, setRetryArm] = useState<number | null>(null)
   const arms = useRef(0)
   const attempt = useRef<Attempt | null>(null)
@@ -212,8 +142,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
 
   const byId = useMemo(() => new Map(detail.athletes.map(a => [a.id, a])), [detail.athletes])
   const teamById = useMemo(() => new Map(detail.teams.map(t => [t.id, t])), [detail.teams])
-  // A match pairs two different teams out of up to eight, so neither field belongs to one
-  // of them: each offers everybody on a team the other field is not already holding.
   const placeable = useMemo(() => detail.athletes
     .filter(a => a.teamId !== null)
     .sort((x, y) => x.lastName.localeCompare(y.lastName) || x.firstName.localeCompare(y.firstName)), [detail.athletes])
@@ -228,27 +156,18 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
   const otherThan = (kid: AthleteRow | undefined) => placeable.filter(k => kid === undefined || k.teamId !== kid.teamId)
   const teamOf = (kid: AthleteRow | undefined) => (kid?.teamId === null || kid?.teamId === undefined ? undefined : teamById.get(kid.teamId))
 
-  // 7.12's deadline and 6.6's confirmation both belong to the POST. The refetch that
-  // repaints the ledger runs behind them, so a slow one can no longer spend the desk's
-  // eight seconds and report a saved result as a failure.
   const create = useAdminMutation(eventId, async (body: NewEntryBody): Promise<EntryResult> => {
     let status = 0
     const res = await adminApi<EntryResponse>(`/api/events/${eventId}/entries`, { method: 'POST', body, onStatus: s => { status = s } })
     return { res, duplicate: status === 200 }
   }, { awaitRefetch: false })
-  // A correction answers 200 either way, so a replay is read off the result it returns
-  // rather than off the status.
   const correct = useAdminMutation(eventId, async (v: { id: number; body: CorrectionBody }): Promise<EntryResult> =>
     ({ res: await adminApi<EntryResponse>(`/api/matches/${v.id}/entry`, { method: 'POST', body: v.body }), duplicate: false }), { awaitRefetch: false })
   const start = useAdminMutation<void>(eventId, () => adminApi(`/api/events/${eventId}`, { method: 'PATCH', body: { status: 'live' } }))
   const finish = useAdminMutation<void>(eventId, () => adminApi(`/api/events/${eventId}`, { method: 'PATCH', body: { status: 'done' } }))
 
-  // Every terminal outcome re-enables Save, the watchdog included, because a POST
-  // that never answers must not leave a reload as the only way out.
   const inFlight = (create.isPending || correct.isPending) && !timedOut
   const canSave = !!a && !!b && winner !== null
-  // Derived, not remembered, so fixing the points takes the line away without a second
-  // press. It stands until the desk names a win type, which is the answer it asks for.
   const wonWithFewerPoints = !!a && !!b && winner !== null && !winTypeChecked
     && (winner === 'a' ? pA < pB : pB < pA)
   const standings = useMemo(() => {
@@ -260,17 +179,8 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     })))
   }, [detail.matches, detail.athletes, detail.teams])
 
-  // A points edit alone never resets touched: auto-derivation from points only
-  // drives the suggestion until the organizer picks a winner or a win type (or
-  // loads a match to correct); after that the pick sticks until Save or Cancel edit.
-  //
-  // Every edit also stops 7.12's automatic retry. The retry re-sends the press it was
-  // armed on, and once the desk has changed the form that press is no longer the result
-  // they mean: the next Save is the one that says so.
   const edit = (update: (s: Form) => Form) => { stopRetry(); setF(update) }
   const setPoints = (key: 'pointsA' | 'pointsB') => (v: string) => edit(s => ({ ...s, [key]: v.replace(/\D/g, '').slice(0, 2) }))
-  // Picking a competitor on the other field's team would leave a pairing the server
-  // refuses, so the other field lets go rather than sitting there illegal.
   const pickKid = (key: 'aId' | 'bId') => (v: string) => {
     setPairPrompt(null)
     const other = key === 'aId' ? b : a
@@ -278,8 +188,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     const clash = next !== undefined && other !== undefined && next.teamId === other.teamId
     edit(s => ({ ...s, [key]: v, ...(clash ? { [key === 'aId' ? 'bId' : 'aId']: '' } : {}) }))
   }
-  // A winner with fewer points cannot have won on points, so the pick takes the win type
-  // with it rather than leaving the derived "Points" standing over a result it contradicts.
   const trails = (w: 'a' | 'b') => (w === 'a' ? pA < pB : pB < pA)
   const pickWinner = (w: 'a' | 'b') => {
     setWinTypeChecked(false)
@@ -296,8 +204,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     edit(s => ({ ...s, winner, winType: t, touched: true }))
   }
 
-  // The save's own focus, announced to 4.4's gate so the refetch it triggered is not
-  // held behind it. The grant ends the moment the operator touches the field.
   const focusFirstField = () => focusWithoutEngaging(formRef.current?.querySelector<HTMLElement>('#entry-a-competitor'))
   const focusPoints = () => {
     const well = formRef.current?.querySelector<HTMLInputElement>('#entry-a-points')
@@ -310,9 +216,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     watchdog.current = null
   }
 
-  // Leaving a correction, by saving it or by cancelling it, hands the desk back the
-  // unsent new entry that correction interrupted, banner and all. The two drafts
-  // live in separate slots, so the one that was never sent is still there to restore.
   const resume = (editingId: number | null) => {
     stopRetry()
     setWinTypeChecked(false)
@@ -335,8 +238,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     clearDraft(eventId, payload.editingId)
     pairLog.current[key] = Date.now()
     const outcome = storedOutcome(out?.res.match)
-    // A replay carries the result the server already had, which is the one the desk needs
-    // to read: it is not what was just typed, and only the ledger can change it now.
     const replayed = out?.duplicate === true || (outcome !== null && !outcomeMatches(outcome, sent))
     const id = out?.res.match?.id
     if (typeof id === 'number') {
@@ -359,20 +260,11 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     saveDraft(eventId, draftOf(a.payload))
     lastAttempt.current = { shape: entryShape(draftOf(a.payload)), refused: serverRefused(error) }
     setFailure(saveErrorCopy(error))
-    // Only the unreachable server and the watchdog re-arm the clock. Every refusal the
-    // server answered stops it, because a retry would only ask for the same refusal.
     attempt.current = a
     if (retriesItself(error)) armRetry()
     else stopRetry()
   }
 
-  /**
-   * One dispatch for the first press and for every automatic retry.
-   *
-   * The clock is stopped here and restarted by the answer rather than run free, so a
-   * retry can never overlap the attempt before it: the watchdog gives an attempt eight
-   * seconds and the interval is five.
-   */
   const send = (a: Attempt) => {
     setDupe(null)
     setTimedOut(false)
@@ -411,17 +303,10 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     const winnerAthleteId = winner === 'a' ? a.id : b.id
     const won = winner === 'a' ? a : b
     const lost = winner === 'a' ? b : a
-    // The fallback only. The confirmation is read off the response wherever the response
-    // carries a result, because that is what is on file.
     const typed = `Saved. ${athleteName(won)} beat ${athleteName(lost)} ${winTypeLabel(winType)}, ${pA} to ${pB}.`
     const sent: Sent = { winnerAthleteId, winType, scores: { [a.id]: pA, [b.id]: pB } }
     const reason = f.reason.trim()
 
-    // 7.12 holds one id through a retry so a resend is deduped. A retry whose payload the
-    // operator has corrected is a different write, but only a failure the server refused
-    // outright proves the first write is not on file: after a timeout or a dropped
-    // connection a new id would insert a second done match and count the team's win twice,
-    // so the id is kept and the resend comes back as the duplicate it is.
     const shape = entryShape(draftOf({ ...f, winner, winType }))
     const prior = lastAttempt.current
     const entryId = prior !== null && prior.refused && prior.shape !== shape ? newEventId() : f.entryId
@@ -432,22 +317,14 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     send({
       payload, key, typed, sent,
       request: f.editingId !== null
-        // Absent rather than empty: the server reads a blank as no reason at all, and
-        // sending one would write an empty string into the record.
         ? { kind: 'correct', id: f.editingId, body: { entryId, pointsA: pA, pointsB: pB, winnerAthleteId, winType, ...(reason === '' ? {} : { reason }) } }
         : { kind: 'create', body: { entryId, athleteAId: a.id, athleteBId: b.id, style, pointsA: pA, pointsB: pB, winnerAthleteId, winType } },
     })
   }
 
-  // Single keys on top of the tab order. Letters are read even inside a points
-  // well, which takes digits only, so the operator never has to leave the well
-  // to name a winner.
   const onKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return
     const el = e.target as HTMLElement
-    // The Select owns its own typeahead, and a free text field owns every letter typed
-    // into it: the win type keys would otherwise eat the s, p, d, a and b out of a
-    // correction's reason as it was written.
     if (el.closest('[data-slot="select-trigger"], [data-slot="select-content"], [data-free-text]')) return
     const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
     if (e.key === 'Enter' && typing) { e.preventDefault(); submit(); return }
@@ -470,18 +347,9 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     }
   }
 
-  // The banner goes while the correction is on screen because it describes the other
-  // entry, not this one. The entry itself stays in its own slot and comes back with
-  // its banner the moment the correction is saved or cancelled.
   const load = (m: MatchRow) => {
-    // R5: switching straight from one correction to another, without pressing
-    // Cancel edit, must not strand the outgoing one. Clear its slot the same
-    // way cancelEdit does, or a failed save on it survives in storage forever
-    // and later restores wearing a banner that looks like an unsent new entry.
     if (f.editingId !== null && f.editingId !== m.id) clearDraft(eventId, f.editingId)
     stopRetry()
-    // The win type on a stored result has already been decided, so a correction opens
-    // without G30's prompt over a submission somebody recorded on purpose.
     setWinTypeChecked(true)
     setF({
       v: DRAFT_VERSION,
@@ -497,9 +365,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     lastAttempt.current = null
     focusPoints()
   }
-  // The other door out of a correction, and it strands the same way load did:
-  // leaving a correction for a fresh entry must close the correction's slot, or a
-  // failed save on it survives and later restores as an entry nobody typed.
   const use = (m: MatchRow) => {
     if (f.editingId !== null) clearDraft(eventId, f.editingId)
     stopRetry()
@@ -511,10 +376,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     lastAttempt.current = null
     focusPoints()
   }
-  // Cancelling an edit drops that correction's own draft: a correction sets one
-  // match's result rather than creating a win, so re-sending it under a new id
-  // cannot double anything, and a kept draft would reappear on the next load as
-  // an entry nobody meant to make. It never touches the new-entry slot.
   const cancelEdit = () => {
     clearDraft(eventId, f.editingId)
     setPairPrompt(null)
@@ -522,8 +383,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     resume(f.editingId)
   }
 
-  // Instant on, released over 600ms, exactly once. The release waits a beat so
-  // the row that just landed paints the highlight before it starts to fade.
   useEffect(() => {
     if (!cue?.on) return
     const id = cue.id
@@ -534,15 +393,10 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
 
   const done = useMemo(() => sortDoneMatches(detail.matches.filter(m => m.status === 'done')), [detail.matches])
   const shown = done.slice(0, LEDGER_LIMIT)
-  // The Matches tab's own lines, so the position and the mat printed here are the ones
-  // the desk will read when the remainder sends them there. Deriving them separately
-  // gave two screens two numbering schemes for one running order.
   const pending = useMemo(() => matchLines(detail, stream).filter(l => l.status === 'pending'), [detail, stream])
   const shownPending = pending.slice(0, PENDING_CAP)
   const pendingRest = pending.length - shownPending.length
   const name = (id: number | null) => { const k = id === null ? undefined : byId.get(id); return k ? athleteName(k) : 'Unknown' }
-  // A bracket side with nobody in it yet names the match it waits on, so a pending pair
-  // the desk cannot type a result for still says why.
   const numberOf = (matchId: number) => detail.matches.find(x => x.id === matchId)?.number ?? null
   const sideName = (row: MatchRow, side: 'a' | 'b') => {
     if ((side === 'a' ? row.athleteAId : row.athleteBId) !== null) return name(side === 'a' ? row.athleteAId : row.athleteBId)
@@ -551,12 +405,8 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
   }
   const bothFilled = (row: MatchRow) => row.athleteAId !== null && row.athleteBId !== null
   const matNumberOf = (m: MatchRow) => detail.mats.find(mat => mat.id === m.matId)?.number ?? null
-  // Read off the competitor rather than off the column, because the plate is a colour and
-  // a wrong one is worse than none: nothing guarantees athlete A is on the first team.
   const teamOfAthlete = (id: number | null) => teamOf(id === null ? undefined : byId.get(id))
   const startError = start.error
-  // 6.9: a finished event stops taking results, so the form and every path back into it
-  // go rather than sit there disabled. Nothing left on the screen says it can be scored.
   const finished = isFinished(eventStatus)
   const certified = eventStatus === 'certified'
   const closeFinish = () => { setFinishOpen(false); finish.reset() }
@@ -572,8 +422,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
     <div className="grid gap-6">
       <p aria-live="polite" className="sr-only">{announce}</p>
 
-      {/* Spec 6: every team, in leaderboard order. One composition whatever the count,
-          so a three team event is not a different screen from a two team one. */}
       <section aria-label="Running team score" className="grid gap-2 rounded-lg bg-gray-1 px-6 py-4">
         <div className={cn(STANDING_COLS, 'h-6')}>
           <span className="sr-only">Rank</span>
@@ -623,10 +471,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
               {mode === 'live' && <p className="t2 text-gray-11">{MAT_NOTE}</p>}
             </div>
 
-            {/* A correction sets a stored result and never creates a match, so the style
-                belongs to the new entry alone. It sits ahead of the pair rather than inside
-                it: the desk sets it once at the top of the gi block and leaves it, and
-                9.2's eight step run below has to stay in the order it names. */}
             {f.editingId === null && (
               <div className="mb-4 grid gap-2">
                 <span className="t2 text-gray-10">Style</span>
@@ -634,14 +478,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
               </div>
             )}
 
-            {/*
-              One flat grid, not two nested per-team grids: spec 9.2 fixes the tab
-              order (competitor A, competitor B, points A, points B, winner A,
-              winner B, win type, save), so every field is placed here via explicit
-              grid-column and grid-row, and DOM order matches the required tab
-              order while the column-start/row-start placement recreates the
-              two-column look.
-            */}
             <div className="grid grid-cols-1 items-end gap-x-4 gap-y-3 sm:grid-cols-[1fr_auto_1fr]">
               <KidField
                 id="entry-a-competitor" label="First competitor" kids={otherThan(b)} teamOf={teamOf}
@@ -677,11 +513,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
               ))}
             </div>
 
-            {/* The inline correction is a change to a stored result, so it takes the same
-                optional reason the result dialog takes, in the same words and with the
-                same counter. Optional on purpose: a correction made in the heat of the
-                afternoon should not stall on a sentence, and the trail already records
-                who changed what and when. */}
             {f.editingId !== null && (
               <div className="mt-4 grid gap-1.5">
                 <Label htmlFor="entry-reason">
@@ -700,8 +531,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
             )}
 
             {winner === null && a && b && <p className="mt-3 t2 text-gray-11">Scores are tied. Pick the winner.</p>}
-            {/* Not amber: kids submit from behind all afternoon, and section 8 keeps
-                --attend for a state nothing is currently doing anything about. */}
             {wonWithFewerPoints && <p className="mt-3 t2 text-gray-11">{FEWER_POINTS_LINE}</p>}
 
             {pairPrompt !== null && (
@@ -738,23 +567,16 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
               <List>
                 {shownPending.map(line => (
                   <ListRow key={line.row.id} className="flex items-center gap-3">
-                    {/* The match's own number, which is what the Matches tab, the board
-                        and the scorer all print for the same row. */}
                     <Chip size="t1" className="shrink-0">M<span className="fig">{line.row.number}</span></Chip>
                     <span className="min-w-0 flex-1 truncate t3">{sideName(line.row, 'a')} vs {sideName(line.row, 'b')}</span>
                     <span className="shrink-0 t2 text-gray-10">
                       {line.matNumber === null ? 'No mat' : <>Mat <span className="fig">{line.matNumber}</span></>}
                     </span>
                     {line.row.why && <span className="t2 text-gray-10">{line.row.why}</span>}
-                    {/* Spec 9: a bracket match takes a desk result once both sides are
-                        filled, so a pair that is still waiting on a feeder offers nothing
-                        to type against. */}
                     <Button size="sm" variant="secondary" disabled={!bothFilled(line.row)} onClick={() => use(line.row)}>Use</Button>
                   </ListRow>
                 ))}
               </List>
-              {/* The remainder still states the depth, at a bounded height, and names the
-                  screen that holds the rest rather than leaving the desk to find it. */}
               {pendingRest > 0 && (
                 <p className="t2 text-gray-10">and <span className="fig">{pendingRest}</span> more on the Matches tab</p>
               )}
@@ -773,8 +595,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
             </span>
           </div>
           <div className={cn(LEDGER_COLS, 'h-8 bg-gray-1')}>
-            {/* No column belongs to a team any more, so each side is headed by what it
-                holds and the row's own plates say which team that competitor is on. */}
             <span className="font-sans t1 text-gray-10 uppercase">Match</span>
             <span className="truncate font-sans t1 text-gray-10 uppercase">Competitor</span>
             <span className="tick text-right font-sans t1 text-gray-10 uppercase">Pts</span>
@@ -826,10 +646,6 @@ export function EntryTab({ detail }: { detail: EventDetail }) {
   )
 }
 
-// 7.5: the whole numeral crossfades, 100ms, and never moves. The resting colour is the
-// leading or trailing figure token, which is the only thing separating the numbers from
-// each other. It sits at t5 rather than t7 because the header now carries one per team,
-// which is up to eight of them.
 function Figure({ value, lead }: { value: number; lead: boolean }) {
   const [shown, setShown] = useState(value)
   const [fading, setFading] = useState(false)
@@ -853,14 +669,6 @@ function Figure({ value, lead }: { value: number; lead: boolean }) {
 }
 
 function Hint({ children, tone = 'on-dark' }: { children: ReactNode; tone?: 'on-dark' | 'on-white' }) {
-  // aria-hidden because the accessible name stays the verb; the key itself is
-  // published to assistive technology as aria-keyshortcuts on the control.
-  //
-  // 6.6 requires --gray-10 for a shortcut hint because it is text a person reads,
-  // and the ramp is authored for dark surfaces, so on the primary button's white
-  // fill --gray-10 is 3.00:1 and --gray-9 is 3.96:1, both under the 4.5:1 floor at
-  // 13px. The on-white tone takes the same rung of the ramp measured the other way:
-  // --gray-7 is 8.9:1 on white, and it is never a line here.
   return <span aria-hidden className={cn('font-mono t2', tone === 'on-white' ? 'text-gray-7' : 'text-gray-10')}>{children}</span>
 }
 
@@ -874,8 +682,6 @@ function KidField({ id, label, kids, teamOf, value, onChange, align = 'left', cl
   align?: 'left' | 'right'
   className?: string
 }) {
-  // `items` carries the plain name, so the closed trigger reads as one name and the meta
-  // line lives where it is needed, which is the moment two of them are on screen at once.
   const items = kids.map(k => ({ value: String(k.id), label: athleteName(k) }))
   return (
     <div className={cn('grid gap-1.5', className)}>
@@ -901,15 +707,6 @@ function KidField({ id, label, kids, teamOf, value, onChange, align = 'left', cl
   )
 }
 
-// The well is one of the app's signature objects: 88px, black fill, radius 0
-// because inner = max(0, 8 - 16) = 0 inside a padded field, one t8 numeral in a
-// two character slot so 9 and 12 occupy the same box. The numeral is --gray-12,
-// not --white: 2.1 gives white to text at 24px and below, and t8 is 44px, where
-// pure white halates on an emissive panel.
-//
-// The digit key only ever fills this side, so only this side carries the hint. A
-// digit typed while focus is in the other well is the browser's own typing, not
-// the shortcut, and needs no hint to explain it.
 function PointsField({ id, label, value, onChange, digitKey = false, align = 'left', className }: {
   id: string
   label: string
@@ -944,7 +741,6 @@ function PointsField({ id, label, value, onChange, digitKey = false, align = 'le
 
 function WinnerToggle({ kid, empty, hint, pressed, onPress, className }: {
   kid: AthleteRow | undefined
-  /** What the control says while its slot is still empty. */
   empty: string
   hint: string
   pressed: boolean
@@ -965,24 +761,16 @@ function WinnerToggle({ kid, empty, hint, pressed, onPress, className }: {
   )
 }
 
-// The paper sheet's row: the winner carries its own mark on whichever side it
-// falls, the win type is a word, and the loser is --gray-10 at 400 and never
-// red, because red means delete in this app.
 function LedgerRow({ match, nameA, nameB, teamOfA, teamOfB, at, cued, cueing, onEdit, onHistory }: {
   match: MatchRow
   nameA: string
   nameB: string
-  /** 6.6: plate, name, score, mark, win type, score, name, plate. The head's two codes
-      say which column is whose; the row's plates say which team each competitor is on,
-      which is the fact a desk scanning two hundred rows is actually looking for. */
   teamOfA: TeamRow | undefined
   teamOfB: TeamRow | undefined
   at: Date | null
   cued: boolean
   cueing: boolean
-  /** Absent once the event is certified: nothing after that may offer a way to change it. */
   onEdit?: () => void
-  /** Read only, so it survives certification: the trail is what certification protects. */
   onHistory: () => void
 }) {
   const aWon = match.winnerAthleteId === match.athleteAId
@@ -1011,16 +799,6 @@ function LedgerRow({ match, nameA, nameB, teamOfA, teamOfB, at, cued, cueing, on
         {teamOfB && <TeamPlate color={teamOfB.color} name={teamOfB.name} size="inline" showName={false} />}
       </span>
       <span className="text-right t1 text-gray-10">{at === null ? '' : clockLabel(at)}</span>
-      {/*
-        xs carries a 44px hit area as a 28px control plus an 8px pseudo-element
-        inset, which is 4px taller than this 40px rung and would sit on top of the
-        rows above and below. It is also too wide for these two adjacent 28px tracks:
-        the gap between them is 12px, so an 8px reach from each side left the two hit
-        areas overlapping by 4px and a press in that band landed on whichever of
-        History and Edit the DOM order gave it. Both reaches are clamped: 6px above
-        and below fills the 40px rung, and 4px each side makes a 36px wide target with
-        4px still clear between them.
-      */}
       <Button
         variant="ghost"
         size="xs"

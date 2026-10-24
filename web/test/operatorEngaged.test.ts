@@ -7,8 +7,6 @@ afterEach(() => {
   ;(document.activeElement as HTMLElement | null)?.blur()
 })
 
-// 4.4's held commit is one mechanism for both data paths, so its own contract is pinned
-// here rather than only through the two hooks that use it.
 describe('an open dialog holds the snapshot unless it opts out by name', () => {
   const settle = async (ms: number) => { await act(async () => { await new Promise(r => setTimeout(r, ms)) }) }
 
@@ -74,10 +72,6 @@ describe('an open dialog holds the snapshot unless it opts out by name', () => {
     spy.mockRestore()
   })
 
-  // The one dialog that must not be held is the one whose content is the live match: held,
-  // it shows the operator a stale reading and lets them commit against it. It has to ask for
-  // that by name, so a dialog that forgets to ask is still held. base-ui leaves a closed popup
-  // in its portal, so a closed listbox must not count.
   it('counts an open dialog, a drag, a focused field and an open listbox as engaged, and a dialog that opts out by name as not', () => {
     const cases: { name: string; html: string; focus?: string; engaged: boolean }[] = [
       { name: 'nothing in progress', html: '', engaged: false },

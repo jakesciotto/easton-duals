@@ -12,11 +12,6 @@ async function loadMat(db: DbLike, matId: number): Promise<MatRow> {
   return row
 }
 
-/**
- * The kids on a mat right now. A match with one of them cannot start, because a kid
- * cannot be in two places at once, and a division puts a kid in several unfought matches
- * on purpose.
- */
 async function liveAthleteIds(db: DbLike, eventId: number): Promise<Set<number>> {
   const rows = await db.select({ a: matches.athleteAId, b: matches.athleteBId }).from(matches)
     .where(and(eq(matches.eventId, eventId), eq(matches.status, 'live'))).all()
@@ -35,9 +30,6 @@ function adminEventId(matchId: number, seq: number): string {
   return `admin:${matchId}:${seq}`
 }
 
-// Skip and edit result are single taps on gym wifi, so the same press can arrive twice.
-// A client id makes the second arrival a read: without it a double-fired Skip moved the
-// match to the end of the order twice and advanced the mat past a pair nobody fought.
 function clientAdminEventId(id: string): string {
   return `admin:${id}`
 }
@@ -56,31 +48,11 @@ export async function startEvent(db: DbLike, eventId: number): Promise<void> {
     if (!ev) throw new MatchStateError('event not found')
     if (ev.status !== 'setup') throw new MatchStateError(`event is ${ev.status}`)
     await tx.update(events).set({ status: 'live' }).where(eq(events.id, eventId)).run()
-    // Organizers design matches in entry mode too, because the list is the running order.
-    // Nothing scores those mats, so loading one would leave a match live all afternoon and
-    // the desk's typed result would land on a second copy of the same pair.
     if (ev.mode !== 'live') return
     for (const mat of await tx.select().from(mats).where(eq(mats.eventId, eventId)).all()) await advanceMat(tx, mat.id, 'system')
   })
 }
 
-/**
- * The mode gate lives here rather than at each caller, because every path that loads a mat
- * runs through this one function: Start, the end of a match, a skip, a typed entry, the
- * Live panel's advance, and a match created or moved onto the mat. Only Start checked the
- * mode, so a match added to a live desk event went live on a mat that nothing scores and
- * left every desk list that hides the live lane.
- *
- * In desk mode no match is ever loaded. A match already live on a mat stays there, because
- * that is a switch to the desk taken mid-bout and the desk still has to type its result;
- * once that result settles, the next call releases the mat rather than naming a finished
- * pair for the rest of the afternoon.
- *
- * Every call that actually loads a match records its own `advance` row, so the actor is a
- * required argument rather than something guessed here from context: only the caller knows
- * whether Start, an admin, a desk entry, or the mat that just ended the previous bout is the
- * one responsible for the mat moving on.
- */
 export async function advanceMat(db: DbLike, matId: number, actor: AuditActor): Promise<MatchRow | null> {
   return db.transaction(async tx => {
     const mat = await loadMat(tx, matId)
@@ -96,9 +68,6 @@ export async function advanceMat(db: DbLike, matId: number, actor: AuditActor): 
       return null
     }
     if (current && current.status === 'live') return current
-    // A blocked match keeps its slot: the mat takes the first one behind it that can
-    // actually be fought, and the blocked one runs when its feeder fills it or the kid
-    // holding it up finishes elsewhere.
     const queue = await tx.select().from(matches)
       .where(and(eq(matches.matId, matId), eq(matches.status, 'pending')))
       .orderBy(asc(matches.orderIndex), asc(matches.id)).all()
@@ -115,11 +84,6 @@ export async function advanceMat(db: DbLike, matId: number, actor: AuditActor): 
   })
 }
 
-/**
- * Every mat of the event with nothing on it, given another look at its queue. A match that
- * was blocked when its mat last advanced becomes runnable the moment the kid holding it up
- * finishes elsewhere or the feeder it waits on fills it in, and nothing else would notice.
- */
 export async function releaseIdleMats(db: DbLike, eventId: number, actor: AuditActor): Promise<void> {
   const idle = await db.select({ id: mats.id }).from(mats)
     .where(and(eq(mats.eventId, eventId), isNull(mats.currentMatchId))).all()
@@ -133,8 +97,6 @@ export async function reopenMatch(db: DbLike, matchId: number): Promise<MatchRow
     if (!ev) throw new MatchStateError('event not found')
     if (ev.status === 'setup') throw new MatchStateError('start the event before reopening a match')
     if (match.status !== 'done') throw new MatchStateError('only a done match can be reopened')
-    // A bracket side this result filled goes back to empty, so the next end fills it with
-    // whoever wins this time. A dependent that has already run refuses the reopen outright.
     await assertDependentsPending(tx, match.id)
     if (match.matId !== null) {
       const mat = await loadMat(tx, match.matId)
@@ -167,8 +129,6 @@ export async function skipMatch(db: DbLike, matchId: number, id?: string): Promi
     await tx.update(matches).set({ status: 'pending', orderIndex: (max?.m ?? 0) + 1, lastSeq: seq }).where(eq(matches.id, match.id)).run()
     if (match.matId !== null) {
       const mat = await loadMat(tx, match.matId)
-      // Skip is admin-only (the only route that reaches it requires an admin token), so the
-      // mat it advances on the way out is attributed to the same actor as the skip itself.
       if (mat.currentMatchId === match.id) await advanceMat(tx, mat.id, 'admin')
     }
     await releaseIdleMats(tx, match.eventId, 'admin')

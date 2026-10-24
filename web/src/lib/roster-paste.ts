@@ -55,10 +55,6 @@ function bestField(cell: string): { field: Field; score: number } {
   return best
 }
 
-// A one cell line is a header only on an exact field name: a names-only paste can open
-// with a surname that resembles an alias ("Al Grade" scores 0.8 against "grade"), and a
-// header read there drops that competitor without a word. A line with two or more cells
-// keeps the similarity floor, because a real header rarely spells every field exactly.
 function detectHeader(cells: string[]): boolean {
   if (cells.some(isBareNumber)) return false
   if (cells.length === 1) return bestField(cells[0]).score === 1
@@ -69,7 +65,6 @@ function buildMapping(cells: string[]): { columns: (Field | null)[]; ignored: st
   const candidates = cells.map(bestField)
   const columns: (Field | null)[] = candidates.map(c => (c.score >= 0.6 ? c.field : null))
 
-  // A field takes at most one column: the column with the higher score keeps it.
   const bestColumnForField = new Map<Field, number>()
   columns.forEach((field, i) => {
     if (!field) return
@@ -228,9 +223,6 @@ export function parseRosterPaste(text: string, teams: TeamRow[] = []): { lines: 
   return { lines, rows, errors, mapping }
 }
 
-// The cap is per team, and a paste's marks land beside whatever the team already carries.
-// A row with no effective team (no Team column and no team chosen for the paste) cannot be
-// counted against any team, so it is called out on its own rather than silently dropped.
 export function scoringCapProblems(rows: ManualKid[], fallbackTeamId: number | null, athletes: { teamId: number | null; scoring: boolean }[], teams: TeamRow[]): string[] {
   const marks = rows.filter(r => r.scoring === true)
   if (marks.length === 0) return []

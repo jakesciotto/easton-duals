@@ -1,18 +1,3 @@
-/* The far dialect. Everything here is sized against the stage's height, because both
-   legibility standards that govern this room (the Access Board's Legibility Index and
-   AVIXA DISCAS) are defined against element height, and a width derived size is only
-   correct near 16:9.
-
-   The stage and the safe layer are two elements on purpose. A container query length
-   resolves against the query container's content box and a percentage padding resolves
-   against inline size on all four edges, so padding on the query container would make
-   1cqh 18 percent smaller than the type derivation assumes and drop the whole board
-   below its legibility floor. */
-
-/* Flex, not grid: `container-type: size` contains the stage's own size, so in an
-   auto sized grid track its percentage width would resolve against a track measured
-   from a contained (zero) contribution and the board would collapse. The letterbox
-   bars outside the stage are --gray-1, so a non 16:9 panel reads as a frame. */
 .b-frame {
   display: flex;
   align-items: center;
@@ -24,72 +9,25 @@
 .b-stage {
   position: relative;
   aspect-ratio: 16 / 9;
-  /* Width, not height, is the free dimension: a max-height beside an explicit width
-     would clamp the box and break the ratio instead of letterboxing it. */
   width: min(100%, calc(100dvh * 16 / 9));
   flex: none;
   overflow: hidden;
   container-type: size;
   background: var(--black);
 
-  /* 3.4's one calibration knob, and it multiplies the TYPE STEPS, never the safe frame.
-     Scaling the safe layer scales the composition with it: at far 1.2 on a 1920 stage
-     the safe layer laid out at 1728 x 972 and then painted at 2073.6 x 1166.4 inside a
-     stage that clips, which cut 76.8px off each side and took the team colour bar and
-     the leading characters of the plate code with it. The safe frame stays at 90cqh;
-     what moves with the knob is how that 90cqh is DIVIDED, which is budget.ts's job. */
   --far: 1;
   --b1: calc(22cqh * var(--far));
   --b2: calc(13cqh * var(--far));
   --b3: calc(9cqh * var(--far));
-  /* A b3 row sets `line-height: 1`, so --b3 doubles as the height of a one line b3 row. */
   --b-round: 0.6cqh;
   --b-indent: calc(2.4cqh * var(--far));
-  /* Section 8 and 7.3 give the live gutter and the team edge the same 1.2cqh at the
-     design stage, scaled by --far like the indent they sit inside: unscaled, the edge ran
-     into the mat numeral's track at 0.85 and stopped short of the content at 1.2. One
-     token, so the two cannot drift and the indent stays exactly two of them wide. */
   --b-edge-w: calc(1.2cqh * var(--far));
 
-  /* The row's gaps are stated against the type, not against the stage. A gap in cqw
-     beside a track in cqh scales one and not the other, and at far 1.2 that put the
-     four mat ledger 79px past the 1728px safe width with no ellipsis to warn anybody.
-     24px, 16px and 48px at a 1920 stage and far 1, which is 6.15's spacing exactly. */
   --b-gap-row: calc(2.22cqh * var(--far));
   --b-gap-tight: calc(1.48cqh * var(--far));
   --b-gap-pair: calc(4.44cqh * var(--far));
 }
 
-/* EBU R95 Graphics Safe and SMPTE ST 2046-1 Safe Title. On an absolutely positioned
-   child a percentage inset resolves top and bottom against height, so the safe frame
-   is exactly 90cqh and every composition below sums to 90. Nothing transforms this
-   layer: see --far above.
-
-   ---------------- the vertical budget ----------------
-
-   The --b-*-n numbers are cqh, and boardBudget() in budget.ts sets them per snapshot.
-   They are numbers rather than lengths so the arithmetic can be stated, tested and
-   divided in one place; the values here are the defaults that make the stylesheet
-   correct on its own at far 1, two teams, one mat, no note.
-
-   The hero is a leaderboard: --lb-rows rows and --lb-rows - 1 gaps inside --b-hero-n,
-   so a row is (hero - (n - 1) * gap) / n and every step inside it is clamped against
-   that row. At far 1 the hero holds 31cqh while the rows stay at the 9cqh floor:
-
-     teams   gap    hero    row      band        the band holds
-     2       1.5    31      14.75    56          two mats, clocks, a next line each
-     3       1.2    31       9.53    56          the same
-     8       0.4    78       9.40     9          one mat row, no clock, no next line
-
-   Above four teams the floor rows are taller than the 31cqh budget, so the hero grows
-   and the band pays, down to the single floor row an eight team event leaves it. done
-   draws no mat band at all: the standings take everything the result line and the
-   certified line do not.
-
-   The note is a b3 line plus 1cqh of leading and it DISPLACES rather than covers. As an
-   overlay it painted over the bottom 97.2px of the safe area, which on a four mat board
-   is most of mat 4's name line, at the exact moment somebody is trying to read the
-   frozen values. */
 .b-safe {
   position: absolute;
   inset: 5%;
@@ -106,22 +44,13 @@
   --lb-rows: 2;
   --lb-gap-n: 1.5;
 
-  /* A row never renders type its own box cannot hold. The score steps down from b2 and
-     the name from b3 as the room shrinks, so a six mat ledger lays out instead of
-     having 22px cut off the top of every digit. Below the floor the board says so in
-     words: see budget.ts's floorNote. */
   --b-score-step: min(var(--b2), calc(var(--b-row-n) * 1cqh));
   --b-name-step: min(var(--b3), calc(var(--b-row-n) * 1cqh));
 }
-/* Data entry's figures set line-height 0.76, so a b2 score fits a shorter row there. */
 .b-safe[data-comp='entry'] {
   --b-score-step: min(var(--b2), calc(var(--b-row-n) * 1cqh / 0.76));
 }
 
-/* The board is stale. Full stage width in the bottom letterbox margin, outside the safe
-   frame, so it costs no track and can never displace a score or a clock. It is the
-   colour channel only: the words are in .b-note, because 4.3 forbids carrying a state
-   on colour alone. */
 .b-stale {
   position: absolute;
   left: 0;
@@ -131,9 +60,6 @@
   background: var(--attend);
 }
 
-/* 7.6 requires the board to say, in words at b3, that it is not updating, and 7.15's
-   wake lock failure has to reach the same room. It is a flex item with its own budget,
-   never an overlay. */
 .b-note {
   flex: none;
   display: flex;
@@ -147,11 +73,6 @@
   color: var(--attend);
 }
 
-/* 6.15's signature on the record, on done only. Centred under the summary rather than
-   left aligned in the note row, and at --gray-10 rather than --attend: section 8 keeps
-   the attend colour for a state that needs a person, and a certified event needs none.
-   Its own flex item with its own line in the budget, so a board that is both certified
-   and stale carries two lines and clips neither. */
 .b-sign {
   flex: none;
   display: flex;
@@ -168,12 +89,6 @@
   color: var(--gray-11);
 }
 
-/* ---------------- hero, the ranked leaderboard ---------------- */
-
-/* 7.1: one hero for every team count. The rows and the gaps between them fill
-   --b-hero-n exactly, and every step inside a row is clamped against the row's own
-   height, so a count that shortens the rows steps the type down instead of clipping it.
-   --lb-rows and --lb-gap-n are budget.ts's, like every other -n on the safe layer. */
 .b-lb {
   flex: none;
   height: calc(var(--b-hero-n) * 1cqh);
@@ -185,8 +100,6 @@
     (var(--b-hero-n) * 1cqh - (var(--lb-rows) - 1) * var(--lb-gap-n) * 1cqh) / var(--lb-rows)
   );
   --lb-name: min(var(--b3), var(--lb-row));
-  /* Digits carry no descender, so the wins numeral may set its box at 0.78 and take the
-     largest step that box fits, up to b1. Two teams reach 18.9cqh, eight reach 12.05. */
   --lb-wins: min(var(--b1), calc(var(--lb-row) / 0.78));
 }
 
@@ -200,20 +113,15 @@
     var(--lb-col-rank) var(--b-gap-row) minmax(0, 1fr) var(--b-gap-row)
     var(--lb-col-wins) var(--b-gap-tight) auto;
   padding-left: var(--b-indent);
-  /* The trailing indent the mat row does not need: without it the points figure sits
-     hard against the safe edge, where a television's own overscan eats it. */
   padding-right: var(--b-indent);
   border-radius: var(--b-round);
   overflow: hidden;
   font-size: var(--lb-wins);
 
-  /* The mat numeral's own track, stated the same way: 0.6 of the step beside it. */
   --lb-col-rank: calc(var(--lb-name) * 0.6);
   --lb-col-wins: 2ch;
 }
 
-/* Costs no track and no padding, exactly like .b-edge-a on a mat row: it takes the
-   second half of the leading indent, which the row already reserves. */
 .lb-edge {
   position: absolute;
   left: var(--b-edge-w);
@@ -259,24 +167,17 @@
   color: var(--gray-10);
   white-space: nowrap;
 }
-/* 2.8's fixed character slot. Three characters, because a team's points total passes 99
-   in a full event, and a takedown taking a team from 9 to 11 would otherwise move the
-   word beside it by a whole character on a still hero. */
 .lb-pts-n {
   display: inline-block;
   min-width: 3ch;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-/* Every team level at the top takes the lead tone, on the numeral and on the figure.
-   There is no other cue: a highlight or a rule would make a tie read as a winner. */
 .lb-lead .lb-rank { color: var(--gray-12); }
 .lb-lead .lb-wins { color: var(--fig-lead); }
 
 .b-lead { color: var(--fig-lead); }
 .b-trail { color: var(--fig-trail); }
-
-/* ---------------- rows ---------------- */
 
 .b-band {
   flex: none;
@@ -295,35 +196,6 @@
   overflow: hidden;
 }
 
-/* Every score sits 16px from its own name and 48px from the other pair, so the row
-   groups as two competitors and the two figures a spectator compares meet at the
-   centre. The figure tracks are in ch and the row sets the mono face, or ch would
-   measure the sans zero.
-
-   The two name tracks are `minmax(0, 1fr)` and every other track is derived from the
-   type, which is what makes the row safe at ANY --far: the names absorb whatever the
-   type does not use, and 6.15 already requires exactly that ("names truncate, they
-   never shrink"). The previous fixed 31.2cqw name token scaled with the stage while
-   the tracks beside it scaled with the knob, and at far 1.2 the four mat ledger came
-   to 1807.39px against a 1728px safe width.
-
-   The fixed tracks, at a 1920 stage and --far F, in px:
-
-   ledger  25.92 indent + 58.32 mat + 23.98 + 15.98 + 168.48 score + 47.95
-           + 168.48 score + 15.98                            = 525.10F
-   clock   the same plus 23.98 + 336.96 clock + 23.98        = 862.06F
-
-   which leaves each name track (1728 - fixed) / 2: 640.8px at far 0.85, 601.5px at
-   far 1 and 548.9px at far 1.2 on the ledger, and 497.6 / 433.0 / 346.8 with the clock.
-
-   G34's two team edges cost no track and no padding, exactly like the live gutter:
-   the leading padding is 2.4cqh and the gutter is 1.2cqh, so its second half is a
-   gutter sized slot already reserved, and team A's edge takes it. Team B's sits at the
-   row's own trailing edge, and only name B pays for it, in its own padding.
-
-   The mat track is stated rather than written as 1ch because 1ch resolves against the
-   row's own score step and would reserve a score sized slot for a numeral that renders
-   at the name step. */
 .b-row {
   --col-board-mat: calc(var(--b-name-step) * 0.6);
   --col-board-score: 2ch;
@@ -348,7 +220,6 @@
     var(--col-board-score) var(--b-gap-tight) minmax(0, 1fr);
 }
 
-/* The only place --live appears on the board. */
 .b-gut {
   position: absolute;
   left: 0;
@@ -362,16 +233,6 @@
   background: var(--live);
 }
 
-/* 7.3's room register: a 1.2cqh full height team edge per competitor line. Before this
-   the row carried one gutter, it was reserved for the live cue, and only position said
-   whose side is whose, which is the one thing a parent at the door cannot infer.
-
-   Absolutely positioned, like the live cue, so the grid keeps every track it had and the
-   6.15 arithmetic is untouched. Team A's edge takes the second half of the leading
-   padding, which is a gutter sized slot the row already reserves: section 8 keeps the
-   first half leading and gives it to --live alone. Team B's sits at the row's own
-   trailing edge, which is that name's outer edge, and name B carries the one padding
-   that keeps its ellipsis off it. Both clip to the row's radius. */
 .b-edge {
   position: absolute;
   top: 0;
@@ -385,18 +246,10 @@
 .b-edge-b {
   right: 0;
 }
-/* Section 8: the team colour is dropped after the ten second hold, with everything else
-   on a settled row. The edge holds its place and stops carrying identity. */
 .b-row-settled .b-edge {
   background: transparent;
 }
 
-/* Spec 10's mat head, over the ledger row and inside the height the budget already
-   reserves for it: the row is allotted --b-row-n and renders at --b-score-step, so the
-   difference is spare the panel has already paid for and the queue never sees. The 1cqh
-   it holds back is the line's own breathing room; below that the room is zero, the line
-   is zero tall at a zero step, and a deep board spends its height on mats instead, which
-   is the trade budget.ts makes everywhere else. */
 .b-mat-head {
   --b-head-room: max(0px, calc(var(--b-row-n) * 1cqh - var(--b-score-step) - 1cqh));
   flex: none;
@@ -434,8 +287,6 @@
   font-weight: 500;
   color: var(--gray-12);
 }
-/* The first name takes the ellipsis and the initial never does, so an overflowing
-   name reads "Maximilian... W." rather than losing the half that disambiguates it. */
 .b-name-first {
   min-width: 0;
   overflow: hidden;
@@ -448,18 +299,10 @@
 .b-name-a {
   justify-content: flex-end;
 }
-/* The only cost of G34's trailing edge, and it is inside a track rather than beside it,
-   so no column moves: name B truncates one edge width early instead of running under it. */
 .b-name-b {
   padding-right: var(--b-edge-w);
 }
-/* Spec 10: a side waiting on its feeder is one muted line rather than a first name and
-   an initial, so it takes the name track's step and the row's quiet colour and none of
-   .b-name-first's two part layout. The row draws no team edge beside it either: nobody
-   knows whose child it is yet. */
 .b-feed {
-  /* Block rather than the flex .b-name is, because one run of text ellipsises and a
-     flex container does not. The right alignment comes back with it. */
   display: block;
   overflow: hidden;
   white-space: nowrap;
@@ -470,15 +313,6 @@
   text-align: right;
 }
 
-/* --fig-lead and --fig-trail are 7.5's score tones and stay on the scores. A name here is
-   the largest text in the room, and the trailing one at --gray-10 was the quietest thing
-   on the panel at the moment it mattered. The settled row still steps its loser's name
-   down, through .b-row-settled .b-fade below. */
-
-/* 7.10: a mat with nothing on it and nothing left to call says so, in the name track, at
-   the floor step. Spanning to the end of the row rather than sitting in name A's own
-   track, because name A is right aligned and a sentence pushed against the centre of an
-   otherwise empty row reads as a fragment of a pair that is not there. */
 .b-row-note {
   grid-column: 3 / -1;
   min-width: 0;
@@ -499,9 +333,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 7.6's ladder, every step of it legal on the board. Same face, same weight, same
-   tabular figures in every state, so nothing reflows on a transition, and the stale
-   step is a colour plus the words in .b-note rather than a colour alone. */
 .b-clock {
   font-size: var(--b-score-step);
   line-height: 1;
@@ -523,8 +354,6 @@
 .b-row-clock > .b-score-b { grid-column: 9; }
 .b-row-clock > .b-name-b { grid-column: 11; }
 
-/* Settled information stops pulling the eye back: after the hold a result goes
-   monotone, drops the team colour and stays there. */
 .b-row-settled {
   background: var(--gray-1);
 }
@@ -533,10 +362,6 @@
 .b-row-settled .b-mat {
   color: var(--gray-11);
 }
-/* One step below the rest of the settled row, and no further: 3.4 puts the floor at
-   --gray-10 and 6.15 keeps the result on the board. The winner holds --gray-11, the
-   loser takes this, and a parent who walks in late can still read the result off a row
-   that is otherwise as quiet as a settled row is meant to be. */
 .b-row-settled .b-fade {
   color: var(--gray-10);
 }
@@ -572,9 +397,6 @@
   color: var(--gray-10);
 }
 
-/* One b3 line inside a band that has nothing in it yet. It sits in the band's own space
-   rather than taking a track of its own, so the budget is unchanged: the band is already
-   sized for four result rows and this is one line inside that height. */
 .b-row-empty {
   flex: none;
   display: flex;
@@ -586,12 +408,6 @@
   color: var(--gray-10);
 }
 
-/* ---------------- done ---------------- */
-
-/* The sentence under the final standings: "{Team} wins", or the tie form naming every
-   team level at the top. It takes the note's slot in the budget but not its colour,
-   because --attend is reserved for a state that needs a person and a finished event
-   needs nobody. Its own flex item, so it displaces rather than covering a numeral. */
 .b-result {
   flex: none;
   height: var(--b3);
@@ -602,35 +418,20 @@
   line-height: 1;
   font-weight: 500;
   color: var(--gray-12);
-  /* A block, not a flex row: a five way tie names five teams, and a line that runs past
-     the safe width should end in an ellipsis rather than at a cut letter. */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* ---------------- cold start ---------------- */
-
-/* 6.15: the rows hold their final positions and ONLY the wins numerals are Skeletons.
-   There is no snapshot yet, so the other boxes are empty: --team is unset, which paints
-   nothing. The skeleton takes the row's own wins slot, 2ch of --lb-wins at the 0.78 box
-   the figure sets, so the numeral that arrives lands exactly where the box was. */
 .b-skel-wins {
   height: calc(var(--lb-wins) * 0.78);
   width: 2ch;
   border-radius: var(--b-round);
 }
 
-/* ---------------- compositions ---------------- */
-
 [data-comp='entry'] .b-row { height: calc(var(--b-row-n) * 1cqh); }
-/* Digits carry no descender, so a b2 figure may set its own box under 1.0, and the
-   score step above is already the largest step that fits the row at 0.76. */
 [data-comp='entry'] .b-score { line-height: 0.76; }
 
-/* setup, 6.15: N columns, each a b3 head over that mat's first pairings. This is the
-   one composition where queue depth fits, and the one moment the room wants it. The
-   number of pairings is budget.ts's, because the band is not a fixed 56cqh. */
 [data-comp='setup'] .b-band {
   flex-direction: row;
   gap: 2cqw;
@@ -640,19 +441,10 @@
   min-width: 0;
   height: 100%;
 }
-/* G27's desk composition. One head over the whole band rather than one per mat, and the
-   columns under it, so the head plus its gap costs the band the same b3 line the per mat
-   head used to and no budget arithmetic moves. */
 [data-comp='setup'] .b-band-order {
   flex-direction: column;
-  /* The 2cqw the setup band puts between its columns would otherwise open between the
-     head and the columns as well, on top of the head's own margin, and the budget counts
-     neither: at a full column the last pairing clipped. */
   gap: 0;
 }
-/* Spec 10. The desk band is the one place a match can be named without spending a track
-   the mat ledger has already promised to a competitor's name: its columns are pairings
-   only, so a leading tag sits inside the line it belongs to. */
 .b-order-line {
   display: grid;
   grid-template-columns: auto var(--b-gap-tight) minmax(0, 1fr) var(--b-gap-pair) minmax(0, 1fr);
@@ -695,9 +487,6 @@
   overflow: hidden;
 }
 
-/* A head over an empty column reads as a board that failed to load, and the room
-   cannot ask anyone. It takes the same step as a pairing so the column keeps its
-   shape, and it stays at gray-10, which is the floor for anything read at all. */
 .b-setup-empty {
   flex: none;
   height: var(--b3);
@@ -711,20 +500,6 @@
   overflow: hidden;
 }
 
-/* n panels plus n - 1 gaps come to exactly the band at every count the API accepts,
-   and the row inside a panel is whatever the panel has left after its queue. Both
-   numbers are budget.ts's; four hard coded rules meant mats five and up never reached
-   the television at all, and deriving the height alone meant they reached it clipped.
-
-   The panel at a 1920 x 1080 stage and --far 1, in cqh, at one through eight mats:
-
-     56    27    18    13.25    10.88    9.0    7.66    6.65
-
-   The score is --b-score-step, which is min(b2, the panel), so it holds b2 through four
-   mats, steps down at five, and reaches the b3 floor exactly at six. Seven and eight
-   cannot hold the floor at all: those lay out at the panel's own step, nothing is cut,
-   and the board says "Too many mats for this screen" in the note rather than printing a
-   row with the top of every digit missing. */
 [data-comp='mats'] .b-band {
   gap: calc(var(--b-mat-gap-n) * 1cqh);
 }
@@ -735,16 +510,6 @@
   height: calc(var(--b-row-n) * 1cqh);
 }
 
-/* ---------------- motion ---------------- */
-
-/* 4.1: a changed figure crossfades whole, 100ms with a 40ms overlap. Never an odometer:
-   a takedown moves a score from 4 to 6 and a roll renders a frame reading 5, a score
-   unreachable under the ruleset, at 238px in front of a room.
-
-   A transition and not a keyframe, because 4.3's reduced motion block keeps opacity
-   transitions and collapses every other cue to a single frame. The board is the surface
-   that rule exists to protect: a gym television with Reduce Motion set is one nobody in
-   the room can query, and the change cue is the only signal it has. */
 .b-fig { display: inline-grid; }
 .b-fig > span {
   grid-area: 1 / 1;

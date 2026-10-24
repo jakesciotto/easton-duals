@@ -1,8 +1,5 @@
 import os from 'node:os'
 
-// Lower is better. An iPad on the gym wifi can only reach a private LAN address, so a
-// Tailscale CGNAT address (the first interface on a laptop with Tailscale up) is a last
-// resort and a link-local address is never usable.
 function rank(address: string): number {
   const [a, b] = address.split('.').map(Number)
   if (a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)) return 0

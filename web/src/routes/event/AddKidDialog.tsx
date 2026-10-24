@@ -22,9 +22,6 @@ const BELT_ITEMS = [{ value: null as string | null, label: 'No belt' }, ...KIDS_
 const GENDER_ITEMS = [{ value: null as string | null, label: 'Not set' }, { value: 'M', label: 'M' }, { value: 'F', label: 'F' }]
 const MANUAL_FORM_ID = 'add-competitor-manual-form'
 
-// 6.10: the results are virtualized past 50 rows, because a two token query can match a
-// whole belt at a whole gym. CandidateRow renders at the `default` rung (2.7), a fixed
-// 40px, so a window can be computed from scroll position without a measurement library.
 const RESULT_ROW_H = 40
 const RESULT_OVERSCAN = 8
 const RESULT_VIRTUALIZE_AT = 50
@@ -45,30 +42,22 @@ export function AddKidDialog({ detail, open, onOpenChange, initialTeamId }: {
   detail: EventDetail
   open: boolean
   onOpenChange: (o: boolean) => void
-  /** Spec B. The team a caller already knows, such as the column a competitor is added from. */
   initialTeamId: number | null
 }) {
   const eventId = detail.event.id
   const teamItems = [{ value: null as number | null, label: 'Unassigned' }, ...detail.teams.map(t => ({ value: t.id as number | null, label: t.name }))]
 
-  // Spec B. A quick add is a manual add: the WellnessLiving search is one press away
-  // either way, and a lookup that hits the network is never the default gesture.
   const [tab, setTab] = useState<'wl' | 'manual'>('manual')
   const [f, setF] = useState(emptyForm)
   const addManual = useAdminMutation(eventId, (manual: ManualKid) => adminApi(`/api/events/${eventId}/athletes`, { method: 'POST', body: { manual } }))
 
   const search = useWlSearch(eventId)
   const [teamId, setTeamId] = useState<number | null>(null)
-  // Keyed by uid and holding the candidate itself, so a pick made under one query survives
-  // the next one: the decision is about a person, not about the words that found them.
   const [picked, setPicked] = useState<Map<string, RosterCandidate>>(new Map())
   const [resultWindow, setResultWindow] = useState<[number, number]>([0, RESULT_DEFAULT_ROWS])
   const addCandidates = useAdminMutation(eventId, (v: { candidates: RosterCandidate[]; teamId: number | null }) =>
     adminApi(`/api/events/${eventId}/athletes`, { method: 'POST', body: v.teamId === null ? { candidates: v.candidates } : { candidates: v.candidates, teamId: v.teamId } }))
 
-  // Every open starts a fresh session for both tabs: the manual form clears and the search
-  // opens empty rather than on whoever the last visit was looking for. Both tabs' team
-  // selects start on the caller's team, so switching tabs mid-add does not lose it.
   useEffect(() => {
     if (!open) return
     setTab('manual')
@@ -82,7 +71,6 @@ export function AddKidDialog({ detail, open, onOpenChange, initialTeamId }: {
   }, [open, eventId, initialTeamId])
 
   const onRoster = useMemo(() => new Set(detail.athletes.map(a => a.wlUid).filter((uid): uid is string => uid !== null)), [detail.athletes])
-  // The route orders by how well the name matches, which is the order to keep.
   const visible = useMemo(() => search.results.filter(c => !onRoster.has(c.wlUid)), [search.results, onRoster])
 
   const toggle = (candidate: RosterCandidate, v: boolean) => setPicked(p => {
@@ -94,9 +82,6 @@ export function AddKidDialog({ detail, open, onOpenChange, initialTeamId }: {
 
   const virtual = visible.length > RESULT_VIRTUALIZE_AT
   const listRef = useRef<HTMLDivElement | null>(null)
-  // A new answer is a new list from the top. Resetting the window alone is not enough: the
-  // scrollport keeps its offset, so a second query leaves the reader looking at the spacer
-  // below the rows that now exist.
   useEffect(() => {
     setResultWindow([0, RESULT_DEFAULT_ROWS])
     if (listRef.current) listRef.current.scrollTop = 0
@@ -164,7 +149,6 @@ export function AddKidDialog({ detail, open, onOpenChange, initialTeamId }: {
                 </Alert>
               )}
               {search.error === null && (
-                /* 2.6: inner = max(0, 12 - 16) = 0, so the list is flush inside the padded body. */
                 <FieldSet ref={listRef} className="max-h-[320px] overflow-y-auto rounded-none" onScroll={onListScroll}>
                   <CandidateHead valueLabel="ERP" />
                   {visible.length === 0

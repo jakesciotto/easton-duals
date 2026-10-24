@@ -7,8 +7,6 @@ import { athletes, auditLog, matches, proposals, rulesets } from '../src/db/sche
 
 interface Kid { name: string; team: 'A' | 'B' | 'C'; age?: number; lbs?: number }
 
-// One pool over three teams, written straight into the roster so each test states the
-// exact kids the proposer is going to see.
 async function pool(kids: Kid[]) {
   const { app, db, adminToken } = await createTestApp()
   const s = await seedEvent(db, { matCount: 2, matches: 0, thirdTeam: true })
@@ -115,8 +113,6 @@ describe('confirming', () => {
   it('drops both drafts when a hand-designed match claims their kids, so confirming either 404s', async () => {
     const { app, db, adminToken, s, id } = await pool(THREE)
     const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
-    // The pool moved on under the draft: the organizer added this pair by hand, which
-    // drops both drafts immediately rather than leaving them stale for confirm to refuse.
     const added = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: id('Ines'), athleteBId: id('Kai') }, adminToken)
     expect(added.status).toBe(201)
     expect(added.body.removedProposals).toBe(2)
@@ -140,8 +136,6 @@ describe('confirming', () => {
     const drafted = new Set(made.body.flatMap((p: any) => [p.a.athleteId, p.b.athleteId]))
     const withInes = made.body.find((p: any) => p.a.athleteId === id('Ines'))
     const other = made.body.find((p: any) => p.a.athleteId !== id('Ines'))
-    // One kid of the five is in no draft (a B or C kid, since both A kids are drafted), so
-    // this hand-added match drops only the draft Ines is in and leaves the other alone.
     const left = ['Bruno', 'Kai', 'Pilar'].map(id).find(k => !drafted.has(k))!
     expect(withInes).toBeDefined()
     expect(left).toBeDefined()
@@ -164,7 +158,6 @@ describe('confirming', () => {
     const { app, db, adminToken, s, id } = await pool(THREE)
     const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
     expect(made.body).toHaveLength(2)
-    // Ines is on a mat right now. Her draft is stale until that match settles.
     await db.insert(matches).values({
       eventId: s.eventId, matId: s.matIds[0], number: 40, orderIndex: 40, rulesetId: s.rulesetId, lengthSec: 300,
       status: 'live', athleteAId: id('Ines'), athleteBId: id('Kai'),
@@ -191,7 +184,6 @@ describe('confirming', () => {
     const all = await call(app, 'POST', `/api/events/${s.eventId}/proposals/confirm-all`, undefined, adminToken)
     expect(all.status).toBe(201)
     expect(all.body).toEqual({ created: 2, skipped: 0 })
-    // Nadia and Kai cost nothing; Ines and Bruno are three years apart, so they go second.
     const rows = await db.select().from(matches).where(eq(matches.eventId, s.eventId)).orderBy(matches.orderIndex).all()
     expect(rows.map(m => [m.athleteAId, m.athleteBId])).toEqual([[id('Nadia'), id('Kai')], [id('Ines'), id('Bruno')]])
     expect(rows.every(m => m.source === 'proposed')).toBe(true)
@@ -272,7 +264,6 @@ describe('swapping a kid into a draft', () => {
     const empty = await call(app, 'PATCH', `/api/proposals/${first.id}`, {}, adminToken)
     expect(empty.status).toBe(422)
     expect((await call(app, 'PATCH', '/api/proposals/9999', { athleteAId: id('Ines') }, adminToken)).status).toBe(404)
-    // Nothing moved: the draft is the pair the proposer wrote.
     const row = await db.select().from(proposals).where(eq(proposals.id, first.id)).get()
     expect([row?.athleteAId, row?.athleteBId]).toEqual([id('Ines'), id('Bruno')])
   })
@@ -288,8 +279,6 @@ describe('swapping a kid into a draft', () => {
     expect(made.body.map((p: any) => [p.a.firstName, p.b.firstName])).toEqual([['Ines', 'Bruno'], ['Dalia', 'Kai']])
     await pending(db, s.eventId, s.rulesetId, id('Ines'), id('Kai'))
 
-    // The console sends both sides back. Ines has a match now, but she is not the kid
-    // coming in, so the swap stands.
     const swapped = await call(app, 'PATCH', `/api/proposals/${made.body[0].id}`, { athleteAId: id('Ines'), athleteBId: id('Dalia') }, adminToken)
     expect(swapped.status).toBe(200)
     expect([swapped.body.proposal.a.athleteId, swapped.body.proposal.b.athleteId]).toEqual([id('Ines'), id('Dalia')])

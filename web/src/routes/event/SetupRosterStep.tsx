@@ -11,12 +11,10 @@ import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTi
 import { PasteRosterDialog } from './PasteRosterDialog'
 import { SyncRosterDialog } from './SyncRosterDialog'
 
-/** Enough of the roster to prove the import landed, without turning the step into the tab. */
 const SHOWN = 3
 
 type SubStep = 'sync' | 'paste' | null
 
-/** What the roster row prints under a name: the two facts the matcher pairs on. */
 export function rosterLine(kid: AthleteRow): string {
   const belt = beltLabel(kid.belt)
   return kid.age === null ? belt : `${belt}, ${kid.age}`
@@ -35,16 +33,6 @@ function Choice({ title, line, onClick }: { title: string; line: string; onClick
   )
 }
 
-/**
- * Step two. A freshly created event has no competitors and two ways to get some, and both
- * of them lived behind a tab the organizer had no reason to open yet. The step names the
- * two, opens the existing dialog for whichever is picked, and comes back with the count so
- * the roster is a thing that visibly happened rather than a screen to go and check.
- *
- * The sync the dialog runs on open searches WellnessLiving for the names already on the
- * roster, and a roster with nobody on it gives that sync nothing to look for. So the way in
- * from this step is the dialog's own name search, which is what the card promises.
- */
 export function SetupRosterStep({ detail, open, onClose, onContinue }: {
   detail: EventDetail
   open: boolean
@@ -52,8 +40,6 @@ export function SetupRosterStep({ detail, open, onClose, onContinue }: {
   onContinue: () => void
 }) {
   const [sub, setSub] = useState<SubStep>(null)
-  // Closing the step from anywhere puts the sub-step back, so reopening it later never
-  // lands straight in a dialog nobody asked for.
   useEffect(() => { if (!open) setSub(null) }, [open])
 
   const roster = [...detail.athletes].sort((x, y) => x.lastName.localeCompare(y.lastName) || x.firstName.localeCompare(y.firstName))
@@ -108,13 +94,10 @@ export function SetupRosterStep({ detail, open, onClose, onContinue }: {
           </DialogBody>
           <DialogFooter className={cn(dialogFooter, 'justify-between')}>
             <Button type="button" variant="ghost" onClick={onClose}>Skip for now</Button>
-            {/* A duel needs two sides. One competitor is a roster the next step cannot pair. */}
             <Button type="button" disabled={roster.length < 2} onClick={onContinue}>Continue</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* The setup step has no roster rows to act on, so the report is read inside the
-          dialog and goes no further. The Roster tab is where it becomes a standing alert. */}
       <SyncRosterDialog detail={detail} open={sub === 'sync'} onOpenChange={o => { if (!o) setSub(null) }} onReport={() => {}} />
       <PasteRosterDialog detail={detail} open={sub === 'paste'} onOpenChange={o => { if (!o) setSub(null) }} />
     </>

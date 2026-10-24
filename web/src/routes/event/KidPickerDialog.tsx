@@ -12,9 +12,6 @@ import { Toggle } from '@/components/ui/toggle'
 import { TeamPlate } from '@/components/TeamPlate'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
-// 6.14's shared ledger row, rendered by the one Toggle primitive: the row that is
-// already in the slot reads as pressed, so the picker states what it is replacing.
-// `ch` resolves on this element, so it carries the mono face and the words opt back out.
 const COLS = 'grid grid-cols-[var(--col-state)_minmax(0,1fr)_var(--col-num-s)_var(--col-num-m)_var(--col-num-m)] gap-x-3 font-mono t2'
 
 function Cell({ value, missing = false, slot }: { value: number | null; missing?: boolean; slot: string }) {
@@ -25,21 +22,10 @@ function Cell({ value, missing = false, slot }: { value: number | null; missing?
   )
 }
 
-/**
- * The one picker behind every swap, on a proposal and on a pending match alike.
- *
- * A match pairs two different teams, so the slot is not "somebody on team B" any more:
- * it is anybody on the event who is not on the team the other side already holds.
- * `exclude` is that team, and every row carries its own plate because the list now spans
- * the whole event rather than one column of it.
- */
 export function KidPickerDialog({ detail, exclude, held, matchId, open, onOpenChange, onPick }: {
   detail: EventDetail
-  /** The team the competitor staying in the pairing is on. Null offers the whole event. */
   exclude: number | null
-  /** Who holds the slot now, so the picker states what it replaces. */
   held: number | null
-  /** The match being changed, which is not itself a double booking. Absent for a proposal. */
   matchId?: number | null
   open: boolean
   onOpenChange: (o: boolean) => void

@@ -37,37 +37,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Clock } from '@/components/Clock'
 import { TeamPlate } from '@/components/TeamPlate'
 
-// Which slot a swap is filling: the team the competitor staying in is on, so the picker
-// can offer everybody else, and who holds the slot now.
 interface Pick { matchId: number; side: 'a' | 'b'; exclude: number; held: number }
 
-// 4.4 names 2000ms for this tab. The suspension that keeps an arriving snapshot off the
-// screen while the operator is dragging, typing or picking lives in useSnapshot.
-
-// Reorder, state, the match's own chips, mat, competitors, ruleset, actions.
 const PENDING_COLUMNS = 7
 
-// The hovered competitor lights every row they appear in. Scanning for one child's next
-// bout is the most common thing this screen is used for, and the table is too tall to
-// read at once.
 type Hover = (athleteId: number | null) => void
 
-/**
- * One competitor of a pairing: the name, and the team that competitor is actually on.
- *
- * An event holds up to eight teams, so a side's colour can no longer be read off the
- * column it sits in. It comes off the roster row, and a competitor the roster no longer
- * carries reads as unknown rather than borrowing somebody else's colour.
- */
 interface Side { athleteId: number | null; name: string; team: TeamRow | undefined }
 type SideOf = (row: MatchRow, side: 'a' | 'b') => Side
 
 interface Option { value: string; label: string }
 
-/**
- * Spec 9: the number first, then the style. A match is M12 on the board, on the scorer,
- * in the bracket and here, so the row leads with the one name the whole event uses.
- */
 function MatchChips({ row }: { row: MatchRow }) {
   return (
     <span className="flex items-center gap-1.5">
@@ -77,12 +57,8 @@ function MatchChips({ row }: { row: MatchRow }) {
   )
 }
 
-// A hand designed pair is never refused, so the server reports what it noticed instead.
 interface PatchResult { warnings?: string[] }
 
-// 7.1: the side itself is the swap control. One Swap button on the row could not say
-// which of the two competitors it replaces, and the organizer is already pointing at the
-// one they want changed.
 function CompetitorLine({ side, disabled = false, title, onHover, onPick }: {
   side: Side
   disabled?: boolean
@@ -91,8 +67,6 @@ function CompetitorLine({ side, disabled = false, title, onHover, onPick }: {
   onPick: () => void
 }) {
   const { name, team } = side
-  // Spec 10: a side waiting on a feeder is the sentence that names its feeder, in the
-  // muted tone, with no team colour and nothing to press.
   if (side.athleteId === null) {
     return <span className="flex h-8 min-w-0 items-center truncate t3 text-gray-10">{name}</span>
   }
@@ -115,9 +89,6 @@ function CompetitorLine({ side, disabled = false, title, onHover, onPick }: {
   )
 }
 
-// The live match is not one of forty identical rows. It is lifted into its own strip at
-// t5, and it is where "refuse rather than ask" is visible: the controls that would touch
-// a running match are disabled with the reason printed beside them.
 function LiveStrip({ line, a, b, serverNow, lastSuccessAt, pollIntervalMs, highlight, onHover }: {
   line: MatchLine
   a: Side
@@ -178,14 +149,12 @@ function LiveStrip({ line, a, b, serverNow, lastSuccessAt, pollIntervalMs, highl
 function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, count, doubleBooked, certified, highlight, onHover, onPick, onPatch, onDelete, onMove }: {
   line: MatchLine
   sideOf: SideOf
-  /** What the server said about the pair the last swap on this row produced. */
   warnings: string[]
   matItems: Option[]
   rulesetItems: Option[]
   index: number
   count: number
   doubleBooked: boolean
-  /** 6.8: a certified event refuses rather than asks, so every control here is dead. */
   certified: boolean
   highlight: boolean
   onHover: Hover
@@ -201,7 +170,6 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
   const attend = doubleBooked || line.state === 'skipped'
   const ready = line.state === 'ready' ? readyNote(line) : null
   const noted = line.state === 'skipped' || doubleBooked || warnings.length > 0 || ready !== null
-  // Every control below is otherwise named the same on all fourteen rows.
   const row = matchLabel(m.number, a.name, b.name)
 
   return (
@@ -222,8 +190,6 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
           <GripVerticalIcon />
         </Button>
       </TableCell>
-      {/* 2.7's state track, at the row's leading edge: the one place a state colour is
-          allowed to be a rule. */}
       <TableCell className="relative w-[var(--col-state)] p-0">
         {attend && <span aria-hidden className="absolute inset-y-0 left-0 w-[var(--col-state)] bg-attend" />}
       </TableCell>
@@ -252,15 +218,10 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
             onHover={on => onHover(on ? b.athleteId : null)}
             onPick={() => { if (a.team && b.athleteId !== null) onPick({ matchId: m.id, side: 'b', exclude: a.team.id, held: b.athleteId }) }}
           />
-          {/* What the row has to attend to. It sat beside the "why" chip until the chip
-              went; it belongs against the pair it is about, and it takes a line only on
-              the rows that have something to say, so a quiet queue keeps its rhythm. */}
           {noted && (
             <span className="flex h-4 min-w-0 items-center gap-3 overflow-hidden whitespace-nowrap">
               {line.state === 'skipped' && <span className="t2 text-attend">{skipNote(line)}</span>}
               {doubleBooked && <span className="t2 text-attend">Double booked</span>}
-              {/* A swap never blocks, so what the server noticed about the new pair is
-                  reported on the row it changed, the picker that made it having closed. */}
               {warnings.map(w => <span key={w} className="t2 text-attend">{w}</span>)}
               {ready && <span className="t2 text-gray-10">{ready}</span>}
             </span>
@@ -283,8 +244,6 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
         <div className="flex items-center gap-2">
           <Button size="sm" variant="ghost" aria-label={`Move ${row} up`} title={certified ? CERTIFIED_REFUSAL : undefined} disabled={certified || index === 0} onClick={() => onMove(index, -1)}>Up</Button>
           <Button size="sm" variant="ghost" aria-label={`Move ${row} down`} title={certified ? CERTIFIED_REFUSAL : undefined} disabled={certified || index === count - 1} onClick={() => onMove(index, 1)}>Down</Button>
-          {/* A pairing has two sides, so Swap has to say which one it is replacing. The
-              competitor lines are the shortcut; this is the labelled control. */}
           <OverflowMenu
             label={`Swap in ${row}`}
             text="Swap"
@@ -294,7 +253,6 @@ function PendingRow({ line, sideOf, warnings, matItems, rulesetItems, index, cou
               { key: 'b', label: `Swap ${b.name}`, disabled: a.team === undefined || b.athleteId === null, onSelect: () => { if (a.team && b.athleteId !== null) onPick({ matchId: m.id, side: 'b', exclude: a.team.id, held: b.athleteId }) } },
             ]}
           />
-          {/* 7.7: a destructive control never sits flush against the row's most repeated one. */}
           <Button size="sm" variant="destructive" className="ml-4" aria-label={`Delete ${row}`} title={certified ? CERTIFIED_REFUSAL : undefined} disabled={certified} onClick={() => onDelete(m.id)}>Delete</Button>
         </div>
       </TableCell>
@@ -306,7 +264,6 @@ function SettledRow({ line, sideOf, highlight, certified, onHover, onHistory, on
   line: MatchLine
   sideOf: SideOf
   highlight: boolean
-  /** Refuse rather than ask (6.8): a certified record cannot be corrected from here. */
   certified: boolean
   onHover: Hover
   onHistory: () => void
@@ -325,7 +282,6 @@ function SettledRow({ line, sideOf, highlight, certified, onHover, onHistory, on
       <TableCell className="w-[80px] t2 text-gray-10">{line.matNumber === null ? '' : `Mat ${line.matNumber}`}</TableCell>
       <TableCell className="min-w-0">
         <span className="flex min-w-0 items-center gap-2">
-          {/* 7.4: the winner is white at 500 and the loser --gray-10 at 400, never --fault. */}
           <span
             className="flex min-w-0 items-center gap-2"
             onMouseEnter={() => onHover(winnerId)}
@@ -334,7 +290,6 @@ function SettledRow({ line, sideOf, highlight, certified, onHover, onHistory, on
             {winner.team && <TeamPlate color={winner.team.color} name={winner.team.name} size="inline" showName={false} />}
             <span className="truncate t3 font-medium text-white">{winner.name}</span>
           </span>
-          {/* 2.1: --gray-9 is decoration only. This is the verb of the row's sentence. */}
           <span className="shrink-0 t2 text-gray-10">beat</span>
           <span
             className="flex min-w-0 items-center gap-2"
@@ -363,36 +318,21 @@ function SettledRow({ line, sideOf, highlight, certified, onHover, onHistory, on
 
 export function MatchesTab({ detail }: { detail: EventDetail }) {
   const eventId = detail.event.id
-  // No pinned interval: this tab always mounts inside the event body's stream, which polls
-  // on the derived ramp. Pinning one here produced a number the stream ignored and then fed
-  // it to the clock as a staleness threshold, so this tab called data fresh for seconds
-  // after the board had already stopped trusting it.
   const { snapshot, live: liveSnapshot, lastSuccessAt } = useSnapshot(eventId)
   const pollIntervalMs = pollIntervalForSnapshot(snapshot)
-  // The same list the Proposals panel reads. A kid already on one side of a draft is
-  // spoken for the moment it is confirmed, so "Without a match" should not offer them.
   const proposals = useProposals(eventId).data ?? []
-  // The room's own account of the event, not this browser's detail cache: the organizer
-  // certifies it from a phone at the same desk and nothing invalidates the cache when
-  // they do.
   const certified = statusOf(liveSnapshot, detail.event.status) === 'certified'
   const [pick, setPick] = useState<Pick | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [pasteOpen, setPasteOpen] = useState(false)
   const [orderOpen, setOrderOpen] = useState(false)
-  // The competitor the Add match dialog opens on, when it was opened from a row that
-  // names one. Null when it was opened from the toolbar.
   const [addStart, setAddStart] = useState<number | null>(null)
-  // What the server said about each pair a swap on this tab produced, by match. A warning
-  // never blocks the write, so it is reported on the row rather than in a refusal.
   const [swapNotes, setSwapNotes] = useState<Record<number, string[]>>({})
   const [dragging, setDragging] = useState(false)
   const [hovered, setHovered] = useState<number | null>(null)
   const [showSettled, setShowSettled] = useState(false)
   const [history, setHistory] = useState<HistorySource | null>(null)
   const [editing, setEditing] = useState<MatchView | null>(null)
-  // A certified event has no sensor at all, so a drag cannot start. Disabling the handle
-  // alone would still let a pointer press land on the row and begin one.
   const pointer = useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   const sensors = useSensors(...(certified ? [] : [pointer]))
 
@@ -400,10 +340,7 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
   const live = useMemo(() => lines.filter(l => l.lane === 'live'), [lines])
   const pending = useMemo(() => lines.filter(l => l.lane === 'pending'), [lines])
   const settled = useMemo(() => lines.filter(l => l.lane === 'settled'), [lines])
-  // Only pending rows are sortable: a live or settled match keeps its exact overall
-  // position, so Up/Down and drag only ever swap a pending row with another pending row.
   const pendingIds = useMemo(() => pending.map(l => l.row.id), [pending])
-  // The status a row is shown under is the merged one, so the warning agrees with the lane.
   const doubleBooked = useMemo(
     () => doubleBookedMatchIds(lines.map(l => ({ ...l.row, status: l.status }))),
     [lines],
@@ -413,9 +350,6 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
   const del = useAdminMutation(eventId, (id: number) => adminApi(`/api/matches/${id}`, { method: 'DELETE' }))
   const reorder = useAdminMutation(eventId, (next: number[]) => adminApi(`/api/events/${eventId}/matches/reorder`, { method: 'POST', body: { ids: next } }))
 
-  // Only the most recently started action's error stays visible: reset the other
-  // two mutations before starting a new one, so a stale failure from an earlier
-  // action never lingers behind a later, unrelated success.
   const resetExcept = (keep: 'patch' | 'del' | 'reorder') => {
     if (keep !== 'patch') patch.reset()
     if (keep !== 'del') del.reset()
@@ -424,8 +358,6 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
 
   const pendingCount = pendingIds.length
 
-  // Moves a pending row within the pending-only subsequence, then rebuilds the full
-  // id order for the server with every other row's id back in its original slot.
   const reorderPending = (pendingFrom: number, pendingTo: number): number[] => {
     const movedPending = moveId(pendingIds, pendingFrom, pendingTo)
     let cursor = 0
@@ -456,8 +388,6 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
     )
     setPick(null)
   }
-  // onError is how a cell that holds a draft learns its write was refused, so the
-  // rejected value never stays on screen looking saved.
   const onPatchAction = (id: number, body: Partial<MatchRow>, onError?: () => void) => {
     resetExcept('patch')
     patch.mutate({ id, body }, onError ? { onError } : undefined)
@@ -485,10 +415,6 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
     ...detail.mats.map(mat => ({ value: String(mat.id), label: `Mat ${mat.number}` })),
   ], [detail.mats])
   const rulesetItems = useMemo(() => detail.rulesets.map(r => ({ value: String(r.id), label: r.name })), [detail.rulesets])
-  // Spec 9's "No match yet": a competitor with no match in any style or status, and in no
-  // division. A kid may hold any number of unfought matches now, so a settled one no
-  // longer frees them; what the field is for is the child nobody has drawn at all. One
-  // already on either side of a proposal is spoken for the moment that draft is confirmed.
   const booked = new Set([
     ...detail.matches.flatMap(matchAthleteIds),
     ...detail.divisions.flatMap(d => d.members.map(m => m.athleteId)),
@@ -509,15 +435,11 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
         : null
 
   return (
-    // 4.4: the drag contract operatorEngaged() reads. An arriving snapshot is held, not
-    // committed, while this is set.
     <div className="grid gap-6" data-dragging={dragging ? 'true' : undefined}>
       <div className="flex flex-wrap items-center gap-3">
         <Button size="sm" variant="secondary" disabled={certified} onClick={() => openAdd(null)}>Add match</Button>
         <Button size="sm" variant="secondary" disabled={certified} onClick={() => setPasteOpen(true)}>Paste matches</Button>
         <Button size="sm" variant="secondary" disabled={certified} onClick={() => setOrderOpen(true)}>Order matches</Button>
-        {/* 6.8: the reason a control is dead is printed once, beside the controls it kills,
-            rather than waiting for somebody to press one and read a banner. */}
         {certified && <span className="t2 text-gray-10">{CERTIFIED_REFUSAL}</span>}
       </div>
 
@@ -528,9 +450,6 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
         </Alert>
       )}
 
-      {/* In desk mode nothing starts a match, so this strip is normally empty there. The one
-          exception is a switch to the desk taken mid-bout: that match stays live on its mat
-          until the desk types its result, and hiding it here hid the only list that named it. */}
       {live.length > 0 && (
         <section aria-label="Live now" className="grid gap-3">
           {live.map(l => (
@@ -555,17 +474,11 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
       <AddMatchDialog detail={detail} start={addStart} open={addOpen} onOpenChange={setAddOpen} />
       <PasteMatchesDialog detail={detail} open={pasteOpen} onOpenChange={setPasteOpen} />
       <ScheduleDialog detail={detail} open={orderOpen} onOpenChange={setOrderOpen} />
-      {/* The one correction dialog, reached from the settled field as well as from the
-          Live tab's panel overflow and the Entry tab's ledger. */}
       <ResultDialog detail={detail} match={editing} open={editing !== null} onOpenChange={o => { if (!o) setEditing(null) }} />
       <MatchHistorySheet source={history} open={history !== null} onOpenChange={o => { if (!o) setHistory(null) }} />
 
-      {/* Spec 9: the divisions sit above the drafts, and the drafts above the running
-          order, because each one is what puts rows into the next. */}
       <DivisionsPanel detail={detail} certified={certified} />
 
-      {/* Spec 6: the drafts sit above the running order, because confirming one is what
-          puts a row into it. */}
       <ProposalsPanel detail={detail} certified={certified} />
 
       <section aria-label="Pending matches" className="grid gap-3">
@@ -620,7 +533,6 @@ export function MatchesTab({ detail }: { detail: EventDetail }) {
               {showSettled ? 'Hide' : 'Show'}
             </Button>
           </div>
-          {/* History gets its own field on the recessed band, so it never shares a lane with work. */}
           {showSettled && (
             <div className="overflow-hidden rounded-lg bg-gray-1">
               <Table>

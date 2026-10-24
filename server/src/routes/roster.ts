@@ -15,16 +15,6 @@ export const rosterRoutes = new Hono<Env>()
 
 type Sweep = { ok: true; records: WlBeltRecord[]; locations: number } | { ok: false; message: string }
 
-/**
- * One filtered report per location, every location. Each can poll for minutes, so without
- * an overall budget a sweep outlives the function's time limit and the dialog sees a
- * platform timeout instead of an envelope it can render. The same absolute deadline is
- * handed to every location's own search, so a report that is still polling when the budget
- * runs out gives up mid-flight instead of only being caught once it returns.
- *
- * A business with no location is a failure, not an empty gym: nothing was asked, so the
- * sync must not go on to report a roster it never looked for as missing.
- */
 async function sweepLocations(wl: WlLike, filter: WlNameFilter, budgetMs: number | null): Promise<Sweep> {
   const deadline = budgetMs === null ? null : Date.now() + budgetMs
   const records: WlBeltRecord[] = []
@@ -71,9 +61,6 @@ rosterRoutes.post('/events/:eventId/roster/sync', requireAdmin, async c => {
   } else {
     warnings.push('Leaderboard not configured. No ERP join.')
   }
-  // The engine replaces the pool from the same records, so this build is only the copy the
-  // dialog lists. The pool is the subset the last sync found, not append-only history: a
-  // competitor WellnessLiving no longer answers for drops out of it.
   const candidates = buildCandidates(found.records, competitors)
   const report = await db.transaction(tx => syncRoster(tx, eventId, found.records, competitors, { locations: found.locations, warnings: warnings.length }))
   return c.json({ candidates, warnings, report })
@@ -111,13 +98,10 @@ rosterRoutes.get('/events/:eventId/wl-search', requireAdmin, async c => {
   const q = (c.req.query('q') ?? '').trim()
   if (q.length < 2) return errorJson(c, 422, 'validation', 'Type at least two letters.')
 
-  // A person types a name without saying which half it is, so both name columns are asked.
   const tokens = nameTokens(q)
   const found = await sweepLocations(roster.wl, { uids: [], lastTokens: tokens, firstTokens: tokens }, roster.syncBudgetMs)
   if (!found.ok) return errorJson(c, 503, 'wl_error', found.message)
 
-  // The leaderboard is a bonus here: without it a candidate still carries the name, the
-  // belt and the location a picker needs.
   let competitors: LeaderboardCompetitor[] = []
   if (roster.leaderboard) {
     try {

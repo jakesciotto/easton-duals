@@ -21,11 +21,8 @@ import { CORRECTION_REASON_MAX, DEFAULT_ACTIONS, DEFAULT_TERMINALS, DEFAULT_LENG
 
 const colorSchema = z.enum(TEAM_COLOR_KEYS as [TeamColor, ...TeamColor[]])
 export const teamSchema = z.object({ name: z.string().trim().min(1).max(40), color: colorSchema })
-// A team is read off the board by its colour, so two teams on one event cannot share one.
 const DUPLICATE_COLOUR = 'each team needs its own colour'
 const distinctColours = (list: { color: TeamColor }[]) => new Set(list.map(t => t.color)).size === list.length
-// Empty clears the field. A contact with only one half reads as absent everywhere, so
-// there is nothing to gain from refusing a half-filled pair at the edge.
 const contactName = z.string().trim().max(60)
 const contactPhone = z.string().trim().max(30)
 const sameGender = z.boolean()
@@ -61,8 +58,6 @@ export async function eventDetail(db: DbLike, eventId: number) {
   if (!ev) return null
   const candidateRow = await db.select({ n: count() }).from(rosterCandidates).where(eq(rosterCandidates.eventId, eventId)).get()
   const matchRows = await db.select().from(matches).where(eq(matches.eventId, eventId)).orderBy(asc(matches.orderIndex), asc(matches.id)).all()
-  // The same derivation the snapshot uses, so the Entry ledger's At column survives a
-  // reload and reads the same on a second desk device.
   const endedAtById = await endedAtByMatch(db, matchRows.map(m => m.id))
   return {
     event: { ...ev, contact: eventContact(ev) },
@@ -136,10 +131,6 @@ eventRoutes.patch('/events/:eventId', requireAdmin, validate('json', patchEventS
   if (!ev) return errorJson(c, 404, 'not_found', 'event not found')
   await assertNotCertified(db, eventId)
   const { status, matCount, contactName: name, contactPhone: phone, mode, far, smoothcompUrl, ...rest } = c.req.valid('json')
-  // The console sends the whole form back, so most of `rest` usually repeats what is
-  // already stored. Only the fields that differ belong in the history: a row saying an
-  // event was edited when nothing about it moved is noise in the one place that has to be
-  // trustworthy.
   const changed: Record<string, unknown> = Object.fromEntries(
     Object.entries(rest).filter(([key, value]) => value !== ev[key as keyof typeof ev]),
   )
@@ -157,8 +148,6 @@ eventRoutes.patch('/events/:eventId', requireAdmin, validate('json', patchEventS
     fields.smoothcompUrl = url
     if (url !== ev.smoothcompUrl) changed.smoothcompUrl = url
   }
-  // One PATCH can carry several unrelated changes, and the history is read a line at a
-  // time, so each concern the body actually changes gets its own row.
   await db.transaction(async tx => {
     const audit = (action: AuditAction, detail: Record<string, unknown>) => recordAudit(tx, { eventId, actor: 'admin', action, detail })
     if (Object.keys(fields).length > 0) await tx.update(events).set(fields).where(eq(events.id, eventId)).run()
@@ -170,9 +159,6 @@ eventRoutes.patch('/events/:eventId', requireAdmin, validate('json', patchEventS
     if (mode !== undefined && mode !== ev.mode) await audit('mode', { from: ev.mode, to: mode })
     if (name !== undefined || phone !== undefined) await audit('contact', { name: fields.contactName ?? ev.contactName, phone: fields.contactPhone ?? ev.contactPhone })
     if (far !== undefined && far !== ev.far) await audit('far', { far })
-    // Start skips the mats in entry mode, so an event that switches to the mats halfway
-    // through the afternoon has to load them here. Nothing else would: the mats advance
-    // when a match ends, and none of them is holding one.
     if (mode === 'live' && ev.mode !== 'live' && ev.status === 'live') {
       for (const mat of await tx.select({ id: mats.id }).from(mats).where(eq(mats.eventId, eventId)).all()) await advanceMat(tx, mat.id, 'admin')
     }
@@ -197,14 +183,8 @@ eventRoutes.delete('/events/:eventId', requireAdmin, validate('json', deleteEven
   const eventId = Number(c.req.param('eventId'))
   const ev = await db.select().from(events).where(eq(events.id, eventId)).get()
   if (!ev) return errorJson(c, 404, 'not_found', 'event not found')
-  // Certified is a signature; it stays out of reach until an admin unlocks it, the same
-  // as every other write, but the message says what to do rather than only naming the
-  // state, because the organizer's next move here is not obvious the way it is elsewhere.
   if (ev.status === 'certified') return errorJson(c, 409, 'match_state', 'unlock the results first')
   const { pin } = c.req.valid('json')
-  // Setup is the one status nothing has happened in yet: a plain confirm is enough. Past
-  // that, the PIN is asked again so a console left open on a desk cannot erase an
-  // afternoon's results with a stray tap.
   if (ev.status !== 'setup') {
     if (pin === undefined) return errorJson(c, 422, 'pin_required', 'This event has results. Enter the PIN to delete it.')
     const refused = await withPin(c, pin)
@@ -213,8 +193,6 @@ eventRoutes.delete('/events/:eventId', requireAdmin, validate('json', deleteEven
   const athleteCount = await db.select({ n: count() }).from(athletes).where(eq(athletes.eventId, eventId)).get()
   const matchRows = await db.select({ status: matches.status }).from(matches).where(eq(matches.eventId, eventId)).all()
   const results = matchRows.filter(m => m.status === 'done').length
-  // The audit row outlives the event, which is the point of a table with no foreign keys.
-  // The counts are read before the delete because nothing is left to count after it.
   await db.transaction(async tx => {
     await tx.delete(events).where(eq(events.id, eventId)).run()
     await recordAudit(tx, {
@@ -234,8 +212,6 @@ eventRoutes.post('/events/:eventId/teams', requireAdmin, validate('json', teamSc
   const rows = await db.select().from(teams).where(eq(teams.eventId, eventId)).orderBy(asc(teams.position)).all()
   if (rows.length >= MAX_TEAMS) return errorJson(c, 422, 'validation', 'an event holds at most eight teams')
   if (rows.some(t => t.color === body.color)) return errorJson(c, 422, 'validation', DUPLICATE_COLOUR)
-  // The next slot rather than the count, so a team added after another was removed cannot
-  // land on a position a remaining team already holds.
   const position = rows.reduce((max, t) => Math.max(max, t.position), -1) + 1
   const team = await db.transaction(async tx => {
     const inserted = await tx.insert(teams).values({ eventId, name: body.name, color: body.color, position }).returning().get()
@@ -255,8 +231,6 @@ eventRoutes.delete('/events/:eventId/teams/:teamId', requireAdmin, async c => {
   await assertNotCertified(db, eventId)
   const rows = await db.select({ id: teams.id }).from(teams).where(eq(teams.eventId, eventId)).all()
   if (rows.length <= MIN_TEAMS) return errorJson(c, 422, 'validation', 'an event needs at least two teams')
-  // A kid on the team is the only way a match can name it, so one check covers both. The
-  // roster is where they are moved, because that is where the person can see who they are.
   if (await db.select({ id: athletes.id }).from(athletes).where(eq(athletes.teamId, teamId)).get()) {
     return errorJson(c, 409, 'team_in_use', 'the team has competitors on it; move them first')
   }
@@ -292,17 +266,12 @@ eventRoutes.patch('/events/:eventId/teams/:teamId', requireAdmin, validate('json
   return c.json(await eventDetail(db, eventId))
 })
 
-// Certification is the organizer's signature, so it asks for the PIN again rather than
-// trusting the token in the browser: the console is left open on a desk all afternoon.
 const pinBody = z.object({ pin: z.string() })
 const unlockBody = pinBody.extend({ reason: z.string().trim().min(1).max(CORRECTION_REASON_MAX) })
 
 async function withPin(c: Context<Env>, pin: string): Promise<Response | null> {
   const ctx = c.get('ctx')
   const ip = clientIp(c)
-  // The window is an hour, so a person told to wait a minute would try again and again
-  // and be refused every time. The wait it prints is the one the limiter is actually
-  // holding, rounded up to the next whole minute.
   const limit = await checkLimit(ctx.db, 'certify', ip, Date.now())
   if (!limit.allowed) {
     const minutes = Math.max(1, Math.ceil(limit.retryAfterSec / 60))
@@ -347,12 +316,6 @@ eventRoutes.post('/events/:eventId/uncertify', requireAdmin, validate('json', un
   return c.json(await eventDetail(db, eventId))
 })
 
-// The companion to a match's history, for the rows that belong to no match: certify,
-// unlock, Start, Finish, the roster and the running order. Rows that name a match are
-// left to that match's own history, or a busy afternoon's scoring would push every
-// event-level row past the limit. It takes the newest rows rather than the oldest,
-// because an event's log only grows and the end of it is what a person is looking at,
-// and hands them back in reading order.
 eventRoutes.get('/events/:eventId/history', requireAdmin, async c => {
   const { db } = c.get('ctx')
   const rows = await db.select({
@@ -369,7 +332,5 @@ eventRoutes.get('/events/:eventId/connect', requireAdmin, async c => {
   const ctx = c.get('ctx')
   const ev = await ctx.db.select().from(events).where(eq(events.id, Number(c.req.param('eventId')))).get()
   if (!ev) return errorJson(c, 404, 'not_found', 'event not found')
-  // Mirrors /api/lan: in cloud mode the QR code and the typed address have to point at the
-  // deployed origin, not at the container's own private interface.
   return c.json({ url: ctx.publicUrl ?? `http://${lanIp()}:${ctx.port}`, matCode: ev.matCode })
 })

@@ -1,11 +1,6 @@
 import { KIDS_BELTS, type KidsBelt } from '../shared/types.js'
 import type { WlNameFilter } from './types.js'
 
-// s_sql keywords must be lowercase; WL returns "Unknown SQL statement" for SELECT.
-// Report 1619 cross-joins client x rank category across all four Easton categories
-// (Adult IBJJF Belts, Adult Muay Thai Shirts, Kids IBJJF Belts, Kids Muay Thai Belts),
-// so the default where clause narrows to categories that contain both "Kids" and "IBJJF".
-// An exact categoryTitle overrides that with an equality match.
 export function kidsQuery(categoryTitle?: string): string {
   const category = categoryTitle
     ? `text_rank_category = '${categoryTitle.replace(/'/g, "''")}'`
@@ -14,21 +9,10 @@ export function kidsQuery(categoryTitle?: string): string {
     `where text_rank <> 'No belt' and ${category}`
 }
 
-// Terms past this many go into another query rather than one enormous clause.
 const TERMS_PER_QUERY = 60
 
 const quote = (s: string): string => s.replace(/'/g, "''")
 
-/**
- * The kids query narrowed to the people a filter names, as one query per batch of terms.
- * A uid is a term and so is a name token, and an empty filter asks for nothing at all.
- *
- * WellnessLiving answers a report whose where clause names an unknown column by polling
- * forever, so every column here is written exactly as the projection above names it,
- * backticks and all. Its `like` is case sensitive too, and a name is stored in title case,
- * so both sides of a name comparison go through lower(); `ilike`, `collate nocase` and
- * `regexp` each hang the report until the deadline.
- */
 export function searchQuery(filter: WlNameFilter, categoryTitle?: string): string[] {
   const terms = [
     ...filter.uids.map(value => ({ column: null, value })),

@@ -33,7 +33,6 @@ const candidateSchema = z.object({
   wlUid: z.string().min(1), firstName: name, lastName: name, belt: z.string().nullable(), wlLocation: z.string(),
   leaderboardId: z.string().nullable(), erp: z.number().nullable(), age: z.number().int().nullable(),
   weightLbs: z.number().int().nullable(), gender: z.string().nullable(),
-  // Added in 0010. A body written by an older client carries no date, which reads as none.
   promotedAt: z.string().nullable().default(null),
 })
 
@@ -45,17 +44,12 @@ const addSchema = z.union([
 
 const patchSchema = manualSchema.partial()
 
-// How many kids on the team are already marked, other than the one this write is about.
-// A team scores with at most SCORING_CAP kids, so marking one more only passes when
-// fewer than the cap are already carrying the flag.
 async function otherMarkedCount(db: DbLike, teamId: number, excludeAthleteId: number): Promise<number> {
   const rows = await db.select({ id: athletes.id }).from(athletes)
     .where(and(eq(athletes.teamId, teamId), eq(athletes.scoring, true), ne(athletes.id, excludeAthleteId))).all()
   return rows.length
 }
 
-// The paste carries its marks with the names. The same two rules the toggle enforces apply
-// before anything is written, so a bad paste leaves the roster as it was.
 async function markRefusal(db: DbLike, eventId: number, rows: { teamId?: number | null; scoring?: boolean }[]): Promise<string | null> {
   const marks = rows.filter(r => r.scoring === true)
   if (marks.length === 0) return null
@@ -167,8 +161,6 @@ athleteRoutes.patch('/athletes/:athleteId', requireAdmin, validate('json', patch
   if (p.age !== undefined) Object.assign(update, { age: p.age, ageSource: p.age === null ? null : 'manual' })
   if (p.weightLbs !== undefined) Object.assign(update, { weightLbs: p.weightLbs, weightSource: p.weightLbs === null ? null : 'manual' })
   if (p.scoring !== undefined) update.scoring = p.scoring
-  // A new team is a new designation: a move that says nothing about scoring unmarks the kid,
-  // as the assign route does, so a stale flag can never carry a team past the cap.
   if (p.teamId !== undefined && p.teamId !== existing.teamId && p.scoring === undefined) update.scoring = false
   await db.transaction(async tx => {
     if (Object.keys(update).length > 0) await tx.update(athletes).set(update).where(eq(athletes.id, id)).run()
@@ -192,8 +184,6 @@ athleteRoutes.post('/athletes/:athleteId/link', requireAdmin, validate('json', z
   if (!cand) return errorJson(c, 422, 'validation', 'no such candidate on this event')
   const taken = await db.select().from(athletes).where(and(eq(athletes.eventId, existing.eventId), eq(athletes.wlUid, wlUid))).get()
   if (taken) return errorJson(c, 409, 'duplicate', `${fullName(taken)} is already on the roster`)
-  // The same write a sync makes, because this is a person confirming what a sync offered:
-  // the profile lands, the diff is kept, and the suggestion has been answered.
   const update = linkUpdate(existing, cand)
   await db.transaction(async tx => {
     await tx.update(athletes).set({
@@ -212,7 +202,6 @@ athleteRoutes.post('/athletes/:athleteId/link', requireAdmin, validate('json', z
   return c.json(await db.select().from(athletes).where(eq(athletes.id, id)).get())
 })
 
-// Not them. The candidate is remembered as refused, so no later sync offers it again.
 athleteRoutes.post('/athletes/:athleteId/dismiss', requireAdmin, validate('json', z.object({ wlUid: z.string().min(1) })), async c => {
   const { db } = c.get('ctx')
   const id = Number(c.req.param('athleteId'))
@@ -245,8 +234,6 @@ athleteRoutes.post('/events/:eventId/athletes/assign', requireAdmin, validate('j
   await assertNotCertified(db, eventId)
   if (!await teamBelongs(db, eventId, teamId)) return errorJson(c, 422, 'validation', 'teamId is not on this event')
   await db.transaction(async tx => {
-    // A move, wherever it lands the kid, leaves the old team's scoring marks behind: the
-    // flag is meaningless off the roster it was capped against, including Unassigned.
     await tx.update(athletes).set({ teamId, scoring: false }).where(and(eq(athletes.eventId, eventId), inArray(athletes.id, ids))).run()
     await recordAudit(tx, { eventId, actor: 'admin', action: 'roster_assign', detail: { count: ids.length, teamId } })
     await bumpVersion(tx, eventId)

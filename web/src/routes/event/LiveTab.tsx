@@ -37,15 +37,6 @@ import { Toggle } from '@/components/ui/toggle'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface ConnectInfo { url: string; matCode: string }
-/**
- * The event status plus the moment it was signed off, from one source at a time.
- *
- * `version` is the stream's version at the moment of the write, and it is what releases
- * the pin. Waiting for the stream to report the status this write produced pins forever
- * whenever a second device flips the event back inside the same poll: a certify followed
- * by a remote unlock leaves the stream on done, which the pinned certified never equals,
- * and the toolbar keeps claiming a signature the record no longer carries.
- */
 interface Signature { status: EventStatus; certifiedAt: string | null }
 interface SignOff extends Signature { version: number }
 
@@ -57,33 +48,16 @@ export const UNLOCK_NOTE = 'Every write on this event opens again. The reason is
 
 interface EndTarget { match: MatchView; matNumber: number }
 
-// The rule is the panel's leading edge (7.3) and the word beside the mat number is the
-// same state said out loud, so the panel never depends on hue alone.
 const RULE: Record<PanelTone, string> = { live: 'bg-live', attend: 'bg-attend', neutral: 'bg-gray-7' }
 const WORD: Record<PanelTone, string> = { live: 'text-live', attend: 'text-attend', neutral: 'text-gray-10' }
 
-// Edge, name, figure. 2.7: --col-num-s is 2ch + 24px measured at the row's own size, so
-// the grid that declares it carries the mono face AND t7 -- at any smaller size the track
-// resolves narrower than the 32px two digit score it exists to hold. The name cell takes
-// its own family and size back.
 const NOW_COLS = 'grid grid-cols-[var(--col-state)_minmax(0,1fr)_var(--col-num-s)] items-stretch gap-x-3 gap-y-1 font-mono t7'
 
-/**
- * The standing of every team, on a shared literal-px track rather than a relative one.
- * `ch` resolves only against the element it is declared on, so the head at 11px and a row
- * at t5 would otherwise size three different columns out of one declaration: 2ch at t7 is
- * 62.4px and 3ch at t5 is 60px (2.7's own resolved-widths table).
- */
 const STANDING_COLS = 'grid grid-cols-[var(--col-num-s)_minmax(0,1fr)_62.4px_60px] items-center gap-x-6'
 const NEXT_COLS = 'grid grid-cols-[var(--col-state)_minmax(0,1fr)] items-stretch gap-x-3 gap-y-1'
 
 export function LiveTab({ detail }: { detail: EventDetail }) {
   const eventId = detail.event.id
-  // 4.4 / WCAG 2.2.2: the operator can stop the picture. The pause lives on the shared
-  // stream, not here, so the shell's freshness readout reports the frozen rack instead
-  // of claiming live data over a screen the operator deliberately stopped.
-  // 7.12: the connection banner is the shell's, in one fixed place on every route, so
-  // this tab no longer mounts its own.
   const { snapshot: view, lastSuccessAt, paused, waiting, setPaused, live } = useSnapshot(eventId)
   const [connect, setConnect] = useState<ConnectInfo | null>(null)
   const [editing, setEditing] = useState<MatchView | null>(null)
@@ -92,22 +66,9 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
   const [certifyOpen, setCertifyOpen] = useState(false)
   const [unlockOpen, setUnlockOpen] = useState(false)
   const [history, setHistory] = useState<HistorySource | null>(null)
-  // The write's own answer, held until the stream agrees with it. Certify bumps the
-  // version so the next poll carries it, but a finished event polls every few seconds and
-  // a toolbar that keeps saying Certify results for that long reads as a button that did
-  // nothing. Cleared once the stream catches up, so an unlock from a second device is not
-  // then hidden behind a stale local claim.
   const [signed, setSigned] = useState<SignOff | null>(null)
-  // One client event id per match end, held across retries so a resend the server has
-  // already applied is deduped rather than ending the next match too.
   const endIds = useRef<Record<number, string>>({})
-  // The stream this tab already polls, not the event detail: the detail is a react-query
-  // cache that nothing invalidates when the organizer switches the event from a phone, so
-  // reading it here left this laptop showing the mat rack and its connect card while the
-  // television in the same room had already repainted as the Final Score panel.
   const entryMode = modeOf(live, detail.event.mode) === 'entry'
-  // The status the same way: a Finish pressed on a second device, or a match a tablet just
-  // ended, reaches this tab through the stream and never through the detail cache.
   const streamStatus = statusOf(live, detail.event.status)
   const streamRecord: Signature = {
     status: streamStatus,
@@ -115,8 +76,6 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
   }
   const record: Signature = signed ?? streamRecord
   const eventStatus = record.status
-  // Either signal means the stream has caught up: it reports what the write produced, or
-  // it has moved past the version the write was issued against, whatever it now says.
   const liveVersion = live?.version ?? -1
   useEffect(() => {
     setSigned(s => (s !== null && (s.status === streamStatus || liveVersion > s.version) ? null : s))
@@ -130,19 +89,11 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
   }, [eventId, entryMode])
 
   const status = useAdminMutation(eventId, (s: 'live' | 'done') => adminApi(`/api/events/${eventId}`, { method: 'PATCH', body: { status: s } }))
-  // A skip carries a client id so a press that arrives twice moves the match once; the
-  // server dedupes on it. Reopen writes its own admin event and takes no id.
   const act = useAdminMutation(eventId, (v: { id: number; action: 'reopen' | 'skip'; clientId?: string }) =>
     adminApi(`/api/matches/${v.id}/${v.action}`, { method: 'POST', body: v.action === 'skip' ? { id: v.clientId } : undefined }))
   const skipIds = useRef<Record<number, string>>({})
-  // G02: an idle mat has nothing to trigger its own advance, so the panel calls it.
   const advance = useAdminMutation(eventId, (matId: number) => adminApi<{ version: number }>(`/api/mats/${matId}/advance`, { method: 'POST' }))
-  // The panel repaints the instant the advance succeeds, and a second tap in that gap is
-  // refused for a press that worked. The control stays busy until the stream carries the
-  // version the write returned.
   const [awaitingAdvance, setAwaitingAdvance] = useState<{ matId: number; version: number } | null>(null)
-  // Certification re-enters the PIN rather than trusting the token in this browser, so
-  // both writes carry it in the body and both answer with the event as it now stands.
   const certify = useAdminMutation(eventId, (pin: string) =>
     adminApi<EventDetail>(`/api/events/${eventId}/certify`, { method: 'POST', body: { pin } }))
   const uncertify = useAdminMutation(eventId, (v: { pin: string; reason: string }) =>
@@ -167,7 +118,6 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
         : { id: v.entryId, lastSeq: v.lastSeq, winnerAthleteId: v.winnerAthleteId },
     }))
 
-  // Only the most recently started action's error stays visible.
   const runStart = () => { act.reset(); end.reset(); advance.reset(); status.mutate('live') }
   const runAct = (v: { id: number; action: 'reopen' | 'skip' }) => {
     status.reset(); end.reset(); advance.reset()
@@ -197,8 +147,6 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
     advance.reset()
     const { match } = target
     const entryId = endIds.current[match.id] ?? (endIds.current[match.id] = newEventId())
-    // The action lands on the room, not on the picture: while the rack is paused the
-    // frozen match view can be several writes behind, and the guard rejects a stale seq.
     const newest = live?.matches.find(m => m.id === match.id) ?? match
     end.mutate({ id: match.id, entryId, lastSeq: newest.lastSeq, winnerAthleteId }, {
       onSuccess: () => {
@@ -220,13 +168,8 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
     runEnd(target)
   }
 
-  // While the dialog is open a failed finish is shown inside it only, and a decision
-  // the dialog is asking for is not an error the rack has to repeat. A refused advance
-  // (409 match_state) prints the server's own reason here like every other refusal.
   const error = (finishOpen ? null : status.error) ?? act.error ?? advance.error ?? (ending ? null : end.error)
   const matUrl = connect ? `${connect.url}/mat?event=${eventId}` : ''
-  // A side whose team is not on this event gets the neutral swatch rather than the first
-  // team's colour: a wrong colour is worse than none, and an event holds up to eight.
   const teamColor = (teamId: number | null) => detail.teams.find(t => t.id === teamId)?.color ?? ''
 
   const mats = [...(view?.mats ?? [])].sort((a, b) => a.number - b.number)
@@ -259,9 +202,6 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
           {eventStatus === 'live' && (
             <Button size="sm" variant="destructive" onClick={() => setFinishOpen(true)} disabled={status.isPending}>Finish event</Button>
           )}
-          {/* 6.9's done state has one thing left to do with the event, so it is the one
-              primary control on the screen. Once it is done there is no primary at all:
-              unlocking is a destructive item in the overflow, never a button on the face. */}
           {eventStatus === 'done' && (
             <Button size="lg" onClick={() => { certify.reset(); setCertifyOpen(true) }} disabled={certify.isPending}>Certify results</Button>
           )}
@@ -270,11 +210,6 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
               Certified{certifiedAt === null ? '' : <> at <span className="fig">{certifiedAt}</span></>}
             </span>
           )}
-          {/* The history is the record's own account of itself, so it is reachable in both
-              finished states. Hanging it off the certified branch alone put it out of reach
-              on a done event and, worse, took it away again on every unlock. Unlock is the
-              item that belongs to certified, and it is destructive, so it is never a button
-              on the face. */}
           {done && (
             <OverflowMenu
               label="Event actions"
@@ -296,14 +231,9 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
         </Alert>
       )}
 
-      {/* Spec 6: while the event is running the header carries the leaderboard. Once it
-          is done the final result below carries the same table, so this one stands down
-          rather than printing the standing twice. */}
       {!done && view !== null && view.teams.length > 0 && <Leaderboard teams={view.teams} />}
 
       {done ? (
-        // The record is never a paused picture, so it reads the live snapshot even if the
-        // rack was frozen when the event finished.
         <FinalResult view={live} eventId={eventId} certified={certified} />
       ) : (
         <>
@@ -343,8 +273,6 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
         </>
       )}
 
-      {/* One Finish dialog for the whole event, so this tab and the Entry tab ask the
-          same question and both name the mats that would be cut off mid-match. */}
       <FinishEventDialog
         open={finishOpen}
         onOpenChange={o => { if (o) setFinishOpen(true); else closeFinish() }}
@@ -384,11 +312,6 @@ export function LiveTab({ detail }: { detail: EventDetail }) {
   )
 }
 
-/**
- * The organizer's signature. The PIN is typed again here rather than read off the token
- * in the browser, because the console sits unlocked on a desk all afternoon and this is
- * the one write nobody should be able to make by walking past it.
- */
 function CertifyDialog({ open, pending, error, onOpenChange, onCertify }: {
   open: boolean
   pending: boolean
@@ -409,7 +332,6 @@ function CertifyDialog({ open, pending, error, onOpenChange, onCertify }: {
             <CodeField id="certify-pin" length={6} aria-label="Admin PIN" value={pin} onValueChange={setPin} autoFocus />
           </div>
           <p className="t2 text-gray-10">{CERTIFY_PIN_NOTE}</p>
-          {/* A wrong PIN is shown where it was asked for, never on the tab behind. */}
           {error && <Alert><AlertTitle>The results were not certified</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>}
         </DialogBody>
         <DialogFooter className={dialogFooter}>
@@ -421,7 +343,6 @@ function CertifyDialog({ open, pending, error, onOpenChange, onCertify }: {
   )
 }
 
-/** The mirror, and the reason is required: an unlocked record has to say why it was. */
 function UnlockDialog({ open, pending, error, onOpenChange, onUnlock }: {
   open: boolean
   pending: boolean
@@ -474,10 +395,6 @@ function UnlockDialog({ open, pending, error, onOpenChange, onUnlock }: {
   )
 }
 
-// The connect card exists to hand a mat code to a tablet, and in entry mode there is no
-// tablet to hand it to. Stating the mode is the whole job: an operator who lands here and
-// finds a code would spend the afternoon on a mat nothing is ever going to score. The
-// standalone connect page prints the same two sentences from the same constants.
 function DeskCard() {
   return (
     <div className="grid gap-1 rounded-lg bg-gray-1 px-4 py-3">
@@ -546,17 +463,12 @@ function MatPanel({ mat, view, mode, paused, lastSuccessAt, pollIntervalMs, busy
   const current = mat.current
   const clock = current?.clock ?? null
   const live = useClock(clock, view.now, lastSuccessAt, pollIntervalMs)
-  // A paused rack must not tick: the readout freezes at the instant the snapshot the
-  // panel is rendering was taken.
   const held = clock === null ? 0 : remainingMs(clock, Date.parse(view.now))
   const remaining = paused ? held : live.remainingMs
   const expired = clock !== null && remaining <= 0
 
   const model = matPanelModel(mat, view.event.status, expired, mode, view.matches)
   const last = lastResultOf(view.matches, mat.id)
-  // Finding 1 / 6.9: capped at four pairs so a deep rack cannot push the panel's
-  // primary control below the fold; the remainder line still states the depth, counted
-  // from the whole match list because onDeck itself stops at five.
   const rest = mat.onDeck.slice(1)
   const queue = rest.slice(0, NEXT_QUEUE_CAP)
   const shown = mat.onDeck.length === 0 ? 0 : 1 + queue.length
@@ -594,14 +506,9 @@ function MatPanel({ mat, view, mode, paused, lastSuccessAt, pollIntervalMs, busy
       <div className="min-w-0">
         <Lane label="Now">
           {current === null
-            // One fact per line: a mat with neither a tablet nor a match says both, and
-            // neither sentence has to carry the other's meaning.
             ? (
               <>
                 {model.nowNotes.map(note => <p key={note} className="t3 text-gray-10">{note}</p>)}
-                {/* Spec 6: a mat with a queue and nothing on it is not idle, it is held
-                    up, and the server says by what: a side still waiting on its feeder,
-                    or a competitor who is live somewhere else. */}
                 {mat.blocked !== null && <p className="t2 text-attend">{mat.blocked}</p>}
               </>
             )
@@ -668,11 +575,6 @@ function MatPanel({ mat, view, mode, paused, lastSuccessAt, pollIntervalMs, busy
 
       {model.control !== null && (
         <div className="mt-auto pt-3">
-          {/*
-            One control, and its appearance is the report. The attend fill takes no hover
-            colour: the system holds exactly one --attend value, and a hover step would
-            have to invent a second.
-          */}
           <Button
             size="lg"
             variant="secondary"
@@ -680,9 +582,6 @@ function MatPanel({ mat, view, mode, paused, lastSuccessAt, pollIntervalMs, busy
             className={cn('w-full', model.control.tone === 'attend' && 'bg-attend text-black shadow-primary hover:bg-attend active:bg-attend')}
             onClick={() => {
               if (model.control?.action === 'advance') onAdvance(mat.id)
-              // The dead tablet path: the desk types the score and the one write pauses
-              // the clock and ends the match, rather than ending on the last thing the
-              // tablet managed to send and correcting it afterwards.
               else if (model.control?.action === 'result' && current) onEditResult(current)
               else if (model.control?.action === 'end' && current) onPrimary({ match: current, matNumber: mat.number })
             }}
@@ -695,13 +594,6 @@ function MatPanel({ mat, view, mode, paused, lastSuccessAt, pollIntervalMs, busy
   )
 }
 
-/**
- * Team points, then wins, then match points, then position, with tied teams sharing a
- * numeral. One composition whatever the team count, and the same two figures in the same
- * order as the board's own hero, which the room is reading at the same moment: the number
- * the standing is ordered by, then the wins behind it. The match points stay in the
- * tiebreak and leave the header.
- */
 function Leaderboard({ teams }: { teams: TeamView[] }) {
   const byId = new Map(teams.map(t => [t.id, t]))
   return (
@@ -748,19 +640,9 @@ function winnerTeamId(match: MatchView): number | null {
   return match.result.winnerAthleteId === match.a.athleteId ? match.a.teamId : match.b.teamId
 }
 
-// 6.9's done state. The rack has nothing left to report, so the composition changes
-// rather than emptying, and no control on it implies the event can still be scored.
 function FinalResult({ view, eventId, certified }: { view: Snapshot | null; eventId: number; certified: boolean }) {
   if (view === null) return <p className="t3 text-gray-10">Waiting for the first update from the server.</p>
   const played = (teamId: number) => view.matches.filter(m => m.status === 'done' && (m.a.teamId === teamId || m.b.teamId === teamId)).length
-  // Finding 2: the head and each row were separate grid containers with `auto` numeric
-  // tracks, so each sized its own columns from its own content -- the head from its
-  // 11px labels, a row from Wins at t7 and Points/Matches at t5, three different `ch`
-  // contexts in one declared track. `ch` only resolves against the element it is
-  // declared on, so a shared literal-px track (2.7's own resolved-widths table, not a
-  // relative one) is what lets the head and every row land on the identical register
-  // regardless of which type step each renders its own figure at: Wins is 2ch at t7
-  // (62.4px), Points and Matches are 3ch at t5 (60px).
   const cols = 'grid grid-cols-[minmax(0,1fr)_62.4px_60px_60px] items-center gap-x-6'
   return (
     <div className="grid gap-4">
@@ -781,8 +663,6 @@ function FinalResult({ view, eventId, certified }: { view: Snapshot | null; even
         ))}
       </FieldSet>
       <div className="flex flex-wrap items-center gap-4">
-        {/* Not the primary any more: before certification that is Certify results, and
-            after it the screen has no action left at all. */}
         <Link to={`/board/${eventId}`} target="_blank" className={buttonVariants({ variant: 'secondary', size: 'lg' })}>Open board</Link>
         <p className="t2 text-gray-10">
           {certified ? `This event is certified. The record lives at /board/${eventId}.` : FINISHED_LINE}
@@ -802,17 +682,11 @@ function EndDialog({ target, pending, error, teamColor, onCancel, onEnd }: {
 }) {
   const [pick, setPick] = useState<number | null>(null)
   const matchId = target?.match.id ?? null
-  // A fresh ask always starts empty, so a cancelled decision never hands the next match
-  // a winner nobody picked.
   useEffect(() => { setPick(null) }, [matchId])
   if (target === null) return null
   const { match, matNumber } = target
   return (
     <Dialog open onOpenChange={o => { if (!o) onCancel() }}>
-      {/*
-        6.18: below 640px this goes full screen like every other dialog. A tie needs a
-        decision, and the organizer takes that decision on a phone at the desk.
-      */}
       <DialogContent className={dialogSurface(512)}>
         <DialogHeader><DialogTitle>Who won on mat {matNumber}?</DialogTitle></DialogHeader>
         <DialogBody className={dialogBody}>

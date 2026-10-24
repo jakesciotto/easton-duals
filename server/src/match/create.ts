@@ -9,7 +9,6 @@ import type { FeedTake, MatchSource, Style } from '../shared/types.js'
 
 export interface CreateMatchInput {
   eventId: number
-  /** Null only with a feed on that side: a bracket slot waiting on its feeder. */
   athleteAId: number | null
   athleteBId: number | null
   feedA?: { matchId: number; take: FeedTake } | null
@@ -29,26 +28,12 @@ export type CreateMatchResult =
   | { ok: false; code: 'validation' | 'match_state'; message: string }
 
 export interface CreateMatchHooks {
-  /**
-   * Runs inside the insert's own transaction, before anything is written. A string is a
-   * refusal: nothing is written and the caller gets a match_state result. It belongs
-   * inside the transaction so two callers racing over the same kid cannot both pass it.
-   */
   guard?: (tx: DbLike) => Promise<string | null>
-  /** Runs inside the same transaction, after the insert. */
   also?: (tx: DbLike, match: MatchRow) => Promise<void>
 }
 
-// Thrown by the guard to roll the transaction back, caught at the edge of this module.
 class GuardRefused extends Error {}
 
-/**
- * Which kid goes on which side. A pair a person or the proposer chose reads in team
- * order, whichever way round the console sent it. A generated pair is left as the format
- * put it: the slot order is the bracket, and a round one pair the generator could not
- * split is a same team pair the division has already warned about, which resolvePair
- * would refuse outright.
- */
 async function sidesFor(db: DbLike, input: CreateMatchInput): Promise<{ a: number | null; b: number | null } | string> {
   const { eventId, athleteAId, athleteBId } = input
   if (athleteAId === null && !input.feedA) return 'a side needs a kid or a feed'
@@ -60,7 +45,6 @@ async function sidesFor(db: DbLike, input: CreateMatchInput): Promise<{ a: numbe
   return await checkSides(db, eventId, ids) ?? { a: athleteAId, b: athleteBId }
 }
 
-/** A feed names a match this event already holds, or the row would point at nothing. */
 async function feedsOnEvent(db: DbLike, eventId: number, input: CreateMatchInput): Promise<boolean> {
   const ids = [input.feedA, input.feedB].flatMap(f => f ? [f.matchId] : [])
   if (ids.length === 0) return true
@@ -69,15 +53,6 @@ async function feedsOnEvent(db: DbLike, eventId: number, input: CreateMatchInput
   return found.length === new Set(ids).size
 }
 
-/**
- * The one path a match comes into being on. The Add match dialog, a confirmed proposal and
- * a division's generator all run it, so the side check, the least loaded mat, the stable
- * number, the next order slot, the ruleset's length and the match_create row are written
- * in one place rather than three.
- *
- * `also` runs inside the same transaction as the insert, which is how a confirm deletes
- * its proposal with no moment where the draft and the match both exist.
- */
 export async function createMatch(
   db: DbLike,
   input: CreateMatchInput,
@@ -120,9 +95,6 @@ export async function createMatch(
         why: input.why ?? null,
         source: input.source,
       }).returning().get()
-      // An idle mat has nothing to advance it, so on a live event scored on the mats the
-      // new match starts there. advanceMat is a no-op in setup, in desk mode, and on a mat
-      // that already has a live match.
       if (matId !== null) await advanceMat(tx, matId, 'admin')
       await recordAudit(tx, {
         eventId, matchId: inserted.id, actor: 'admin', action: 'match_create',

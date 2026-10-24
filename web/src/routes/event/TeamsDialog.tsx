@@ -9,11 +9,6 @@ import { TeamList, type TeamDraft } from './TeamList'
 
 const TEAMS_NOTE = 'An event holds two to eight teams. Remove works on a team with no competitors and no matches.'
 
-/**
- * The same list the New event dialog carries, after creation. The rows exist on the
- * server by now, so they are added and removed rather than retyped: a rename is a
- * different write and nothing on this event asks for one.
- */
 export function TeamsDialog({ detail, certified, open, onOpenChange }: {
   detail: EventDetail
   certified: boolean
@@ -27,8 +22,6 @@ export function TeamsDialog({ detail, certified, open, onOpenChange }: {
     adminApi(`/api/events/${eventId}/teams/${teamId}`, { method: 'DELETE' }))
 
   const teams: TeamDraft[] = detail.teams.map(t => ({ id: t.id, name: t.name, color: t.color }))
-  // The newest failure wins by the moment it started, so the banner never names the write
-  // before last. A certified event refuses both, and says so rather than asking.
   const failure = [
     add.error ? { message: writeErrorMessage(add.error), at: add.submittedAt } : null,
     remove.error ? { message: writeErrorMessage(remove.error), at: remove.submittedAt } : null,

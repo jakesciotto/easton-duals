@@ -2,14 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 
-/**
- * The board's colour and size decisions live in board.css, where a type checker cannot
- * see them and a component test cannot either: jsdom applies no stylesheet. Every
- * grep the brief makes about the board is checked here against the declarations themselves.
- */
-// Read from disk rather than imported: vitest stubs every CSS module, `?raw` included,
-// and under jsdom `import.meta.url` is an http URL, so the path is resolved from the cwd
-// the suite was started in.
 function boardCssPath(): string {
   for (const candidate of ['src/routes/board/board.css', 'web/src/routes/board/board.css']) {
     const full = resolvePath(process.cwd(), candidate)
@@ -51,8 +43,6 @@ describe('the board greps in 5.1', () => {
 
   it('spends no grey below --gray-10 beyond the two 6.15 and 2.5 name', () => {
     expect(css.match(/var\(--gray-[2-9]\)/g)).toBeNull()
-    // The settled row background and the letterbox bars outside the stage, which 3.4
-    // states in those words. The plate the third one cut its code out of is retired.
     expect(css.match(/var\(--gray-1\)/g)).toHaveLength(2)
     expect(decl('.b-row-settled', 'background')).toBe('var(--gray-1)')
     expect(decl('.b-frame', 'background')).toBe('var(--gray-1)')

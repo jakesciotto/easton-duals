@@ -10,7 +10,7 @@ function write(key: string, value: string | null) {
   try {
     if (value === null) localStorage.removeItem(key)
     else localStorage.setItem(key, value)
-  } catch { /* storage blocked */ }
+  } catch { }
 }
 
 const listeners = new Set<() => void>()

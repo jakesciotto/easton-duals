@@ -8,16 +8,6 @@ import { useNow } from '@/lib/useClock'
 import { ageSeconds, formatAge, headerFreshnessLevel } from '@/lib/freshness'
 import { cn } from '@/lib/utils'
 
-// What the shell needs to drive the freshness readout (6.4): the same lastSuccessAt the
-// event's one useSnapshot() stream exposes, and the poll interval it is actually using --
-// pass pollIntervalForSnapshot(snapshot) unless the caller pinned an explicit one.
-//
-// `freshness` stays optional, and absence still means no status region at all rather than
-// a region claiming freshness it does not have. Do not default this to a fake "Live" state.
-//
-// `paused` is the other half of that honesty (4.4 / WCAG 2.2.2). The poll keeps running
-// while the operator has stopped the picture, so a header driven by lastSuccessAt alone
-// would read "Live 1s" over a screen that has not moved since they pressed the button.
 export interface ShellFreshness {
   lastSuccessAt: number | null
   pollIntervalMs: number
@@ -53,10 +43,6 @@ function FreshnessSlot({ freshness }: { freshness: ShellFreshness }) {
   const dot = level === 'fault' ? 'bg-fault' : level === 'attend' ? 'bg-attend' : 'bg-gray-11'
 
   return (
-    // The age is printed only once the data stopped arriving. While the app is healthy the
-    // age is always under one poll interval, so a number here counts up and resets on every
-    // poll: it changes every second and reports nothing the operator can act on. A live
-    // region would also be a speech denial of service (7.12), so it is read on demand.
     <span aria-live="off" className={cn('ml-auto flex shrink-0 items-center gap-2 t2', tone)}>
       <span aria-hidden className={cn('size-1.5 rounded-full', dot)} />
       {level === 'fresh'
@@ -66,12 +52,6 @@ function FreshnessSlot({ freshness }: { freshness: ShellFreshness }) {
   )
 }
 
-/**
- * The header wraps below 640px, so its height is not a constant any other sticky can
- * assume. It publishes its measured height instead, and an in-page sticky offsets by
- * that. A hardcoded offset and a wrapping header disagree at exactly the width where
- * the subhead would cover the wordmark.
- */
 function useHeaderHeight() {
   const ref = useRef<HTMLElement | null>(null)
   useEffect(() => {
@@ -93,15 +73,7 @@ export function AdminShell({ title, status, actions, meta, freshness, connected,
   actions?: ReactNode
   meta?: ReactNode
   freshness?: ShellFreshness
-  // 7.12: one connection banner, one fixed place, on every route. The shell is that
-  // place for every admin screen, so a tab no longer decides for itself whether the
-  // desk is told the server went away. Absent on a screen that polls nothing, because
-  // a shell with no stream has no connection to report and must not invent one.
   connected?: boolean
-  // 6.4: "one line: Questions at the desk: [organizer first name], [phone]." The event
-  // shell passes it from the event's own contact columns and passes nothing when either
-  // half is empty, so the band renders only where there is a real person to call and
-  // never a fabricated line.
   footer?: ReactNode
   children: ReactNode
 }) {
@@ -109,12 +81,7 @@ export function AdminShell({ title, status, actions, meta, freshness, connected,
   return (
     <div className="flex min-h-dvh flex-col">
       {connected !== undefined && <Connecting connected={connected} />}
-      {/* z-20 keeps the app header above every in-page sticky. A subhead that pins at
-          the same level wins on document order and paints over the wordmark. */}
       <header ref={headerRef} className="sticky top-0 z-20 border-b border-gray-7 bg-background py-3">
-        {/* 6.18: below 640px the shell is one column with 16px gutters and must not
-            introduce horizontal scroll, so the band wraps rather than pushing the page
-            sideways. At 640px and above every item fits on one line and nothing wraps. */}
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 sm:px-6">
           <Link to="/admin" className="flex items-center gap-2.5 rounded-md outline-none focus-visible:shadow-focus">
             <img src="/easton-logo.png" alt="Easton Training Center" width={24} height={24} className="size-6 shrink-0 rounded-full" />

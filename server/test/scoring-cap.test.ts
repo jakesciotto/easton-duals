@@ -2,17 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { eq, inArray } from 'drizzle-orm'
 import { createTestApp, call } from './helpers.js'
 import { seedEvent } from './fixtures.js'
-import { athletes, auditLog, rosterCandidates } from '../src/db/schema.js'
+import { athletes, auditLog } from '../src/db/schema.js'
 
-// Nine more manual kids on top of a seeded team's own two makes eleven, one past the
-// scoring cap.
 const extraKids = (eventId: number, teamId: number, n: number) =>
   Array.from({ length: n }, (_, i) => ({ eventId, teamId, firstName: `Extra${i}`, lastName: 'Kid', source: 'manual' as const }))
-
-const candidate = {
-  wlUid: 'u100', firstName: 'Zoe', lastName: 'Martin', belt: 'grey', wlLocation: 'Ridgeline',
-  leaderboardId: 'zoe-martin', erp: 5.2, age: 8, weightLbs: 60, gender: 'F',
-}
 
 describe('the scoring cap at the routes', () => {
     it('marks up to the cap through PATCH, then refuses the eleventh with the message verbatim', async () => {
@@ -33,7 +26,6 @@ describe('the scoring cap at the routes', () => {
       const s = await seedEvent(db, { matches: 0 })
       const extra = await db.insert(athletes).values(extraKids(s.eventId, s.teamA, 9).map(k => ({ ...k, scoring: true }))).returning().all()
       await db.update(athletes).set({ scoring: true }).where(eq(athletes.id, s.a2)).run()
-      // Ten kids marked (a2 plus the nine extras); unmarking one must not run the cap check.
       const r = await call(app, 'PATCH', `/api/athletes/${extra[0].id}`, { scoring: false }, adminToken)
       expect(r.status).toBe(200)
       expect(r.body.scoring).toBe(false)
@@ -133,7 +125,6 @@ describe('the scoring cap at the routes', () => {
       })
     })
   })
-
 
 describe('the scoring cap on a move', () => {
   it('unmarks a kid a PATCH moves to another team, so a stale flag never carries a team past the cap', async () => {

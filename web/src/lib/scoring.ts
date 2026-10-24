@@ -4,11 +4,6 @@ import type { MatchView, WinType } from '@shared/types'
 
 export interface ScoreResponse { match: MatchView; version: number }
 
-/**
- * How a tie can be settled. A terminal carries its own type and a points lead is a points
- * win, so the end route takes this word only where the match itself decided nothing. The
- * order is the order the scorer offers them in.
- */
 export const DECISION_TYPES = ['decision', 'dq', 'walkover'] as const
 export type DecisionType = typeof DECISION_TYPES[number]
 export function decisionOf(winType: WinType | null): DecisionType {
@@ -50,16 +45,10 @@ export function heartbeat(matId: number, token: string): Promise<{ ok: boolean }
   return api(`/api/mats/${matId}/heartbeat`, { method: 'POST', body: {}, token })
 }
 
-/** Hands the mat back so the next bind, from this tablet or another, needs no takeover. */
 export function unbind(matId: number, token: string): Promise<{ ok: boolean }> {
   return api(`/api/mats/${matId}/unbind`, { method: 'POST', body: {}, token })
 }
 
-/**
- * Adds time to a clock that ran out. Its own event id, like every other write here, so the
- * retry inside withRetry cannot add the minute twice; the caller's retry after a 409
- * sequence mints a fresh one, because that attempt never landed.
- */
 export function extendClock(matchId: number, token: string, input: { lastSeq: number; addMs: number }): Promise<ScoreResponse> {
   const id = newEventId()
   return withRetry(() => api<ScoreResponse>(`/api/matches/${matchId}/clock/extend`, { method: 'POST', body: { id, ...input }, token }))

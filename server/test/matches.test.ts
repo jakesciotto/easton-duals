@@ -99,7 +99,6 @@ describe('match routes', () => {
     expect(second.status).toBe(201)
     expect(second.body.warnings).toEqual(['6 weight classes apart', '6 years apart', 'Already met'])
 
-    // A match is not its own earlier meeting, but the other one still is.
     const kept = await call(app, 'PATCH', `/api/matches/${second.body.id}`, { lengthSec: 240 }, adminToken)
     expect(kept.status).toBe(200)
     expect(kept.body.warnings).toEqual(['6 weight classes apart', '6 years apart', 'Already met'])
@@ -132,8 +131,6 @@ describe('match routes', () => {
       { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, cost: 0, why: 'same class', createdAt: '2026-08-27T00:00:00.000Z' },
       { eventId: s.eventId, athleteAId: s.a2, athleteBId: s.b2, cost: 0, why: 'same class', createdAt: '2026-08-27T00:00:00.000Z' },
     ]).run()
-    // a1 sits in the first draft and b2 sits in the second, so pairing them by hand
-    // makes both drafts stale at once.
     const created = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: s.a1, athleteBId: s.b2 }, adminToken)
     expect(created.status).toBe(201)
     expect(created.body.removedProposals).toBe(2)

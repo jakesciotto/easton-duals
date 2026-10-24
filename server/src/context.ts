@@ -5,12 +5,9 @@ import type { WlLike, LeaderboardConfig } from './roster/types.js'
 export interface RosterConfig {
   wl: WlLike | null
   leaderboard: LeaderboardConfig | null
-  // Wall-clock budget for one roster sync across every location, or null for no budget.
   syncBudgetMs: number | null
 }
 
-// How the standings route reaches Smoothcomp. Every field has a production default; tests
-// pass a fake fetch and a short deadline.
 export interface SmoothcompConfig {
   fetchFn?: typeof fetch
   concurrency?: number

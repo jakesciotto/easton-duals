@@ -9,24 +9,11 @@ export interface MenuItemSpec {
   label: string
   disabled: boolean
   onSelect: () => void
-  /** 7.7: a destructive item carries its consequence in the text colour, never a fill. */
   tone?: 'destructive'
 }
 
-/**
- * 6.9: the face of a panel or a row holds the one action that matters and this holds the
- * rare ones, instead of a row of identical grey text links. Lifted out of the Live tab
- * once the Matches tab needed the same control on its settled rows, so the two screens
- * cannot drift into two shapes for one job.
- */
 export function OverflowMenu({ label, text, disabled = false, items, className }: {
-  /** The accessible name, which names the row as well as the action. */
   label: string
-  /**
-   * Visible text instead of the ellipsis, for a menu that is one named action with a
-   * choice inside it rather than a row's rare actions. `label` still names the row, and
-   * it opens with this text so the visible label is part of the accessible name.
-   */
   text?: string
   disabled?: boolean
   items: MenuItemSpec[]

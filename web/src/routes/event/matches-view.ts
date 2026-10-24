@@ -2,8 +2,6 @@ import type { ClockState, MatchStatus, Snapshot } from '@shared/types'
 import type { EventDetail, MatchRow } from '@/lib/types'
 
 export type MatchLane = 'live' | 'pending' | 'settled'
-// 7.4: one closed vocabulary as one attribute, so every colour, weight and
-// affordance is keyed on the state rather than re-decided at each call site.
 export type MatchState = 'pending' | 'ready' | 'live' | 'done' | 'skipped'
 
 export interface MatchLine {
@@ -18,19 +16,6 @@ export interface MatchLine {
 
 const byOrder = (x: MatchRow, y: MatchRow) => x.orderIndex - y.orderIndex || x.id - y.id
 
-/**
- * One row list from two sources, and which source owns which field is the whole point.
- *
- * The event detail owns what the operator is editing: which matches exist, who is in
- * them, their mat, ruleset, length and order. Those refetch from the operator's own
- * writes. What keeps a refetch off the operator's hand is useHeldWhileEngaged, which
- * holds the arriving detail until the gesture ends, not where the fetch came from: the
- * detail also refetches on window focus and from another writer's invalidation (4.4).
- *
- * The snapshot owns what the event is doing: status, the clock, and which pending match
- * a mat will call next. That is the freshest account of the room, and it is the reason
- * this screen is driven by the shared snapshot at all.
- */
 export function matchLines(detail: EventDetail, snapshot: Snapshot | null): MatchLine[] {
   const views = new Map((snapshot?.matches ?? []).map(m => [m.id, m]))
   const matNumbers = new Map(detail.mats.map(m => [m.id, m.number]))
@@ -39,9 +24,6 @@ export function matchLines(detail: EventDetail, snapshot: Snapshot | null): Matc
   return [...detail.matches].sort(byOrder).map(row => {
     const view = views.get(row.id)
     const status = view?.status ?? row.status
-    // A skip is filed as an admin event and hands the match back to the pending queue at
-    // the end of its mat's order, so the sequence counter is the only trace of it that
-    // reaches this client. A pending match nobody has touched still reads zero.
     const skipped = status === 'pending' && (view?.lastSeq ?? row.lastSeq) > 0
     const state: MatchState = status === 'live' ? 'live'
       : status === 'done' ? 'done'
@@ -60,24 +42,10 @@ export function matchLines(detail: EventDetail, snapshot: Snapshot | null): Matc
   })
 }
 
-/**
- * Every control in a queue row is otherwise named identically on all of them, so an
- * elements list of a fourteen match queue is fourteen buttons called "Delete match" and
- * fourteen comboboxes called "Mat", in an order that carries no row identity. The number
- * is what the row prints and the two competitors are what the operator recognises, so the
- * row's name is built from both. "versus" rather than "vs", which a screen reader spells
- * out.
- *
- * It is the match's own number rather than its place in the running order: a reorder
- * moves every place below it and renames half the controls on the screen, while M12 is
- * M12 all afternoon.
- */
 export function matchLabel(number: number, nameA: string, nameB: string): string {
   return `match M${number}, ${nameA} versus ${nameB}`
 }
 
-// 6.8 prints the refusal rather than opening a dialog that says no, so every refused
-// control needs the same sentence the row is already showing.
 export function liveReason(line: MatchLine): string {
   return line.matNumber === null ? 'Live, no mat' : `Live on mat ${line.matNumber}`
 }

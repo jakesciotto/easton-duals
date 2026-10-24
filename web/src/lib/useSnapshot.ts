@@ -8,34 +8,14 @@ export interface StreamState {
   snapshot: Snapshot | null
   connected: boolean
   lastSuccessAt: number | null
-  /**
-   * 4.4 / WCAG 2.2.2: the operator has stopped the picture. The poll keeps running
-   * underneath, so `waiting` can count what the frozen screen is behind by.
-   */
   paused: boolean
   waiting: number
   setPaused: (on: boolean) => void
-  /**
-   * The newest snapshot, whether or not the picture is frozen. A write acts on the
-   * room rather than on the picture, so it must carry the live sequence: a paused
-   * screen can be several writes behind and the server rejects a stale one.
-   */
   live: Snapshot | null
 }
 
 interface SharedStream { eventId: number; state: StreamState }
 
-/**
- * One event, one poll loop, one pause.
- *
- * The shell's freshness readout and every tab under it describe the same data, so they
- * must come from the same stream: three independent loops against one endpoint from one
- * browser tab meant three request rates, three version cursors, and a header that reported
- * fresh data while the screen the operator was reading had been deliberately frozen.
- *
- * The event body provides this. A screen outside it -- the board, the scorer -- has no
- * provider above it and still polls on its own.
- */
 export const SnapshotStreamContext = createContext<SharedStream | null>(null)
 
 interface PollState { snapshot: Snapshot | null; connected: boolean; lastSuccessAt: number | null }
@@ -43,24 +23,18 @@ interface PollState { snapshot: Snapshot | null; connected: boolean; lastSuccess
 export function useSnapshot(eventId: number | null, pollMs?: number): StreamState {
   const shared = useContext(SnapshotStreamContext)
   const covered = eventId !== null && shared !== null && shared.eventId === eventId
-  // Hooks stay unconditional: a covered caller mounts the loop with a null event, which
-  // starts nothing, and reads the stream its provider already owns.
   const own = useOwnStream(covered ? null : eventId, pollMs)
   return covered ? shared.state : own
 }
 
 function useOwnStream(eventId: number | null, pollMs?: number): StreamState {
   const poll = usePoll(eventId, pollMs)
-  // 4.4: what arrives is not what renders. The commit is suspended while the operator is
-  // dragging, typing or holding a dialog open, by the same mechanism the event detail uses.
   const committed = useHeldWhileEngaged(poll.snapshot, eventId)
 
   const [frozen, setFrozen] = useState<Snapshot | null>(null)
   const shown = useRef(committed)
   shown.current = committed
   const setPaused = useCallback((on: boolean) => { setFrozen(on ? shown.current : null) }, [])
-  // Versions are per event, so a freeze taken on one event can never be counted against
-  // another event's poll.
   useEffect(() => { setFrozen(null) }, [eventId])
 
   const snapshot = frozen ?? committed
@@ -76,8 +50,6 @@ function useOwnStream(eventId: number | null, pollMs?: number): StreamState {
 function usePoll(eventId: number | null, pollMs?: number): PollState {
   const [state, setState] = useState<PollState>({ snapshot: null, connected: false, lastSuccessAt: null })
   const [watching, setWatching] = useState(eventId)
-  // Versions are per event, so nothing held for one event can be compared against another
-  // event's poll.
   if (watching !== eventId) {
     setWatching(eventId)
     setState({ snapshot: null, connected: false, lastSuccessAt: null })
@@ -98,16 +70,9 @@ function usePoll(eventId: number | null, pollMs?: number): PollState {
       if (ignore || inFlight) return
       if (document.hidden) { timer = setTimeout(tick, nextInterval()); return }
       inFlight = true
-      // A dropped access point can leave a socket open with nothing coming back. Without a
-      // deadline the await never settles, so the in-flight flag is never cleared, no later
-      // tick ever runs, the failure count never rises, and the app reports connected for the
-      // rest of the afternoon. On the scorer that means every control stays enabled while
-      // nothing sends. The deadline is generous against the interval and still bounded.
       const deadline = new AbortController()
       const cutOff = setTimeout(() => deadline.abort(), Math.max(POLL_DEADLINE_MIN_MS, nextInterval() * 3))
       try {
-        // The snapshot serves initials to anyone; the console's token is what buys it the
-        // full names the Live tab prints. The board and the tablets hold no admin token.
         const token = getAdminToken()
         const res = await fetch(`/api/events/${eventId}/snapshot?since=${version}`, {
           signal: deadline.signal,
@@ -130,11 +95,6 @@ function usePoll(eventId: number | null, pollMs?: number): PollState {
       }
       if (!ignore) timer = setTimeout(tick, nextInterval())
     }
-    // A background tab's timers are throttled to about one tick a minute, so a locked iPad
-    // or a TV that came out of its screensaver would keep rendering the previous match until
-    // that late tick landed. Waking on visibilitychange polls at once instead -- but only when
-    // no fetch is already in flight, or the same lock/unlock sequence starts a second poll
-    // chain that never stops (the in-flight tick already schedules its own next timer).
     const wake = () => {
       if (ignore || document.hidden || inFlight) return
       if (timer) clearTimeout(timer)

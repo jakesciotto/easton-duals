@@ -16,17 +16,12 @@ interface BulkResult { matches: MatchRow[]; divisions: DivisionView[]; warnings:
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
-/**
- * Spec 9's button, and the sentence it makes when the paste holds only one kind: naming
- * "0 divisions" beside three matches states a thing the operator did not ask for.
- */
 export function createLabel(matches: number, divisions: number): string {
   if (matches > 0 && divisions > 0) return `Create ${plural(matches, 'match', 'matches')} and ${plural(divisions, 'division', 'divisions')}`
   if (divisions > 0) return `Create ${plural(divisions, 'division', 'divisions')}`
   return `Create ${plural(matches, 'match', 'matches')}`
 }
 
-/** What the paste holds, or what is stopping it. One line, either way. */
 export function countLine(matches: number, divisions: number, errors: number): string {
   if (errors > 0) return `${plural(errors, 'line', 'lines')} to fix.`
   if (matches === 0 && divisions === 0) return ''
@@ -69,22 +64,13 @@ function PreviewRow({ line, nameOf }: { line: MatchPasteLine; nameOf: (id: numbe
   )
 }
 
-/**
- * Spec 7's creation path. It mirrors the roster paste, because an organizer who has
- * already pasted a roster into this event has learned this screen once: a textarea, the
- * preview that says what every line will make, and one button that names the writes.
- */
 export function PasteMatchesDialog({ detail, open, onOpenChange }: { detail: EventDetail; open: boolean; onOpenChange: (o: boolean) => void }) {
   const [text, setText] = useState('')
-  // What the server noticed about the set it just wrote. A warning never blocks a write,
-  // so it is reported after it rather than instead of it.
   const [warnings, setWarnings] = useState<string[]>([])
   const parsed = useMemo(() => parseMatchPaste(text, detail.athletes, detail.matches), [text, detail.athletes, detail.matches])
   const byId = useMemo(() => new Map(detail.athletes.map(a => [a.id, a])), [detail.athletes])
   const nameOf = (id: number) => { const a = byId.get(id); return a ? athleteName(a) : 'Unknown' }
 
-  // A pasted pair can drop a proposal on either competitor, so this write invalidates the
-  // draft list the same way the Add match dialog already does.
   const create = useAdminMutation(
     detail.event.id,
     (body: unknown) => adminApi<BulkResult>(`/api/events/${detail.event.id}/matches/bulk`, { method: 'POST', body }),
@@ -101,8 +87,6 @@ export function PasteMatchesDialog({ detail, open, onOpenChange }: { detail: Eve
         const said = r?.warnings ?? []
         setText('')
         if (said.length === 0) { onOpenChange(false); return }
-        // Everything is on file. The dialog stays up to report what the server noticed
-        // about it, with the box cleared for the next paste.
         setWarnings(said)
       },
     })
@@ -125,12 +109,9 @@ export function PasteMatchesDialog({ detail, open, onOpenChange }: { detail: Eve
             className="font-mono"
           />
 
-          {/* 7.12: one polite region, in the DOM and empty from the first render. */}
           <p aria-live="polite" className="t2 text-gray-10">{countLine(parsed.matches.length, parsed.divisions.length, parsed.errors.length)}</p>
 
           {parsed.lines.length > 0 && (
-            // The caller's vertical scroll folds into Table's own wrapper rather than
-            // adding a second scrolling div around it, the way the roster paste does.
             <Table wrapperClassName="max-h-[224px] overflow-y-auto">
               <TableHeader>
                 <TableRow>

@@ -13,8 +13,6 @@ export function winTypeFor(wonBy: string): WinType | null {
   return METHODS[wonBy.trim().toLowerCase()] ?? null
 }
 
-// The exact rule first, then one clear near match. Two exact matches are two kids with one
-// name, and nobody can say which one fought, so neither is chosen.
 export function resolveKid(seat: { firstName: string; lastName: string }, kids: StandingsKid[]): StandingsKid | null {
   const exact = kids.filter(k => exactName(seat, k))
   if (exact.length === 1) return exact[0]

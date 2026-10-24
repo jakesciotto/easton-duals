@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { generateDivision, seedByRating, slotOrder, type GenerateMember, type GeneratedMatch, type Slot } from '../src/formats/generate.js'
 import type { DivisionFormat, DivisionStyles } from '../src/shared/types.js'
 
-// Ids run 101 up so a member id can never be mistaken for a seed or a feed index.
 const NAMES = ['Mateo', 'Olivia', 'Noah', 'Ava', 'Liam', 'Sofia', 'Ethan', 'Maya', 'Jonas', 'Priya']
 
 function members(count: number, teams: number[] = []): GenerateMember[] {
@@ -144,13 +143,10 @@ describe('double elimination ends in one grand final with no reset', () => {
 
 describe('a same-team round one pair is swapped away or warned', () => {
   it('swaps the lower seed with the nearest seed that splits both pairs', () => {
-    // Slot order 1, 4, 2, 3 puts seeds 1 and 4 together, both on team 1. Seed 4 is the
-    // lower of the two, and the nearest seed whose swap splits both pairs is seed 3.
     const { matches, warnings } = generate('single_elim', 4, { teams: [1, 2, 3, 1] })
     expect(pairs(matches).slice(0, 2)).toEqual([[101, 103], [102, 104]])
     expect(warnings).toEqual([])
 
-    // Nothing to split here: both round one pairs are already cross-team.
     const left = generate('single_elim', 4, { teams: [1, 2, 3, 2] })
     expect(pairs(left.matches).slice(0, 2)).toEqual([[101, 104], [102, 103]])
     expect(left.warnings).toEqual([])

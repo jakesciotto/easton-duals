@@ -46,12 +46,6 @@ function detailWith(matches: MatchRow[], athletes = ROSTER): EventDetail {
   }
 }
 
-// An event with no mats bound polls at the data-entry rate (7.15), which is five seconds.
-// Nothing in these tests takes that long, so any extra snapshot request inside one is a
-// second poll loop rather than the shared one ticking.
-//
-// The stream is where every screen reads the mode from now, so a fixture whose snapshot
-// disagreed with its detail would be describing a stale cache rather than an event.
 const slowSnapshot = (over: Partial<Snapshot['event']> = {}) => sampleSnapshot({
   mats: [],
   matches: [],
@@ -62,7 +56,6 @@ const SLOW_SNAPSHOT = slowSnapshot()
 function mount(handler: (url: string, init?: RequestInit) => Reply | undefined, path = '/events/7') {
   const f = fakeFetch((url, init) => handler(url, init) ?? { json: [] })
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  // A delete leaves the event, so the list has to be a real route the memory router can land on.
   const router = createMemoryRouter(
     [{ path: '/events/:eventId', element: <EventPage /> }, { path: '/admin', element: <div>Events</div> }],
     { initialEntries: [path] },
@@ -84,8 +77,6 @@ describe('one poll for the whole event', () => {
     await screen.findByRole('tab', { name: /Roster/ })
     await vi.waitFor(() => expect(snapshotGets(f)).toBe(1))
 
-    // Both of these tabs read the snapshot. A tab that mounts its own useSnapshot polls
-    // immediately, so a second request here is a second loop.
     await user.click(screen.getByRole('tab', { name: 'Live' }))
     expect(await screen.findByText('This event has no mats.')).toBeInTheDocument()
     expect(snapshotGets(f)).toBe(1)
@@ -95,9 +86,6 @@ describe('one poll for the whole event', () => {
     expect(snapshotGets(f)).toBe(1)
   })
 
-  // The pause has to live on the shared stream, not inside the tab. A pause the header
-  // cannot see leaves the shell reporting live data over a screen the operator has
-  // deliberately stopped, which is the one reading a stale board must never give.
   it('reports the paused rack in the header, not a fresh age', async () => {
     mount(url => snapshotReply(url) ?? (url === '/api/events/7' ? { json: detailWith(IN_ORDER) } : undefined))
     const user = userEvent.setup()

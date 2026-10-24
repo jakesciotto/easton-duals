@@ -4,11 +4,8 @@ import { styleTag } from '@/lib/format'
 import { POLL_CLOCK_RUNNING_MS } from '@/lib/pollInterval'
 import { MatRow, NextLine } from './MatRow'
 
-// One mat, one panel, in the same position for the whole event: mat 1 is the top row
-// whether it is live, idle or finished.
 function MatPanel({ mat, held, settled, serverNow, nextCount, withClock, lastSuccessAt, pollIntervalMs, everCarried, teamColor }: {
   mat: MatView
-  /** Whether any match on the event was ever put on this mat. */
   everCarried: boolean
   teamColor: (teamId: number | null) => string | null
   held: MatchView | undefined
@@ -26,13 +23,10 @@ function MatPanel({ mat, held, settled, serverNow, nextCount, withClock, lastSuc
   const subject = showing ?? upcoming
   const live = current !== null && !finished && isRunning(current.clock)
 
-  // The queue starts after whatever the row is already showing.
   const queue = (showing === null ? mat.onDeck.slice(1) : mat.onDeck).slice(0, nextCount)
 
   return (
     <section aria-label={`Mat ${mat.number}`} className="b-panel">
-      {/* Spec 10: the match the mat is on, named the way every other surface names it.
-          A mat with nothing to show has nothing to name, and the line goes with it. */}
       {subject !== null && <div className="b-mat-head font-sans">{`M${subject.number} · ${styleTag(subject.style)}`}</div>}
       <MatRow
         matNumber={mat.number}
@@ -41,17 +35,9 @@ function MatPanel({ mat, held, settled, serverNow, nextCount, withClock, lastSuc
         live={live}
         settled={finished && settled}
         upcoming={showing === null && upcoming !== null}
-        // 6.15 keeps the result on the board, so a finished row reads its tones off the
-        // recorded winner. By score a submission at 0 to 0 gave both sides the lead tone
-        // and the row showed no winner at all.
         winnerAthleteId={finished ? showing.result?.winnerAthleteId ?? null : null}
-        // 7.3's room register: a team edge per competitor line, so the row says whose
-        // side is whose without the reader working it out from position.
         colorA={subject === null ? null : teamColor(subject.a.teamId)}
         colorB={subject === null ? null : teamColor(subject.b.teamId)}
-        // 7.10 / 7.3: nothing on the mat and nothing left to call is a sentence, not a
-        // blank. After a reload every finished mat was an empty row for the afternoon. A mat
-        // created after Start that nothing was ever put on is not complete, it is empty.
         note={subject === null ? (everCarried ? `Mat ${mat.number} complete` : `Nothing on mat ${mat.number} yet`) : null}
         withClock={withClock}
         clock={withClock && current !== null && !finished ? current.clock : null}
@@ -68,17 +54,6 @@ function MatPanel({ mat, held, settled, serverNow, nextCount, withClock, lastSuc
   )
 }
 
-/**
- * Above two mats this is a ledger of full safe-width rows, not a tile grid. A four
- * column grid on a 1728px safe area leaves about four characters per name, so four
- * mats and readable names do not coexist in a grid on a 16:9 stage. The per mat clock
- * is what pays for the name field, which is why budget.ts deletes it at three mats and
- * up, and on a band an eight team hero has shrunk to a single floor row.
- *
- * How deep the queue under a panel goes is budget.ts's, not this component's: the band
- * is not a fixed 56cqh once --far moves, so four next lines under a single mat fit at
- * far 1 and two of them fit at far 1.2.
- */
 export function MatBand({ mats, matches, held, settled, serverNow, teamColor, withClock = false, nextCount = 0, lastSuccessAt = null, pollIntervalMs = POLL_CLOCK_RUNNING_MS }: {
   mats: MatView[]
   matches: MatchView[]
@@ -86,9 +61,6 @@ export function MatBand({ mats, matches, held, settled, serverNow, teamColor, wi
   held: ReadonlyMap<number, MatchView>
   settled: ReadonlySet<number>
   serverNow: string | null
-  /** Whether the row reserves its clock track. The composition's call, not the band's:
-      the count alone no longer settles it, because a band shrunk to one floor row by an
-      eight team hero says the pair and the scores and nothing else. */
   withClock?: boolean
   nextCount?: number
   lastSuccessAt?: number | null

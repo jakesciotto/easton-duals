@@ -3,21 +3,7 @@ import { formatClock } from '@shared/clock'
 import { athleteName, winTypeLabel } from '@/lib/format'
 import type { EventDetail } from '@/lib/types'
 
-/**
- * The audit log as a person reads it.
- *
- * The rows the server hands back are the write, not the sentence: a score row names the
- * press and what it was worth, but the running score is a consequence of every row before
- * it. So the sheet cannot print "Takedown +2, score 2 to 0" from one row; it has to replay
- * the log.
- *
- * Replaying is also what makes the undo treatment honest. An undone action stays in the
- * list, in the quiet tone, with the undo beneath it, and contributes nothing to the score
- * printed under any later row, which is exactly what the server did to the match log.
- */
-
 export interface HistoryContext {
-  /** The competitor's name, or a stand-in when the id is not on this event's roster. */
   nameOf: (athleteId: number) => string
   athleteAId: number | null
   athleteBId: number | null
@@ -25,26 +11,20 @@ export interface HistoryContext {
   terminals: RulesetTerminal[]
 }
 
-/** What the sheet reads and what it calls it. One shape for a match and for the event. */
 export interface HistorySource {
   path: string
   title: string
-  /** The match's own number, printed as a chip beside the title. Null for the event log. */
   number: number | null
   context: HistoryContext
 }
 
 export interface HistoryRow {
   id: number
-  /** h:mm:ss local, the one column that is a figure rather than a sentence. */
   time: string
-  /** The state word: "mat 2", "desk", "admin", "system". */
   who: string
-  /** A mat is the only actor that is a place in the room, so it reads a step brighter. */
   fromMat: boolean
   what: string
   detail: string | null
-  /** "Undone 3:42:14 by mat 2" once a later row took this one back. */
   undone: string | null
 }
 
@@ -55,7 +35,6 @@ function detailOf(entry: AuditEntry): Record<string, unknown> {
   return entry.detail ?? {}
 }
 
-/** h:mm:ss, local. The sheet is read next to the room's own clock. */
 export function historyTime(iso: string): string {
   const at = new Date(iso)
   if (Number.isNaN(at.getTime())) return ''
@@ -63,7 +42,6 @@ export function historyTime(iso: string): string {
   return `${hour}:${String(at.getMinutes()).padStart(2, '0')}:${String(at.getSeconds()).padStart(2, '0')}`
 }
 
-/** `mat:3` is a place; every other actor is already the word it prints. */
 export function actorWord(actor: string): string {
   return actor.startsWith('mat:') ? `mat ${actor.slice(4)}` : actor
 }
@@ -87,11 +65,6 @@ function outcomeOf(raw: unknown): Outcome | null {
   }
 }
 
-/**
- * "Olivia Kim beat Mateo Rivera by submission, 2 to 0". The score is printed in side
- * order, not winner-first: it is the same pair of numbers the board and the ledger show,
- * and reversing it for half the results would make the sheet disagree with both.
- */
 function resultLine(ctx: HistoryContext, outcome: Outcome, verb: 'beat' | null): string {
   const score = `${outcome.pointsA} to ${outcome.pointsB}`
   const win = outcome.winType === null ? null : winTypeLabel(outcome.winType)
@@ -104,8 +77,6 @@ function resultLine(ctx: HistoryContext, outcome: Outcome, verb: 'beat' | null):
   return [head, win].filter(v => v !== null).join(' ') + `, ${score}`
 }
 
-// A verb for every action the log can carry, so an unmapped one still reads as English
-// rather than as a column of snake case.
 const PLAIN: Record<string, string> = {
   clock_start: 'Clock started',
   clock_pause: 'Clock stopped',
@@ -160,15 +131,8 @@ function fallbackWhat(action: string): string {
 
 interface Line { what: string; detail: string | null }
 
-/** The score after this row, once the row has been applied. */
 type Score = { a: number; b: number }
 
-/**
- * A running score is only a fact when the two sides are known. The event sheet lists
- * rows from every match at once, so it names no pair and prints no score under a point:
-  * one accumulator across a whole afternoon would be a number nothing in the room agrees
- * with. Rows that carry their own absolute score, an entry and a correction, still print.
- */
 function scored(ctx: HistoryContext): boolean {
   return ctx.athleteAId !== null && ctx.athleteBId !== null
 }
@@ -180,8 +144,6 @@ function lineFor(entry: AuditEntry, ctx: HistoryContext, score: Score): Line {
   if (entry.action === 'score') {
     const key = str(d.actionKey)
     const athleteId = num(d.athleteId)
-    // The row carries what the press was worth on the day. Only a row written before the
-    // server recorded that falls back to the ruleset, which may since have been edited.
     const stored = num(d.points)
     const fallback = key === null ? undefined : ctx.actions.find(a => a.key === key)
     const points = stored ?? fallback?.points ?? null
@@ -250,15 +212,6 @@ function lineFor(entry: AuditEntry, ctx: HistoryContext, score: Score): Line {
   return { what: plain, detail: null }
 }
 
-/**
- * The undo pairing, and why it walks backwards rather than keying on the sequence number.
- *
- * Undo deletes the newest match event, so the sequence number it frees is handed straight
- * to the next write: after an undo of seq 3 there can be a second, unrelated seq 3 in the
- * same log. Keying a map on the seq marks the wrong row. The server's rule is last in,
- * first out, so the pairing is too: an undo takes back the most recent row that still
- * carries its sequence number and has not already been taken back.
- */
 function pairUndos(entries: AuditEntry[]): { undone: Map<number, string>; paired: Set<number> } {
   const undone = new Map<number, string>()
   const paired = new Set<number>()
@@ -288,7 +241,6 @@ function namer(detail: EventDetail): (athleteId: number) => string {
   }
 }
 
-/** The head names the match the way the room does: its mat, then the pair. */
 export function matchHistorySource(match: MatchView, matNumber: number | null, detail: EventDetail): HistorySource {
   const pair = `${match.a.name} vs ${match.b.name}`
   const ruleset = detail.rulesets.find(r => r.id === match.rulesetId)
@@ -308,7 +260,6 @@ export function matchHistorySource(match: MatchView, matNumber: number | null, d
 
 export const EVENT_HISTORY_TITLE = 'Event history'
 
-/** The rows that belong to no one match: certify, unlock, Start, Finish, the roster. */
 export function eventHistorySource(detail: EventDetail): HistorySource {
   return {
     path: `/api/events/${detail.event.id}/history`,
@@ -325,8 +276,6 @@ export function historyRows(entries: AuditEntry[], ctx: HistoryContext): History
   entries.forEach((entry, i) => {
     if (paired.has(i)) return
     const taken = undone.get(i) ?? null
-    // A row the log later deleted changed nothing that outlived it, so it is read for its
-    // words only and never for its effect on the score every later row prints.
     const line = taken === null ? lineFor(entry, ctx, score) : lineFor(entry, ctx, { ...score })
     rows.push({
       id: entry.id,

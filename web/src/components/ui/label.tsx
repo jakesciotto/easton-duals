@@ -2,8 +2,6 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-// The .label utility is a plain class, so twMerge cannot override it from a
-// consumer's className. Spell it out here to keep Label overridable.
 function Label({ className, ...props }: React.ComponentProps<"label">) {
   return (
     <label

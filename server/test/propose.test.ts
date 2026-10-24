@@ -16,8 +16,6 @@ interface Kid {
   erp?: number | null
 }
 
-// The proposer reads a whole pool, so these tests write the pool themselves rather than
-// working around the fixture's own four kids.
 async function pool(db: Db, kids: Kid[]) {
   const s = await seedEvent(db, { matches: 0, thirdTeam: true })
   await db.delete(athletes).where(eq(athletes.eventId, s.eventId)).run()
@@ -230,8 +228,6 @@ describe('the proposer offers each free kid at most once, across teams only, and
     }).returning().get()
     expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
 
-    // A gi match in any status, done included, keeps its kids out of gi: only Bruno is
-    // left over, and nobody is free to pair with him.
     await db.update(matches).set({ status: 'done' }).where(eq(matches.id, match.id)).run()
     expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
   })
@@ -264,9 +260,7 @@ describe('the proposer offers each free kid at most once, across teams only, and
       eventId: s.eventId, number: 1, orderIndex: 0, rulesetId: s.rulesetId, lengthSec: 300, status: 'done',
       athleteAId: id('Ines'), athleteBId: id('Kai'), style: 'gi',
     }).run()
-    // Ines and Kai already hold a gi match, so gi has only Bruno left over.
     expect(await proposeMatches(db, s.eventId, 'gi')).toEqual([])
-    // Nogi has not been touched, so all three are free for it.
     const nogi = await proposeMatches(db, s.eventId, 'nogi')
     expect(nogi.map(p => [p.a.firstName, p.b.firstName])).toEqual([['Ines', 'Bruno']])
     expect(nogi.every(p => p.style === 'nogi')).toBe(true)
@@ -296,7 +290,6 @@ describe('the proposer offers each free kid at most once, across teams only, and
       eventId: s.eventId, name: 'Novice', format: 'round_robin', styles: 'gi', position: 0, createdAt: '2026-09-12T00:00:00.000Z',
     }).returning().get()
     await db.insert(divisionMembers).values({ divisionId: division.id, athleteId: id('Ines'), seed: 1 }).run()
-    // Ines is spoken for by the division, so Bruno pairs with Kai instead of her.
     expect((await proposeMatches(db, s.eventId, 'gi')).map(p => [p.a.firstName, p.b.firstName])).toEqual([['Bruno', 'Kai']])
   })
 
@@ -343,7 +336,6 @@ describe('the proposer offers each free kid at most once, across teams only, and
     expect(rows.map(r => r.action)).toEqual(['propose', 'propose'])
     expect(rows[0].detail).toEqual({ count: 1, roundRobins: 1, unmatched: 0 })
     expect(rows.every(r => r.actor === 'admin' && r.matchId === null)).toBe(true)
-    // Nothing the proposer does touches the running order.
     expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toEqual([])
     expect(id('Ines')).toBeGreaterThan(0)
   })
@@ -360,7 +352,6 @@ describe('the proposer offers each free kid at most once, across teams only, and
     expect(nogi).toHaveLength(2)
     const gi = await proposeMatches(db, s.eventId, 'gi')
     expect(gi).toHaveLength(2)
-    // Proposing gi again replaces only the gi drafts; the nogi set from above still stands.
     await proposeMatches(db, s.eventId, 'gi')
     const rows = await db.select().from(proposals).where(eq(proposals.eventId, s.eventId)).all()
     expect(rows.filter(r => r.style === 'nogi').map(r => r.id)).toEqual(nogi.map(p => p.id))

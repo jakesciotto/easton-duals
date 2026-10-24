@@ -16,7 +16,6 @@ export interface ApiOptions {
   method?: string
   body?: unknown
   token?: string | null
-  /** The status itself, for the one caller that has to tell a fresh write from a replay. */
   onStatus?: (status: number) => void
 }
 

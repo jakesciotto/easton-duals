@@ -11,9 +11,7 @@ export interface FinishEventDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   detail: EventDetail
-  /** The stream the tab already polls. The detail is the fallback until it lands. */
   snapshot?: Snapshot | null
-  /** The status write is in flight. */
   pending: boolean
   error: Error | null
   onFinish: () => void
@@ -21,15 +19,7 @@ export interface FinishEventDialogProps {
 
 interface RunningMat { number: number; pair: string }
 
-/**
- * The mats that would be cut off, named. `mats.currentMatchId` is the binding and the
- * match's own status is whether anything is on it, so a mat holding a match that has
- * already ended is not listed.
- */
 export function runningMats(detail: EventDetail, snapshot: Snapshot | null = null): RunningMat[] {
-  // The room's own account, when there is one: the detail cache is not invalidated by a
-  // tablet ending a match, so at the most consequential press of the day it can list a
-  // mat that finished minutes ago or omit one that just started.
   if (snapshot !== null) {
     return snapshot.mats
       .flatMap(m => (m.current !== null && m.current.status !== 'done'
@@ -48,14 +38,6 @@ export function runningMats(detail: EventDetail, snapshot: Snapshot | null = nul
     .sort((x, y) => x.number - y.number)
 }
 
-/**
- * One Finish dialog for the whole event, so the Entry tab and the Live tab ask the same
- * question in the same words.
- *
- * It names the mats that are still on a match, because the sentence it replaces said the
- * opposite of what happens: a finished event refuses every write, so a match left running
- * is not a match that stays where it is, it is a result nobody can record.
- */
 export function FinishEventDialog({ open, onOpenChange, detail, snapshot = null, pending, error, onFinish }: FinishEventDialogProps) {
   const running = runningMats(detail, snapshot)
   return (

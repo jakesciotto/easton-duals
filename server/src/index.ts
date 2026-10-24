@@ -26,7 +26,6 @@ const main = async () => {
   if (!roster.leaderboard) console.warn('LEADERBOARD_SUPABASE_URL or LEADERBOARD_SUPABASE_KEY not set; ERP join disabled')
 
   const app = createApp({ port, db, secret: await getOrCreateSecret(db), adminPin, roster })
-  // Keeps unknown /api paths from falling through to the SPA index.html fallback below.
   app.all('/api/*', c => c.json({ error: { code: 'not_found', message: 'not found' } }, 404))
   app.use('*', serveStatic({ root: './public' }))
   app.use('*', serveStatic({ root: './public', rewriteRequestPath: () => '/index.html' }))

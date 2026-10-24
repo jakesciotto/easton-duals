@@ -1,14 +1,8 @@
 #!/usr/bin/env node
-// Enforces the rules in .claude/plans/duels-live-design.md section 5.1 that a type
-// checker cannot see. A failure names the file and the line, so it reads like a lint
-// error rather than an opaque failed step.
-//
-// The board rules cover CSS as well as TSX, because the board keeps its colour and
-// size decisions in a stylesheet and a rule that cannot see that file is a rule that
-// passes while the board drifts.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import ts from 'typescript'
 
 const ROOT = new URL('..', import.meta.url).pathname
 const WEB_SRC = join(ROOT, 'web/src')
@@ -25,18 +19,12 @@ function walk(dir) {
 
 const isBoard = file => file.includes('/routes/board/') || file.endsWith('routes/BoardPage.tsx')
 
-// 2.5 and 6.15 name the only three places the board may use a token below --gray-10:
-// the letterbox that frames a non 16:9 panel, the settled row's recessed ground, and
-// the code cut out of a team fill.
 const GRAY_1_ALLOWED = /\.(b-frame|b-row-settled|b-code)\b/
 
 const RULES = [
   {
     name: 'no hex literal in the app',
     why: 'Every colour comes from a token, so a change lands everywhere at once.',
-    // index.css is where the tokens are DEFINED, so hex is its whole job. The QR code
-    // paints a white tile because a scanner needs the quiet zone, which is a physical
-    // requirement rather than a design decision.
     skip: file => file.endsWith('web/src/index.css') || file.endsWith('components/QrCode.tsx'),
     pattern: /#[0-9a-fA-F]{3,8}\b/,
   },
@@ -69,7 +57,6 @@ const RULES = [
     why: 'The letterbox, the settled row and the plate code. Anywhere else it is a card fill.',
     skip: file => !isBoard(file),
     pattern: /var\(--gray-1\)/,
-    // A declaration carries no selector, so the check reads the block it sits in.
     allow: (_line, selector) => GRAY_1_ALLOWED.test(selector),
   },
 ]
@@ -98,8 +85,79 @@ for (const rule of RULES) {
   }
 }
 
+const CODE_ROOTS = ['server/src', 'server/scripts', 'server/test', 'server/drizzle', 'web/src', 'web/test', 'scripts']
+const CODE_FILES = /\.(tsx?|mjs|css|sql)$/
+const PRAGMA = /^(\/\/\/ <reference|\/\/ @ts-|\/\/ eslint-|\/\* eslint-)/
+
+function walkCode(dir) {
+  const out = []
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    if (entry === 'node_modules' || entry === 'meta') continue
+    if (statSync(full).isDirectory()) out.push(...walkCode(full))
+    else if (CODE_FILES.test(full)) out.push(full)
+  }
+  return out
+}
+
+function commentsIn(file, text) {
+  const hits = []
+  const line = pos => text.slice(0, pos).split('\n').length
+  if (file.endsWith('.sql')) {
+    text.split('\n').forEach((l, i) => { if (/^\s*--/.test(l) && !l.includes('statement-breakpoint')) hits.push(i + 1) })
+    return hits
+  }
+  if (file.endsWith('.css')) {
+    for (const m of text.matchAll(/\/\*[\s\S]*?\*\//g)) hits.push(line(m.index))
+    return hits
+  }
+  const kind = file.endsWith('.tsx') ? ts.LanguageVariant.JSX : ts.LanguageVariant.Standard
+  const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, kind, text)
+  const K = ts.SyntaxKind
+  const regexCanFollow = t => t === undefined || !(t === K.Identifier || t === K.CloseParenToken || t === K.CloseBracketToken
+    || t === K.CloseBraceToken || t === K.NumericLiteral || t === K.StringLiteral || t === K.NoSubstitutionTemplateLiteral
+    || t === K.TemplateTail || t === K.ThisKeyword || t === K.TrueKeyword || t === K.FalseKeyword || t === K.NullKeyword)
+  let templates = 0
+  let previous
+  let token = scanner.scan()
+  while (token !== K.EndOfFileToken) {
+    if (token === K.TemplateHead) templates++
+    else if (token === K.CloseBraceToken && templates > 0) {
+      token = scanner.reScanTemplateToken(false)
+      if (token === K.TemplateTail) templates--
+    } else if ((token === K.SlashToken || token === K.SlashEqualsToken) && regexCanFollow(previous)) {
+      token = scanner.reScanSlashToken()
+    }
+    if (token === K.SingleLineCommentTrivia || token === K.MultiLineCommentTrivia) {
+      const body = scanner.getTokenText()
+      if (!PRAGMA.test(body)) hits.push(line(scanner.getTokenStart()))
+    } else if (token !== K.WhitespaceTrivia && token !== K.NewLineTrivia) previous = token
+    token = scanner.scan()
+  }
+  return hits
+}
+
+const codeFiles = CODE_ROOTS.flatMap(root => walkCode(join(ROOT, root)))
+const commentHits = []
+for (const file of codeFiles) {
+  const text = readFileSync(file, 'utf8')
+  if (text.startsWith('#!')) {
+    const nl = text.indexOf('\n')
+    for (const l of commentsIn(file, ' '.repeat(nl) + text.slice(nl))) commentHits.push(`${relative(ROOT, file)}:${l}`)
+    continue
+  }
+  for (const l of commentsIn(file, text)) commentHits.push(`${relative(ROOT, file)}:${l}`)
+}
+if (commentHits.length) {
+  failed += commentHits.length
+  console.error(`\ndesign-lint: no comments in code (${commentHits.length})`)
+  console.error('  A fact worth keeping lives in the component spec, CLAUDE.md or the README, never beside the code.')
+  for (const hit of commentHits.slice(0, 40)) console.error(`  ${hit}`)
+  if (commentHits.length > 40) console.error(`  and ${commentHits.length - 40} more`)
+}
+
 if (failed) {
   console.error(`\ndesign-lint failed with ${failed} violation${failed === 1 ? '' : 's'}.`)
   process.exit(1)
 }
-console.log(`design-lint passed: ${RULES.length} rules over ${files.length} files.`)
+console.log(`design-lint passed: ${RULES.length + 1} rules over ${files.length} web files and ${codeFiles.length} code files.`)

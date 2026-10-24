@@ -18,23 +18,11 @@ export type SheetReason = 'terminal' | 'end' | 'time'
 export interface Outcome { winner: number | null; winType: WinType | null }
 
 
-/**
- * An outcome AND the scores that produced it, read at one instant. The sheet's restatement
- * prints these rather than the live match: pairing a frozen winner with a live score means
- * that between the raise and the press the line can read a score that contradicts the
- * competitor it names.
- */
 export interface Statement extends Outcome { scores: { a: number; b: number } }
 
 export interface Sheet extends Outcome {
   reason: SheetReason
-  /** What the match derived when the sheet was raised: the statement the operator answers. */
   shown: Statement
-  /**
-   * Set when the match moved out from under an open sheet. While it is set there is no
-   * affirmative to press: the refusal has to be answered by a new decision naming the new
-   * winner, not by the second half of the double tap that ran into it.
-   */
   changed: { was: Statement; now: Statement } | null
 }
 
@@ -44,12 +32,6 @@ interface PendingOp {
   needed: (match: MatchView) => boolean
 }
 
-/**
- * The ledger travels with the match it describes rather than beside it. The match id changes
- * inside an effect, so a ledger held in its own state would be written to session storage
- * under the NEW match id while it still held the OLD match's entries: one commit is enough
- * to hand mat 1's taps to mat 2's first match.
- */
 interface Ledger { matchId: number; actions: LocalAction[] }
 
 function derive(match: MatchView, ruleset: RulesetView | null): Outcome {
@@ -85,31 +67,16 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
   const opSeq = useRef(0)
   const inFlight = useRef(0)
   const offset = useRef(0)
-  // A terminal is a commit control, so it takes one press. See terminal() below.
   const terminating = useRef(false)
 
   useEffect(() => {
     if (snapshot?.now) offset.current = Date.parse(snapshot.now) - Date.now()
   }, [snapshot?.now])
 
-  // The snapshot poll is up to a full interval behind this scorer's own writes, so a tap
-  // right after another one would read the pre-write clock and scores: Start then Start
-  // again, or an End sheet asking to break a tie that a takedown already broke. The write
-  // response is authoritative for its own match until a poll whose version has caught up
-  // arrives. Comparing seq instead of version would pin the scorer to its own stale write
-  // forever once another device's undo lowers the match's seq below what was just written.
   const base = written && writeMark && polled && written.id === polled.id && snapshot !== null && snapshot.version <= writeMark.version ? written : polled
-  // 4.1: the four optimistic writes fold on top of whatever the server has agreed to.
   const current = base ? pending.reduce((m, op) => (op.needed(m) ? op.apply(m) : m), base) : null
   const ruleset = current ? snapshot?.rulesets.find(r => r.id === current.rulesetId) ?? null : null
 
-  // The newest seq wins, whether it came from the stream or from a write response, and it
-  // is taken VERBATIM in both directions: another device's undo lowers the match's seq, and
-  // a seqRef that only ever climbed made the next tap here a guaranteed 409. It is read off
-  // `base` rather than off `current`, because a queued write has to carry the seq the SERVER
-  // last agreed to, not the one the optimistic fold is showing. The version is what keeps a
-  // stale poll and the seq a conflict corrected us to from undoing each other: only a
-  // snapshot newer than whatever set the current seq may replace it.
   if (base && snapshot && (
     seqRef.current === null
     || seqRef.current.matchId !== base.id
@@ -118,22 +85,14 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     seqRef.current = { matchId: base.id, seq: base.lastSeq, version: snapshot.version }
   }
 
-  // Where the optimistic fold has got to, advanced synchronously as each op is composed.
-  // Two taps inside one React batch see the same `current`, so an op composed from that
-  // value would claim a seq the op before it already claimed and then fold itself away.
   if (base && (pending.length === 0 || projected.current?.matchId !== base.id)) {
     projected.current = { matchId: base.id, seq: base.lastSeq }
   }
 
-  // Entries above the authoritative seq were rolled back by an undo, here or elsewhere.
   const mine = current && log.matchId === current.id ? log.actions : []
   const live = current ? mine.filter(a => a.seq <= current.lastSeq) : []
   const lastAction = current && live.length > 0 && live[live.length - 1].seq === current.lastSeq ? live[live.length - 1] : null
 
-  // A 401 on the heartbeat is the only warning a tablet gets that its mat is no longer its
-  // own: it fires every 20 seconds whether or not anyone is scoring, so it finds an expired
-  // token or a takeover long before the next tap does. Swallowed, it left the tablet showing
-  // a live match it could not write to.
   useEffect(() => {
     const beat = () => {
       void heartbeat(binding.matId, binding.token).catch(e => {
@@ -146,21 +105,13 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     return () => clearInterval(id)
   }, [binding.matId, binding.token])
 
-  // A new match clears any leftover sheet, error and optimistic write, and takes the ledger
-  // this tablet already wrote for it: after a reload that is the tap the operator is
-  // reaching for Undo to take back.
   useEffect(() => {
     setSheet(null)
     setError(null)
     setPending([])
     const id = current?.id ?? 0
-    // The match that just ended takes its ledger with it. Guarded on a real id, because 0 is
-    // both "between bouts" and "the snapshot has not landed yet", and sweeping there would
-    // take the ledger a reload is one render away from restoring.
     if (id) pruneLedgers(id)
     setLog({ matchId: id, actions: id ? loadLedger(id, current!.lastSeq) : [] })
-    // The ledger is restored for the match, not for a moment in it, so the seq it is pruned
-    // against is deliberately not a dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id])
 
@@ -168,25 +119,12 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     if (log.matchId) saveLedger(log.matchId, log.actions)
   }, [log])
 
-  // An agreed seq only falls when events were taken away: a refused write rolling back, an
-  // undo here, an undo on another device. Anything the ledger still holds above it describes
-  // an event the server does not have, and leaving it there lets that entry become
-  // `lastAction` again the moment any other device's write reaches its number -- the tablet
-  // would name, and offer to subtract, something that never happened. It is only read while
-  // nothing is pending, because an optimistic entry legitimately sits above the agreed seq
-  // until its own write answers.
   const agreed = pending.length === 0 ? base?.lastSeq : undefined
   useEffect(() => {
     if (agreed === undefined) return
     setLog(l => (l.actions.some(a => a.seq > agreed) ? { ...l, actions: l.actions.filter(a => a.seq <= agreed) } : l))
   }, [agreed, base?.id])
 
-  /**
-   * Every scoring write goes through one serial chain, because the server consumes lastSeq
-   * in order: two taps issued in the same second must not race for the same seq. The task
-   * reads seqRef at execution time rather than at enqueue time, so each write carries what
-   * the one before it returned.
-   */
   const enqueue = useCallback((fn: (matchId: number, seq: number) => Promise<ScoreResponse>, opId: number | null): Promise<ScoreResponse | null> => {
     const mine = generation.current
     const matchId = seqRef.current?.matchId
@@ -194,15 +132,11 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     setBusy(true)
     const task = async (): Promise<ScoreResponse | null> => {
       try {
-        // A failure rolls back everything unconfirmed, so anything queued behind it was
-        // composed against state that no longer exists.
         if (generation.current !== mine) return null
         const at = seqRef.current
         if (matchId === undefined || !at || at.matchId !== matchId) return null
         try {
           const r = await withDeadline(fn(matchId, at.seq), WRITE_DEADLINE_MS)
-          // Taken verbatim, never max'd against what was sent: an undo returns a LOWER
-          // seq, and keeping the higher one makes the next tap a guaranteed 409.
           seqRef.current = { matchId: r.match.id, seq: r.match.lastSeq, version: r.version }
           setWritten(r.match)
           setWriteMark({ seq: r.match.lastSeq, version: r.version })
@@ -211,8 +145,6 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
         } catch (e) {
           generation.current += 1
           setPending([])
-          // A write refused for the token is not a write to report and retry: this tablet
-          // has no mat any more, and the page sends it back to the mat pick with the reason.
           const lost = bindLossOf(e)
           if (lost) {
             setBindingLost(lost)
@@ -220,8 +152,6 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
           }
           if (e instanceof ApiError && e.code === 'sequence') {
             const s = Number(e.details.currentSeq)
-            // The version is kept, not raised: the poll that carries this correction has
-            // not arrived yet, and the next one that does may replace it.
             if (Number.isFinite(s)) seqRef.current = { matchId, seq: s, version: at.version }
           }
           setError(errorCopy(e))
@@ -244,26 +174,14 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     return id
   }
 
-  // Every entry carries the match it belongs to, so a ledger can never be appended to, or
-  // saved under, a match that has already moved on.
   const record = (matchId: number, action: LocalAction) =>
     setLog(l => (l.matchId === matchId ? { matchId, actions: [...l.actions, action] } : { matchId, actions: [action] }))
 
-  /**
-   * An entry is written before its request goes out, so it carries the seq this tablet
-   * guessed. When a retry adopts the server's number instead, that guess is wrong, and an
-   * entry whose seq no longer matches the match's lastSeq is not `lastAction` at all: Undo
-   * and both minus buttons then refuse with "The newest action came from elsewhere" for a
-   * write this tablet had just made, and go on refusing until the next one.
-   */
   const reseq = (matchId: number, from: number, to: number) =>
     setLog(l => (l.matchId === matchId && from !== to
       ? { matchId, actions: l.actions.map(a => (a.seq === from ? { ...a, seq: to } : a)) }
       : l))
 
-  // Spec 10: advance never hands a tablet a match with an empty side, so a null here is
-  // a side that does not exist. Every write that names a competitor stops at the door
-  // rather than sending the server a score for nobody.
   const tap = (athleteId: number | null, actionKey: string) => {
     const m = current
     const action = ruleset?.actions.find(a => a.key === actionKey)
@@ -285,9 +203,6 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     const target = ++projected.current.seq
     const nowMs = Date.now() + offset.current
     const running = m.clock.startedAt !== null
-    // 6.16: the ledger records the clock as well as the points, so the controls that have
-    // to name the newest event can say it was the clock rather than claim this tablet
-    // recorded nothing, and refuse for the reason that is actually true.
     const at = formatClock(remainingMs(m.clock, nowMs))
     record(m.id, { kind: 'clock', seq: target, label: running ? 'Clock paused' : 'Clock started', at })
     const id = running
@@ -296,12 +211,6 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     void enqueue((matchId, seq) => postMatchEvent(matchId, binding.token, { type: running ? 'clock_pause' : 'clock_start', lastSeq: seq }), id)
   }
 
-  /**
-   * G19: the clock is the one thing a referee cannot correct after the fact, so a match that
-   * ran out takes another minute rather than a result nobody agrees with. It is the fifth
-   * optimistic write and folds like the others: the length moves at 0ms, which clears the
-   * expiry frame and the alarm on the same frame the operator presses.
-   */
   const addTime = () => {
     const m = current
     if (!m || !connected || !projected.current) return
@@ -315,15 +224,9 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
       try {
         return await extendClock(matchId, binding.token, { lastSeq: seq, addMs: ADD_TIME_MS })
       } catch (e) {
-        // The route sweeps an overdue clock into a pause of its own before it extends, so
-        // the seq this tablet is holding is one behind through nobody's fault. Adopt the
-        // server's number once rather than reporting a conflict with a device that is not
-        // there; a second one is a real conflict and rolls back like any other.
         const server = e instanceof ApiError && e.code === 'sequence' ? Number(e.details.currentSeq) : NaN
         if (!Number.isFinite(server)) throw e
         const r = await extendClock(matchId, binding.token, { lastSeq: server, addMs: ADD_TIME_MS })
-        // The sweep the server wrote sits between the guess and the extension, so the entry
-        // has to take the number the extension actually landed on.
         reseq(matchId, target, r.match.lastSeq)
         return r
       }
@@ -334,10 +237,6 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     const m = current
     const target = lastAction
     if (!m || !connected || !projected.current || projected.current.seq === 0) return
-    // The server's undo removes the newest event and nothing else, so this fires only when
-    // that event is one this tablet recorded and can name: a score or an extension. Undoing
-    // a clock press means undoing what the tablet cannot name -- a pause the server refuses
-    // to remove, or a start whose removal stops a clock nobody asked it to stop.
     if (!target || target.kind === 'clock' || target.seq !== m.lastSeq) return
     setError(null)
     const gone = projected.current.seq
@@ -346,8 +245,6 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     void enqueue((matchId, seq) => undoLast(matchId, binding.token, seq), id)
   }
 
-  // The per side affordance is the same write; what differs is that it will only fire when
-  // the newest event is one this tablet recorded FOR THAT SIDE, so it can name what it removes.
   const minus = (athleteId: number | null) => {
     if (athleteId === null || !lastAction || lastAction.kind !== 'score' || lastAction.athleteId !== athleteId) return
     undo()
@@ -356,17 +253,9 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
   const raise = (reason: SheetReason, shown: Statement) =>
     setSheet({ reason, shown, changed: null, winner: shown.winner, winType: shown.winType })
 
-  // The sheet is where a refused confirm gets said, so the error leaves with it. Left set,
-  // it reappeared in the centre column the moment the match ended successfully.
   const close = () => { setSheet(null); setError(null) }
 
   const terminal = async (athleteId: number | null, actionKey: string) => {
-    // Serialising behind the write chain is NOT enough. The second press is not a stale
-    // write, it is a duplicate, and the half only disables once the pending terminal comes
-    // back on a response -- so the window is the whole round trip. Two terminals land at
-    // seq 1 and seq 2, one "Back to match" removes only the newer, and the mat is left
-    // refused with a terminal still standing on the server and nothing on screen naming it.
-    // A control that ends a match takes one press.
     if (athleteId === null || !current || !connected || terminating.current) return
     terminating.current = true
     setError(null)
@@ -383,38 +272,16 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     raise(reason, statement(current, ruleset))
   }
 
-  /**
-   * The operator's decision about who won, and the ONLY way past a changed-score refusal:
-   * clearing `changed` costs a press on a control that names a competitor, which is what
-   * makes it a new decision rather than the tail of a double tap.
-   */
   const pickWinner = (athleteId: number | null) => setSheet(s => (s && athleteId !== null
     ? { ...s, winner: athleteId, winType: s.winType ?? s.changed?.now.winType ?? 'decision', changed: null }
     : s))
 
-  /**
-   * How the referee settled a tie. It does NOT clear `changed`: only naming a competitor
-   * can, because only that is a new decision about who won.
-   */
   const pickWinType = (winType: DecisionType) => setSheet(s => (s ? { ...s, winType } : s))
 
   const confirm = async () => {
-    // A refusal is not answered by pressing the same button again. Until the operator has
-    // acknowledged the new state through pickWinner, there is nothing to record.
     if (!sheet || sheet.changed || sheet.winner === null || sheetBusy) return
-    // 4.4 holds the poll under every other dialog. This one opts out, because its content
-    // IS the live match: held, it would show a stale reading and let the operator commit
-    // against it, and an expiry under it would never sound. Opting out is only safe because
-    // of the check below, which requires the match to still say what it said when the sheet
-    // was raised. The server derives the winner from
-    // its own events and IGNORES winnerAthleteId once a tie is broken, so a decision picked
-    // against a score that has since moved would silently record the other competitor.
     const now = current ? statement(current, ruleset) : sheet.shown
     if (now.winner !== sheet.shown.winner || now.winType !== sheet.shown.winType) {
-      // NOT raise(): raise would hand the sheet the new winner and leave the affirmative
-      // enabled, in place and immediately valid, so the second press of a double tap would
-      // record the competitor the operator never picked -- the very thing this refusal is
-      // here to stop. The affirmative goes away until pickWinner names the new one.
       setSheet({ reason: sheet.reason, shown: now, changed: { was: sheet.shown, now }, winner: null, winType: null })
       setError('The score changed. Read the new result, then record it.')
       playRejected()
@@ -422,8 +289,6 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     }
     setSheetBusy(true)
     try {
-      // The winner and the word both travel only on a tie: with a terminal or a points
-      // lead the server derives both from its own events and ignores whatever is sent.
       const tie = sheet.shown.winner === null
       const settled = tie ? { winnerAthleteId: sheet.winner!, winType: decisionOf(sheet.winType) } : {}
       const r = await enqueue((matchId, seq) => endMatch(matchId, binding.token, { lastSeq: seq, ...settled }), null)
@@ -433,14 +298,9 @@ export function useScorer(binding: MatBinding, snapshot: Snapshot | null, connec
     }
   }
 
-  // Gated on the sheet's own write rather than on the queue: a tap still in flight, or one
-  // hung on a dead socket, must never be what stops the operator dismissing a modal.
   const cancel = async () => {
     if (sheetBusy) return
     if (sheet?.reason === 'terminal') {
-      // A failed undo leaves pendingTerminal set on the server, so the sheet has to stay up
-      // (with the error surfaced there) rather than dropping back to a scoring screen that no
-      // longer matches server state.
       setSheetBusy(true)
       try {
         const r = await enqueue((matchId, seq) => undoLast(matchId, binding.token, seq), null)

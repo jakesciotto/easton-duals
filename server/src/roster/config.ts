@@ -1,9 +1,6 @@
 import type { RosterConfig } from '../context.js'
 import { WlClient } from './wl.js'
 
-// `defaults.syncBudgetMs` is the cloud entry's fallback: a serverless function has a hard
-// time limit, so the sync has to give up and answer before the platform kills it. LAN has
-// no limit, so it passes nothing and the sync runs to completion.
 export function rosterFromEnv(env: Record<string, string | undefined>, defaults: { syncBudgetMs?: number } = {}): RosterConfig {
   const maxPolls = Number(env.WL_SYNC_MAX_POLLS)
   const budget = Number(env.SYNC_DEADLINE_MS)
