@@ -1,8 +1,11 @@
+import { isSmoothcompHost } from './url.js'
+
 // Smoothcomp serves its HTML pages behind a Cloudflare challenge, but answers its JSON
 // endpoints normally to a plain server request carrying a browser User-Agent. Never add
 // challenge-solving code here.
 export const USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0'
 const MAX_RETRIES = 4
+const MAX_REDIRECTS = 5
 const RETRYABLE = new Set([429, 500, 502, 503, 504])
 
 export class SmoothcompError extends Error {
@@ -22,6 +25,19 @@ function wait(ms: number, deadlineAt: number | undefined): number {
   return deadlineAt === undefined ? ms : Math.min(ms, Math.max(0, deadlineAt - Date.now()))
 }
 
+async function request(url: string, fetchFn: typeof fetch): Promise<Response> {
+  let current = url
+  for (let hop = 0; ; hop++) {
+    const res = await fetchFn(current, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' }, redirect: 'manual' })
+    const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null
+    if (location === null) return res
+    const next = new URL(location, current)
+    if (!isSmoothcompHost(next.hostname)) throw new SmoothcompError(`Smoothcomp redirected ${url} off smoothcomp.com to ${next.hostname}`, res.status)
+    if (hop === MAX_REDIRECTS) throw new SmoothcompError(`Smoothcomp redirected ${url} too many times`, res.status)
+    current = next.href
+  }
+}
+
 export async function fetchJson(url: string, opts: ClientOptions = {}): Promise<unknown> {
   const fetchFn = opts.fetchFn ?? fetch
   const backoffMs = opts.backoffMs ?? 1000
@@ -30,8 +46,9 @@ export async function fetchJson(url: string, opts: ClientOptions = {}): Promise<
     if (opts.deadlineAt !== undefined && Date.now() >= opts.deadlineAt) throw new SmoothcompTimeout()
     let res: Response
     try {
-      res = await fetchFn(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } })
+      res = await request(url, fetchFn)
     } catch (err) {
+      if (err instanceof SmoothcompError) throw err
       last = new SmoothcompError(`Smoothcomp request failed for ${url}: ${(err as Error).message}`, null)
       if (attempt === MAX_RETRIES) throw last
       await sleep(wait(backoffMs * 2 ** attempt, opts.deadlineAt))

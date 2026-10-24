@@ -78,4 +78,40 @@ describe('a hand-edited age or weight sticks through a re-sync', () => {
     expect(again).toHaveLength(1)
     expect(again[0]).toMatchObject({ age: 9, ageSource: 'manual', erp: 5.9 })
   })
+
+  it('keeps a hand-set age through syncRoster while the leaderboard still moves the weight', async () => {
+    const db = await freshDb()
+    const s = await seedEvent(db, { matches: 0 })
+    const sam = await db.insert(athletes).values({
+      eventId: s.eventId, firstName: 'Sam', lastName: 'Reyes', source: 'wl', wlUid: 'w5',
+      age: 7, ageSource: 'manual', weightLbs: 55, weightSource: 'leaderboard', belt: 'grey', gender: 'M', erp: 3.1,
+    }).returning().get()
+
+    await syncRoster(db, s.eventId, [
+      rec({ uid: 'w5', firstName: 'Sam', lastName: 'Reyes', rankTitle: 'Grey Belt' }),
+    ], [comp({ id: 'sam-reyes', name: 'Sam Reyes', erp: 3.1, ageGroup: '10-10', weightClass: '-80 lbs' })])
+
+    const after = await row(db, sam.id)
+    expect(after).toMatchObject({ age: 7, ageSource: 'manual', weightSource: 'leaderboard' })
+    expect(after!.weightLbs).not.toBe(55)
+    expect(after!.syncChanges ?? {}).not.toHaveProperty('age')
+  })
+
+  it('keeps an age and a weight typed through the athletes route when syncRoster runs again', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const s = await seedEvent(db, { matches: 0 })
+    const sam = await db.insert(athletes).values({
+      eventId: s.eventId, firstName: 'Sam', lastName: 'Reyes', source: 'wl', wlUid: 'w5',
+      age: 10, ageSource: 'leaderboard', weightLbs: 80, weightSource: 'leaderboard', belt: 'grey', gender: 'M', erp: 3.1,
+    }).returning().get()
+    const r = await call(app, 'PATCH', `/api/athletes/${sam.id}`, { age: 9, weightLbs: 58 }, adminToken)
+    expect(r.status).toBe(200)
+
+    for (let pass = 0; pass < 2; pass++) {
+      await syncRoster(db, s.eventId, [
+        rec({ uid: 'w5', firstName: 'Sam', lastName: 'Reyes', rankTitle: 'Grey Belt' }),
+      ], [comp({ id: 'sam-reyes', name: 'Sam Reyes', erp: 3.6, ageGroup: '11-11', weightClass: '-90 lbs' })])
+      expect(await row(db, sam.id)).toMatchObject({ age: 9, ageSource: 'manual', weightLbs: 58, weightSource: 'manual', erp: 3.6 })
+    }
+  })
 })

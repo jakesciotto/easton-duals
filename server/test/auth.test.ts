@@ -4,7 +4,10 @@ import { signToken, verifyToken, tokenExpiry, type TokenPayload } from '../src/a
 import { pinMatches, validateAdminPin, randomMatCode } from '../src/auth/pin.js'
 import { attachAuth, requireAdmin, requireMatOrAdmin } from '../src/auth/middleware.js'
 import type { Env, AppContext } from '../src/context.js'
-import { freshDb } from './fixtures.js'
+import { eq } from 'drizzle-orm'
+import { freshDb, seedEvent } from './fixtures.js'
+import { createTestApp, TEST_SECRET } from './helpers.js'
+import { mats } from '../src/db/schema.js'
 
 const SECRET = 'test-secret'
 
@@ -71,5 +74,50 @@ describe('an admin route rejects a request without a valid admin token', () => {
     expect((await app.request('/mat/2', { headers: { authorization: `Bearer ${mat2}` } })).status).toBe(200)
     expect((await app.request('/mat/3', { headers: { authorization: `Bearer ${mat2}` } })).status).toBe(403)
     expect((await app.request('/mat/3', { headers: { authorization: `Bearer ${admin}` } })).status).toBe(200)
+  })
+
+  const OPEN_ROUTES = new Set([
+    'GET /api/health', 'GET /api/lan', 'POST /api/auth/admin',
+    'GET /api/events/:eventId/snapshot', 'POST /api/events/:eventId/mats/:matId/bind',
+  ])
+  const MAT_ROUTES = new Set([
+    'POST /api/mats/:matId/unbind', 'POST /api/mats/:matId/heartbeat',
+    'POST /api/matches/:matchId/events', 'DELETE /api/matches/:matchId/events/last',
+    'POST /api/matches/:matchId/end', 'POST /api/matches/:matchId/clock/extend',
+  ])
+
+  it('walks every real route with a mat token, a stale mat token and a token for another mat', async () => {
+    const { app, db } = await createTestApp()
+    const s = await seedEvent(db, { live: true, matCount: 2 })
+    const [own, otherMat] = s.matIds
+    const epochOf = async (matId: number) => (await db.select({ e: mats.bindEpoch }).from(mats).where(eq(mats.id, matId)).get())!.e
+    const token = (matId: number, epoch: number) => signToken({ role: 'mat', eventId: s.eventId, matId, epoch, exp: tokenExpiry() }, TEST_SECRET)
+    const ids: Record<string, number> = { eventId: s.eventId, matId: own, matchId: s.matchIds[0] }
+    const status = (method: string, path: string, bearer: string) => app.request(path, {
+      method, headers: { 'content-type': 'application/json', authorization: `Bearer ${bearer}` }, body: method === 'GET' ? undefined : '{}',
+    })
+
+    const seen = new Set<string>()
+    const admitted: string[] = []
+    for (const route of app.routes) {
+      if (!['GET', 'POST', 'PATCH', 'PUT', 'DELETE'].includes(route.method) || !route.path.startsWith('/api/') || route.path.includes('*')) continue
+      const key = `${route.method} ${route.path}`
+      if (seen.has(key) || OPEN_ROUTES.has(key)) continue
+      seen.add(key)
+      const path = route.path.replace(/:([A-Za-z]+)/g, (_, name: string) => String(ids[name] ?? 1))
+
+      const stale = await status(route.method, path, token(own, (await epochOf(own)) + 1))
+      const foreign = await status(route.method, path, token(otherMat, await epochOf(otherMat)))
+      const fresh = await status(route.method, path, token(own, await epochOf(own)))
+      if (MAT_ROUTES.has(key)) {
+        expect([key, stale.status, (await stale.json()).error.code]).toEqual([key, 401, 'token_stale'])
+        expect([key, foreign.status]).toEqual([key, 403])
+      } else {
+        expect([key, stale.status, foreign.status, fresh.status]).toEqual([key, 403, 403, 403])
+      }
+      if (fresh.status !== 401 && fresh.status !== 403) admitted.push(key)
+    }
+    expect(seen.size).toBeGreaterThan(40)
+    expect(admitted.sort()).toEqual([...MAT_ROUTES].sort())
   })
 })

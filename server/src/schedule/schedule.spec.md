@@ -21,8 +21,8 @@ One static plan in waves across the mats, built on demand from every pending mat
   refuted: the strict rest check drops the previous wave -> the test a kid never fights in two adjacent waves unless nothing else fits went red (2026-10-22)
   kinds: none
 - deterministic plan: The plan is deterministic for the same input.
-  over: six matches with equal priority on three mats given in a shuffled mat order, planned twice
+  over: six matches with equal priority on three mats given in a shuffled mat order, planned twice; and eleven gi and nogi matches of equal age with a shared kid, given in four pending orders and three mat orders
   via: the plan is deterministic for the same input
-  because: comparePriority ends on the match number and the mats sort by number, so the same pending set always gives the same order and the console can show a stable plan
-  refuted: the final priority tiebreak is Math.random -> the test the plan is deterministic for the same input went red (2026-10-22)
+  because: comparePriority ends on the match number and the mats sort by number, so the same pending set always gives the same order whatever order the rows arrive in, and the console can show a stable plan
+  refuted: comparePriority ends on 0 instead of the match number -> the test the plan is deterministic for the same input went red, 1 of 2 (2026-10-24)
   kinds: none

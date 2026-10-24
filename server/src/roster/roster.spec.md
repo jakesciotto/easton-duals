@@ -3,12 +3,12 @@ The paste, the WellnessLiving sync, the leaderboard ERP join and the link sugges
 
 ## invariants
 - manual values stick: A hand-edited age or weight sticks through a re-sync.
-  over: profileChanges on an update that carries some fields, on an empty update and on an absent value; a sync of a linked kid whose weight was set by hand; a candidate upsert after a hand edit of the age
+  over: profileChanges on an update that carries some fields, on an empty update and on an absent value; a syncRoster of a linked kid whose weight was set by hand, of one whose age was set by hand beside a leaderboard weight it still moves, and two syncRoster passes after an age and a weight typed through the athletes route; a candidate upsert after a hand edit of the age
   via: a hand-edited age or weight sticks through a re-sync
-  because: the sync overwrites a field only when the update carries it, and linkUpdate skips an age or weight whose source is manual, so the organizer's edit wins over WellnessLiving and the leaderboard
+  because: the sync overwrites a field only when the update carries it, and linkUpdate skips an age or weight whose source is manual, so the organizer's edit wins over WellnessLiving and the leaderboard on every syncRoster pass
   crossing: leaderboard -> store
   entrances: none
-  refuted: profileChanges no longer skips the fields the update leaves undefined -> the test a hand-edited age or weight sticks through a re-sync went red (2026-10-22)
+  refuted: linkUpdate overwrites an age whose source is manual -> the test a hand-edited age or weight sticks through a re-sync went red, 3 of 6 (2026-10-24)
   kinds: state
   checklist: revalidated-permission dismissed: the sync runs inside the admin request that asked for it and defers no work
   checklist: separation-of-duties dismissed: no approval policy exists on a sync

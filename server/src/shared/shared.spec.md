@@ -9,10 +9,10 @@ Pure modules the server, the console and the board read through: the leaderboard
   refuted: flipped the wins and match points sort directions -> the test teams rank by team points, then wins, then match points, then position, and ties share a rank went red (2026-10-22)
   kinds: none
 - team points: Team points come only from scoring athletes by win type.
-  over: the team points of each of the five win types
+  over: the team points of each of the five win types; and a snapshot of five done matches where a team over the cap wins with a marked kid, an unmarked kid and a second unmarked kid, and a team inside the cap wins by points and by DQ
   via: team points come only from scoring athletes by win type
-  because: teamPointsFor reads the points from the TEAM_POINTS table, three for a submission, two for points and one for a decision, a walkover or a DQ
-  refuted: teamPointsFor answers 1 for every win type -> the test team points come only from scoring athletes by win type went red (2026-10-22)
+  because: teamPointsFor reads the points from the TEAM_POINTS table, three for a submission, two for points and one for a decision, a walkover or a DQ, and buildSnapshot counts every win but adds team points only when the winner is in the scoring set of their team
+  refuted: buildSnapshot pays team points for every win of a kid on a team, marked or not -> the test team points come only from scoring athletes by win type went red, 1 of 2 (2026-10-24)
   kinds: none
 - scoring cap: A team over ten kids scores only with its marked kids.
   over: teams of three, ten and eleven kids, with and without marked kids

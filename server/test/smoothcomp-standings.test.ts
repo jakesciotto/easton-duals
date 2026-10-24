@@ -25,6 +25,41 @@ describe('a Smoothcomp win method maps to a win type and an unknown method earns
   it('answers null for a method it does not know, including bye', () => {
     expect(winTypeFor('bye')).toBeNull()
   })
+
+  it('maps every method of the table in any case and padding', () => {
+    const table: [string, string][] = [
+      ['submission', 'submission'], ['points', 'points'], ['decision', 'decision'],
+      ['walkover', 'walkover'], ['disqualification', 'dq'], ['dq', 'dq'],
+    ]
+    for (const [method, type] of table) {
+      expect(winTypeFor(method)).toBe(type)
+      expect(winTypeFor(`  ${method.toUpperCase()} `)).toBe(type)
+    }
+    for (const method of ['bye', 'Penalties', 'Advantages', '', 'sub']) expect(winTypeFor(method)).toBeNull()
+  })
+
+  it('pays a scoring winner the table points for a known method and one point for an unknown one, and names it', () => {
+    const teams: StandingsTeamInput[] = [
+      { id: 1, name: 'Ridgeline', color: 'red', position: 0 },
+      { id: 2, name: 'Lakeside', color: 'blue', position: 1 },
+    ]
+    const kids: StandingsKid[] = [
+      { id: 1, firstName: 'Mateo', lastName: 'Rivera', teamId: 1, scoring: false },
+      { id: 2, firstName: 'Olivia', lastName: 'Kim', teamId: 2, scoring: false },
+    ]
+    const methods: [string, number][] = [
+      ['Submission', 3], ['Points', 2], ['Decision', 1], ['Walkover', 1], ['Disqualification', 1], ['Penalties', 1], ['Advantages', 1],
+    ]
+    for (const [wonBy, expected] of methods) {
+      const report = computeStandings({
+        teams, kids, matches: [match({ id: 1, left: seat('Mateo Rivera', true), right: seat('Olivia Kim', false), wonBy })],
+        brackets: { read: 1, failed: [] }, url: 'https://smoothcomp.com/en/event/1', fetchedAt: '2026-10-24T00:00:00.000Z',
+      })
+      const ridgeline = report.teams.find(t => t.teamId === 1)
+      expect([wonBy, ridgeline?.teamPoints, ridgeline?.wins]).toEqual([wonBy, expected, 1])
+      expect(report.unknownMethods).toEqual(winTypeFor(wonBy) === null ? [wonBy] : [])
+    }
+  })
 })
 
 describe('a Smoothcomp match counts only when both names resolve to roster kids on teams', () => {

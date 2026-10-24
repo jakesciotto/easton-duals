@@ -3,10 +3,10 @@ The event log per match, the derived caches, the mats, the bracket feeds and the
 
 ## invariants
 - source of truth: Match events are the source of truth and the caches follow in the same transaction.
-  over: a score, a duplicate event id, a stale lastSeq, an unknown action and an outside athlete, a write on a pending match and in setup, a clock start and pause, a terminal, an end with a running clock, and an undo of added time
+  over: a score, a duplicate event id, a stale lastSeq, an unknown action and an outside athlete, a write on a pending match and in setup, a clock start and pause, a terminal, an end with a running clock, an undo of added time, and a score, an end and an undo whose match row update fails inside the transaction
   via: match events are the source of truth and the caches follow in the same transaction
-  because: appendMatchEvent, endMatch, extendClock and undoLastMatchEvent write the event rows and call recompute in one transaction, so the points, clock, status and result on the match row never disagree with the log
-  refuted: recompute writes pointsA as 0 -> the test match events are the source of truth and the caches follow in the same transaction went red (2026-10-22)
+  because: appendMatchEvent, endMatch, extendClock and undoLastMatchEvent write the event rows and call recompute in one transaction, so the points, clock, status and result on the match row never disagree with the log, and a write that fails midway leaves neither the event rows nor the caches behind
+  refuted: appendMatchEvent swallows a failed recompute and commits the event row -> the test match events are the source of truth and the caches follow in the same transaction went red, 1 of 11 (2026-10-24)
   kinds: state
   checklist: revalidated-permission dismissed: a scoring write runs inside the request that carries the token, and no work is deferred or resumed
   checklist: separation-of-duties dismissed: no approval policy exists on a scoring write
@@ -42,10 +42,10 @@ The event log per match, the derived caches, the mats, the bracket feeds and the
   checklist: commit-ordered-effects dismissed: the status change, the mat pointer and the audit row are rows in one transaction, and nothing leaves the process
   checklist: resumption-coverage dismissed: each advance is one transaction, and releaseIdleMats looks at every idle mat again after each end, entry, skip and fill
 - feeder fills: An ended feeder fills its dependents in the same transaction.
-  over: a double elimination semifinal that fills the winners final and the losers round, a single elimination chain of two rounds, the one fill audit row per feeder end, and a match nothing feeds from
+  over: a double elimination semifinal that fills the winners final and the losers round, a single elimination chain of two rounds, the one fill audit row per feeder end, a match nothing feeds from, and a semifinal end whose fill row fails to write and then succeeds
   via: an ended feeder fills its dependents in the same transaction
-  because: fillDependents writes the winner and the loser into the pending sides that feed from the match inside the transaction that ended it, and records one fill row naming every side it filled
-  refuted: fillDependents swaps the winner and the loser into the dependent sides -> the test an ended feeder fills its dependents in the same transaction went red (2026-10-22)
+  because: fillDependents writes the winner and the loser into the pending sides that feed from the match inside the transaction that ended it, and records one fill row naming every side it filled, so a fill that fails takes the end, the filled sides and every audit row back with it
+  refuted: fillDependents swallows a failed fill row and commits the filled sides -> the test an ended feeder fills its dependents in the same transaction went red, 1 of 5 (2026-10-24)
   kinds: state
   checklist: revalidated-permission dismissed: the fill runs inside the transaction of the end, and no work is deferred
   checklist: separation-of-duties dismissed: no approval policy exists on a fill

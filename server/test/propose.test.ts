@@ -103,6 +103,50 @@ describe('a hand-designed pair warns and never refuses', () => {
     expect(patched.body).toMatchObject({ style: 'gi', warnings: ['Already met'] })
     expect((await db.select().from(matches).where(eq(matches.id, again.body.id)).get())?.style).toBe('gi')
   })
+
+  it('creates every cross-team pair with its class and age warnings, and refuses only a same-team, an off-event and a teamless pair', async () => {
+    const { app, db, adminToken } = await createTestApp()
+    const { s, id } = await pool(db, [
+      { name: 'Ines', team: 'A', lbs: 62, age: 8 },
+      { name: 'Bruno', team: 'B', lbs: 85, age: 11 },
+      { name: 'Kai', team: 'C', lbs: 95, age: 12 },
+      { name: 'Nadia', team: 'B', lbs: 130, age: 14 },
+      { name: 'Omar', team: 'A', lbs: 64, age: 9 },
+    ])
+    const loner = await db.insert(athletes).values({
+      eventId: s.eventId, teamId: null, firstName: 'Lio', lastName: 'Vantel', age: 8, weightLbs: 62, belt: 'grey', source: 'manual',
+    }).returning().get()
+    const other = await seedEvent(db, { matches: 0 })
+
+    const created: [string, string, string[]][] = [
+      ['Ines', 'Bruno', []],
+      ['Ines', 'Kai', ['3 weight classes apart', '4 years apart']],
+      ['Omar', 'Kai', ['3 weight classes apart']],
+      ['Ines', 'Nadia', ['6 weight classes apart', '6 years apart']],
+      ['Ines', 'Nadia', ['6 weight classes apart', '6 years apart', 'Already met']],
+      ['Bruno', 'Omar', []],
+    ]
+    for (const [a, b, warnings] of created) {
+      const r = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: id(a), athleteBId: id(b) }, adminToken)
+      expect([a, b, r.status, r.body.warnings]).toEqual([a, b, 201, warnings])
+    }
+
+    const refused: [number, number, string][] = [
+      [id('Ines'), id('Omar'), 'athletes must be on different teams'],
+      [id('Ines'), other.b1, 'both athletes must be on this event'],
+      [id('Bruno'), loner.id, 'both athletes must be on a team'],
+    ]
+    const before = (await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).length
+    for (const [a, b, message] of refused) {
+      const r = await call(app, 'POST', `/api/events/${s.eventId}/matches`, { athleteAId: a, athleteBId: b }, adminToken)
+      expect([r.status, r.body.error.message]).toEqual([422, message])
+    }
+    expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toHaveLength(before)
+
+    const first = (await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all())[0]
+    const patched = await call(app, 'PATCH', `/api/matches/${first.id}`, { athleteBId: id('Kai') }, adminToken)
+    expect([patched.status, patched.body.warnings]).toEqual([200, ['3 weight classes apart', '4 years apart', 'Already met']])
+  })
 })
 
 describe('the proposer offers each free kid at most once, across teams only, and never a division kid', () => {

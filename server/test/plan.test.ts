@@ -246,4 +246,31 @@ describe('the plan is deterministic for the same input', () => {
     const input: PlanInput = { mats, live: [], pending, firstOrderIndex: 1 }
     expect(planSchedule(input, noNames)).toEqual(planSchedule(input, noNames))
   })
+
+  it('gives the same plan whatever order the pending matches and the mats arrive in', () => {
+    const mats = [{ id: 10, number: 1 }, { id: 20, number: 2 }, { id: 30, number: 3 }]
+    const pending = [
+      ...Array.from({ length: 8 }, (_, i) => pm({
+        id: i + 1, number: i + 1, athleteIds: [1000 + i * 2, 1001 + i * 2], age: 8,
+      })),
+      pm({ id: 9, number: 9, athleteIds: [1000, 1003], age: 8 }),
+      pm({ id: 10, number: 10, style: 'nogi', athleteIds: [1004, 1007], age: 8 }),
+      pm({ id: 11, number: 11, style: 'nogi', athleteIds: [1008, 1011], age: 8 }),
+    ]
+    const permutations = [
+      (xs: PendingMatch[]) => xs,
+      (xs: PendingMatch[]) => [...xs].reverse(),
+      (xs: PendingMatch[]) => [...xs.slice(5), ...xs.slice(0, 5)],
+      (xs: PendingMatch[]) => [...xs.filter((_, i) => i % 2 === 1), ...xs.filter((_, i) => i % 2 === 0)],
+    ]
+    const matOrders = [mats, [...mats].reverse(), [mats[1], mats[2], mats[0]]]
+    const reference = planSchedule({ mats, live: [], pending, firstOrderIndex: 1 }, noNames)
+    expect(reference.order).toHaveLength(pending.length)
+    for (const permute of permutations) {
+      for (const matOrder of matOrders) {
+        const input: PlanInput = { mats: matOrder, live: [], pending: permute(pending), firstOrderIndex: 1 }
+        expect(planSchedule(input, noNames)).toEqual(reference)
+      }
+    }
+  })
 })
