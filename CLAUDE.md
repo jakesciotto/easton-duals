@@ -74,6 +74,11 @@ A spec names an oracle by its describe title. An unnamed describe is kept until 
 - Safari refuses `navigator.wakeLock.request()` and iOS refuses audio outside a user gesture; request both from the first tap, never from an effect.
 - A disabled button has `pointer-events: none`, so a reason in its own title is unreachable; put the title on the cell and the reason in text named by aria-describedby.
 - A closed base-ui popup stays in the portal with `data-closed`; a `[role=listbox]` query must exclude it.
+- The Entry tab holds one entryId through every retry and a reload so the server dedupes a resend; a new id is minted only after a failure the server definitely refused. After a timeout, a dropped connection, a 5xx, 408 or 429 the first write may be on file and a new id would count the win twice.
+- Arm an automatic retry with a rising number, not a boolean: React batches the stop and the restart into one render and a boolean stops the loop after one retry.
+- A numeric track in `ch` resolves against the element's own font, so the grid that declares it carries the mono face.
+- Every focus ring carries an outline beside its box-shadow, because forced-colors mode drops box-shadow.
+- The scorer writes through one serial chain that reads the seq at execution time and takes a returned seq verbatim in both directions, because another device's undo lowers it.
 - No comments in code, at all, tests and SQL included. `scripts/design-lint.mjs` fails on any. A fact worth keeping lives in the component spec or here.
 - Treat Jake as a competent engineer. Start with the non-obvious cause.
 
