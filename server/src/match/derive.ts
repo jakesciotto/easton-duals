@@ -22,8 +22,6 @@ export interface DerivedMatch {
   lengthMs: number
 }
 
-// The designed length plus whatever has been added to it. lengthSec is never rewritten by
-// scoring, so this stays a pure function of the row and of the log behind it.
 export function effectiveLengthMs(m: { lengthSec: number; extensionMs: number }): number {
   return m.lengthSec * 1000 + m.extensionMs
 }

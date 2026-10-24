@@ -88,8 +88,6 @@ describe('entry routes', () => {
     expect(dq.body.match.result).toEqual({ winnerAthleteId: s.b1, winType: 'dq' })
   })
 
-  // Finish closes the afternoon to new results, not to fixing the ones it produced. The
-  // lock that stops a correction too is certification.
   it('refuses a new entry once the event is done, and still takes a correction', async () => {
     const { app, db, adminToken } = await createTestApp()
     const s = await seedEvent(db, { live: true })
@@ -105,7 +103,6 @@ describe('entry routes', () => {
     expect(correction.status).toBe(200)
     expect(correction.body.match.result).toEqual({ winnerAthleteId: s.b1, winType: 'points' })
 
-    // The second designed match never settled, so typing it now is a new result.
     const unsettled = await call(app, 'POST', `/api/matches/${s.matchIds[1]}/entry`, { entryId: 'entry-0004', pointsA: 1, pointsB: 0, winnerAthleteId: s.a2, winType: 'points' }, adminToken)
     expect(unsettled.status).toBe(409)
     expect(unsettled.body.error).toMatchObject({ code: 'match_state', message: 'event is done' })

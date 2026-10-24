@@ -21,8 +21,6 @@ export interface WlClientOptions {
   maxPolls?: number
   maxAttempts?: number
   kidsLimit?: number
-  // Absolute epoch ms. A per-call deadline (passed to fetchKidsBeltRecords/queryReportPage)
-  // always overrides this constructor default.
   deadlineMs?: number
 }
 
@@ -86,12 +84,6 @@ export class WlClient implements WlLike {
       .map(l => ({ kBusiness: String(l.k_business), title: String(l.s_title ?? l.text_title ?? '').trim(), city: String(l.text_city ?? '').trim() }))
   }
 
-  // WL reports compute asynchronously: the first submit queues (status 2), later identical
-  // submits return the cached result (status 3). Poll until complete; back off on 5xx.
-  // i_offset paging is broken with s_sql, so this issues one page at the given limit.
-  // deadlineMs (absolute epoch, per call) bounds the location this call is fetching for --
-  // checked before every poll sleep and every retry backoff sleep, so a report that is slow
-  // to complete cannot run past the caller's overall time budget.
   async queryReportPage(opts: { cidReport: number; kBusiness: string; limit: number; sSql?: string; deadlineMs?: number }): Promise<{ fields: string[]; rows: unknown[][] }> {
     const deadline = opts.deadlineMs ?? this.deadlineMs
     const checkDeadline = () => {
@@ -151,9 +143,6 @@ export class WlClient implements WlLike {
     return this.beltPage(kBusiness, location, kidsQuery(this.cfg.kidsCategory), deadlineMs)
   }
 
-  // The people a filter names, at one query per batch of terms. A child named by uid in
-  // one batch and by a name token in another answers twice, and the later promotion is
-  // the record the pool keeps.
   async searchKidsBeltRecords(kBusiness: string, location: string, filter: WlNameFilter, deadlineMs?: number): Promise<WlBeltRecord[]> {
     const byUid = new Map<string, WlBeltRecord>()
     for (const sSql of searchQuery(filter, this.cfg.kidsCategory)) {

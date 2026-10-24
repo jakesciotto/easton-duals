@@ -21,10 +21,6 @@ describe('useSnapshot', () => {
     expect(result.current.connected).toBe(true)
   })
 
-  // A dropped access point leaves a socket open with nothing coming back. Without a deadline
-  // the await never settles, the in-flight flag is never cleared, no later tick runs, the
-  // failure count never rises, and the app reports connected for the rest of the afternoon.
-  // On the scorer that means every control stays enabled while nothing sends.
   it('gives up on a socket that never answers and reports the drop', async () => {
     let started = 0
     let aborted = 0
@@ -42,7 +38,6 @@ describe('useSnapshot', () => {
     expect(started).toBe(1)
     expect(result.current.connected).toBe(false)
 
-    // Three deadlines, so three counted failures, which is the threshold the banner uses.
     await flush(60_000)
     expect(aborted).toBeGreaterThanOrEqual(3)
     expect(started).toBeGreaterThanOrEqual(3)
@@ -93,13 +88,13 @@ describe('useSnapshot', () => {
     const { result } = renderHook(() => useSnapshot(1, 1000))
     await flush()
     expect(result.current.connected).toBe(true)
-    await flush(1000) // failure 1
+    await flush(1000)
     expect(result.current.connected).toBe(true)
-    await flush(1000) // failure 2
+    await flush(1000)
     expect(result.current.connected).toBe(true)
-    await flush(1000) // failure 3 -- flips false
+    await flush(1000)
     expect(result.current.connected).toBe(false)
-    await flush(1000) // success -- flips back
+    await flush(1000)
     expect(result.current.connected).toBe(true)
   })
 
@@ -124,7 +119,6 @@ describe('useSnapshot', () => {
       Object.defineProperty(document, 'hidden', { value: false, configurable: true })
       act(() => { document.dispatchEvent(new Event('visibilitychange')) })
       await flush()
-      // No timer was advanced: the wake-up polled instead of waiting out the interval.
       expect(f.calls.length).toBe(1)
       unmount()
       act(() => { document.dispatchEvent(new Event('visibilitychange')) })
@@ -148,8 +142,6 @@ describe('useSnapshot', () => {
     await flush()
     expect(callCount).toBe(1)
 
-    // Simulates an iPad locking and unlocking again while the current poll is still
-    // awaiting its response: wake() must not start a second chain on top of it.
     act(() => { document.dispatchEvent(new Event('visibilitychange')) })
     expect(callCount).toBe(1)
 
@@ -159,7 +151,6 @@ describe('useSnapshot', () => {
     })
     expect(callCount).toBe(1)
 
-    // Only the in-flight chain's own next tick fires -- not a second, parallel one.
     await flush(1000)
     expect(callCount).toBe(2)
   })
@@ -190,8 +181,6 @@ describe('useSnapshot', () => {
   })
 
   it('derives the poll interval from event state when the caller does not pin one', async () => {
-    // The default sample snapshot is one mat with no clock running, so the derivation
-    // (pollInterval.ts) picks the live-idle rate, not a flat 1000ms.
     const f = fakeFetch(() => ({ json: { version: 1, snapshot: sampleSnapshot({ version: 1 }) } }))
     renderHook(() => useSnapshot(1))
     await flush()
@@ -218,11 +207,11 @@ describe('useSnapshot', () => {
       expect(result.current.snapshot?.version).toBe(1)
 
       input.focus()
-      await flush(1000) // the newer version arrives while the field is focused
+      await flush(1000)
       expect(result.current.snapshot?.version).toBe(1)
 
       input.blur()
-      await flush(200) // the suspension recheck notices the field is free again
+      await flush(200)
       expect(result.current.snapshot?.version).toBe(2)
     } finally {
       input.remove()
@@ -256,9 +245,6 @@ describe('useSnapshot', () => {
     }
   })
 
-  // 6.4: three loops against one endpoint from one browser tab meant three request rates
-  // and three version cursors, and a header that could report a freshness the tab under it
-  // did not have.
   it('serves every consumer under the event body from one poll loop', async () => {
     const f = fakeFetch(() => ({ json: { version: 1, snapshot: sampleSnapshot({ version: 1 }) } }))
     function Consumer({ eventId }: { eventId: number }) {
@@ -272,7 +258,6 @@ describe('useSnapshot', () => {
         <SnapshotStreamContext value={shared}>
           <Consumer eventId={1} />
           <Consumer eventId={1} />
-          {/* Another event is not this provider's, so it keeps its own loop. */}
           <Consumer eventId={2} />
         </SnapshotStreamContext>
       )
@@ -286,8 +271,6 @@ describe('useSnapshot', () => {
     expect(forEvent(1)).toBe(2)
   })
 
-  // 4.4 / WCAG 2.2.2. The pause lives on the stream, not on one screen, so the shell can
-  // report it: a header driven by lastSuccessAt alone reads "Live 1s" over a frozen rack.
   it('freezes the picture while paused, counts what is waiting underneath, and releases the newest', async () => {
     const feed = snapshotFeed(sampleSnapshot({ version: 1 }))
     fakeFetch(url => feed.handle(url) ?? { json: {} })
@@ -303,7 +286,6 @@ describe('useSnapshot', () => {
     expect(result.current.paused).toBe(true)
     expect(result.current.snapshot?.version).toBe(1)
     expect(result.current.waiting).toBe(1)
-    // The poll keeps running underneath, which is the only way the wait can be counted.
     expect(result.current.lastSuccessAt).not.toBe(at)
 
     act(() => { result.current.setPaused(false) })

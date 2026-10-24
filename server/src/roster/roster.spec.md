@@ -20,7 +20,7 @@ The paste, the WellnessLiving sync, the leaderboard ERP join and the link sugges
 - roster names only: The sync asks WellnessLiving for the roster's own names only.
   over: a sync with WellnessLiving not configured, with two locations, with a name typed in capitals, with a body that names other businesses, with no location, with a spent budget and with an unknown event; and the report query built from a filter of uids and tokens, from a title case token and from an empty filter
   via: the sync asks WellnessLiving for the roster's own names only
-  because: rosterFilter builds the filter from the uids and last name tokens of the event's own rows, and searchQuery compares them through lower() because the report's like is case sensitive, so the report never lists the whole gym
+  because: rosterFilter builds the filter from the uids and last name tokens of the event's own rows, and searchQuery compares them through lower() because the report's like is case sensitive, so the report never lists the whole gym; the report's s_sql keywords must be lowercase, its i_offset paging is broken so a query issues one page, and report 1619 cross-joins every rank category so the default where clause narrows to the categories that hold both Kids and IBJJF
   crossing: store -> wellnessliving
   entrances: none
   refuted: rosterFilter fills firstTokens with the roster last name tokens -> the test the sync asks WellnessLiving for the roster's own names only went red (2026-10-22)

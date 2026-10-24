@@ -4,33 +4,17 @@ export interface WakeLockState {
   supported: boolean
   active: boolean
   failed: boolean
-  // Call from the caller's own gesture handler (6.17b's mat-code tap, the board's first
-  // tap): Safari refuses navigator.wakeLock.request() outside a user gesture, so this
-  // cannot be requested from an effect.
   request: () => Promise<void>
 }
 
-// 7.15. Feature detection degrades silently: older browsers with no Wake Lock API simply
-// never show `failed`, per "feature detect it and degrade silently where the browser has
-// no support."
 export function useWakeLock(): WakeLockState {
   const supported = typeof navigator !== 'undefined' && 'wakeLock' in navigator
   const lockRef = useRef<WakeLockSentinel | null>(null)
   const wantedRef = useRef(false)
-  // R6: one guard shared by every caller of this hook instance, not one invented
-  // per caller. Two callers requesting on the same tick (the visibility handler
-  // below and a caller's own effect reacting to the release it just caused) used
-  // to both pass the async gap before either set lockRef, acquiring two sentinels
-  // of which only one was ever tracked and released. Set synchronously before the
-  // first await, so the second call in the same tick sees it and returns.
   const requestingRef = useRef(false)
   const [state, setState] = useState<{ active: boolean; failed: boolean }>({ active: false, failed: false })
 
   const request = useCallback(async () => {
-    // Holding a lock counts as in flight. The in-flight flag alone only excludes
-    // callers on the same tick, so a caller whose effect re-runs one commit after
-    // the request resolves would acquire a second sentinel that nothing releases.
-    // The release listener nulls lockRef, so a genuine re-acquire still passes.
     if (!supported || requestingRef.current || lockRef.current !== null) return
     wantedRef.current = true
     requestingRef.current = true
@@ -51,8 +35,6 @@ export function useWakeLock(): WakeLockState {
 
   useEffect(() => {
     if (!supported) return
-    // The OS releases the lock on hide without firing anything Safari lets us listen for
-    // reliably beforehand, so re-acquiring on visibilitychange is the re-acquire rule.
     const onVisibility = () => {
       if (document.visibilityState === 'visible' && wantedRef.current && lockRef.current === null) void request()
     }

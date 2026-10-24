@@ -5,16 +5,6 @@ import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FieldHead, FieldRow } from '@/components/ui/field-set'
 
-/**
- * 7.1's track set at the `default` 40px rung, shared by the two dialogs that list
- * WellnessLiving candidates so a rating sits in the same register in both.
- *
- * `ch` resolves against the element that consumes the track, so the grid carries the
- * mono face and the words inside it opt back into the sans face. The head is pinned to
- * the row's own `t2` for the same reason: at the head's `t1` the same formula resolves
- * 2.4px narrower and the register tick would stop landing where the digits end. The
- * labels take `t1` on themselves instead.
- */
 const COLS = 'grid grid-cols-[var(--col-select)_var(--col-state)_minmax(0,1fr)_var(--col-num-s)_var(--col-num-m)] gap-x-3 font-mono t2'
 
 export function CandidateHead({ valueLabel }: { valueLabel: string }) {

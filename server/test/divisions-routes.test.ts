@@ -72,7 +72,6 @@ describe('division routes', () => {
     const s = await seedEvent(db, { matches: 0, divisions: true })
     const seeded = await call(app, 'POST', `/api/divisions/${s.divisionId}/seed`, undefined, adminToken)
     expect(seeded.status).toBe(200)
-    // Ines 7.3, Mateo 6.1, Olivia 5.8, then Ava, who has no rating.
     expect(seeded.body.division.members.map((m: { athleteId: number }) => m.athleteId)).toEqual([s.c1, s.a1, s.b1, s.a2])
     const stored = await db.select().from(divisionMembers).where(eq(divisionMembers.divisionId, s.divisionId!)).all()
     expect(stored.find(m => m.athleteId === s.c1)?.seed).toBe(1)

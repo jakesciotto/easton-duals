@@ -19,8 +19,6 @@ const entrySchema = z.object({
   pointsB: z.number().int().min(0).max(99),
   winnerAthleteId: z.number().int(),
   winType: z.enum(['submission', 'points', 'decision', 'walkover', 'dq']),
-  // Why the result was changed. Empty reads as absent rather than as a validation error:
-  // the field is optional on the dialog and a blank one is the common case.
   reason: z.string().trim().max(CORRECTION_REASON_MAX).optional(),
 })
 
@@ -44,10 +42,6 @@ entryRoutes.post('/matches/:matchId/entry', requireAdmin, validate('json', entry
   await assertNotCertified(db, match.eventId)
   const body = c.req.valid('json')
   if (body.winnerAthleteId !== match.athleteAId && body.winnerAthleteId !== match.athleteBId) return errorJson(c, 422, 'validation', 'winner must be one of the two athletes')
-  // A settled match typed again is a correction, and the audit row carries both sides of
-  // it: what the board had been showing, and what it shows now. Both come from the write's
-  // own read of the match, not from the row fetched above, so a result that lands between
-  // the two reads cannot make the audit row disagree with what happened.
   const { match: updated } = await db.transaction(async tx => {
     const r = await enterResult(tx, matchId, body)
     if (!r.duplicate) {

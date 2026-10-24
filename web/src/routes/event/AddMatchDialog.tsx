@@ -20,7 +20,6 @@ import { clockToSec, maskClock } from './clock-input'
 
 const LEAST_LOADED = ''
 
-// Gi first, because gi runs first: spec 5 places every gi match before any nogi one.
 const STYLE_OPTIONS: { value: Style; label: string }[] = [
   { value: 'gi', label: styleLabel('gi') },
   { value: 'nogi', label: styleLabel('nogi') },
@@ -28,11 +27,6 @@ const STYLE_OPTIONS: { value: Style; label: string }[] = [
 
 interface CreateResult { warnings?: string[] }
 
-/**
- * An event holds up to eight teams, so neither slot belongs to one of them any more. Each
- * offers every competitor on a team other than the one the other slot holds, and each
- * option carries its own plate because the two lists now span the whole event.
- */
 function KidSlot({ id, label, kids, teamOf, matches, value, onChange, align, className }: {
   id: string
   label: string
@@ -76,7 +70,6 @@ function KidSlot({ id, label, kids, teamOf, matches, value, onChange, align, cla
 
 export function AddMatchDialog({ detail, start, open, onOpenChange }: {
   detail: EventDetail
-  /** A competitor the caller already chose, seeded into the first slot. */
   start?: number | null
   open: boolean
   onOpenChange: (o: boolean) => void
@@ -87,16 +80,9 @@ export function AddMatchDialog({ detail, start, open, onOpenChange }: {
   const [length, setLength] = useState('')
   const [matId, setMatId] = useState(LEAST_LOADED)
   const [style, setStyle] = useState<Style>('gi')
-  // What the server said about the pair it just accepted. A warning never blocks a save,
-  // so it is reported after the write rather than instead of it.
   const [warnings, setWarnings] = useState<string[]>([])
-  // A hand-designed match can drop a proposal on either competitor, so this write
-  // invalidates the draft list the same way propose, confirm and swap already do.
   const create = useAdminMutation(detail.event.id, (body: unknown) => adminApi<CreateResult>(`/api/events/${detail.event.id}/matches`, { method: 'POST', body }), { proposals: true })
 
-  // Opening the dialog is the only thing that resets the form, so the deps stay at the
-  // two facts the caller controls: a later edit to the roster or the rulesets must not
-  // wipe what is half typed.
   useEffect(() => {
     if (!open) return
     setAId(start === null || start === undefined ? '' : String(start))
@@ -110,7 +96,6 @@ export function AddMatchDialog({ detail, start, open, onOpenChange }: {
   }, [open, start])
 
   const teamOf = (kid: AthleteRow) => detail.teams.find(t => t.id === kid.teamId)
-  // A competitor with no team cannot be in a match, because a match pairs two teams.
   const placeable = detail.athletes.filter(a => a.teamId !== null).sort((x, y) => x.lastName.localeCompare(y.lastName))
   const pickOf = (v: string) => detail.athletes.find(a => String(a.id) === v)
   const aPick = pickOf(aId)
@@ -123,8 +108,6 @@ export function AddMatchDialog({ detail, start, open, onOpenChange }: {
   const lengthSec = clockToSec(length)
   const ready = aId !== '' && bId !== '' && rulesetId !== '' && lengthSec !== null
 
-  // Changing one slot to a competitor on the other slot's team would leave a pairing the
-  // server refuses, so the other slot lets go rather than sitting there illegal.
   const pickA = (v: string) => {
     setAId(v)
     const next = pickOf(v)
@@ -146,8 +129,6 @@ export function AddMatchDialog({ detail, start, open, onOpenChange }: {
         onSuccess: r => {
           const said = r?.warnings ?? []
           if (said.length === 0) { onOpenChange(false); return }
-          // The match is on file. The dialog stays up to report what the server noticed
-          // about it, with both slots cleared for the next pair.
           setWarnings(said)
           setAId('')
           setBId('')

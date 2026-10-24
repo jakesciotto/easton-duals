@@ -4,6 +4,9 @@ All notable changes to Easton Duals. The format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+### Changed
+- No comments in code: about 4,750 comment lines left the server, the web, the scripts and the tests; the facts worth keeping moved into the specs and CLAUDE.md, and the design lint fails on any comment.
+
 ### Added
 - Three kids alone in a weight class from three teams become one round robin draft; confirming it creates a round robin division (migration 0015, additive).
 

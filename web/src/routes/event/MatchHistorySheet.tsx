@@ -15,12 +15,8 @@ import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, Dia
 export const HISTORY_NOTE = 'Every recorded action, oldest first. Read only.'
 export const HISTORY_EMPTY = 'Nothing has been recorded here yet.'
 
-// Time, who, what changed. The first two are fixed tracks so the words in the third
-// column start on one edge down the whole sheet, which is what makes it scannable.
 const ROW = 'grid grid-cols-[64px_72px_minmax(0,1fr)] items-baseline gap-3'
 
-// 7.11: a skeleton is sized to the content it replaces, so the sheet does not resize
-// under the reader when the rows land.
 function LoadingRows() {
   return (
     <List aria-hidden>
@@ -41,7 +37,6 @@ function Row({ row }: { row: HistoryRow }) {
       <span className="fig t2 text-gray-10">{row.time}</span>
       <span className={cn('t1 uppercase', row.fromMat ? 'text-gray-11' : 'text-gray-10')}>{row.who}</span>
       <span className="grid min-w-0 gap-0.5">
-        {/* An undone action keeps its words and loses its weight: nothing is erased. */}
         <span className={cn('t3', row.undone !== null && 'text-gray-10')}>{row.what}</span>
         {row.detail !== null && <span className="t2 text-gray-10">{row.detail}</span>}
         {row.undone !== null && <span className="t2 text-gray-10">{row.undone}</span>}
@@ -50,12 +45,6 @@ function Row({ row }: { row: HistoryRow }) {
   )
 }
 
-/**
- * The audit trail for one match, or for the event, read only.
- *
- * It fetches on every open rather than caching: the log only grows, and an organizer
- * opening it a second time is doing so because something has happened since.
- */
 export function MatchHistorySheet({ source, open, onOpenChange }: {
   source: HistorySource | null
   open: boolean
@@ -85,8 +74,6 @@ export function MatchHistorySheet({ source, open, onOpenChange }: {
         <DialogHeader>
           <div className="grid min-w-0 gap-0.5">
             <span className="flex min-w-0 items-center gap-2">
-              {/* The one name every surface prints for this row, so the sheet reads
-                  against the board and the Matches tab without a lookup. */}
               {source.number !== null && <Chip size="t1">M<span className="fig">{source.number}</span></Chip>}
               <DialogTitle>{source.title}</DialogTitle>
             </span>

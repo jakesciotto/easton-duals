@@ -2,8 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { computeStandings, resolveKid, winTypeFor, type StandingsKid, type StandingsTeamInput } from '../src/smoothcomp/standings.js'
 import type { SmoothcompMatch, SmoothcompSeat } from '../src/smoothcomp/parse.js'
 
-// A parsed seat, invented names only. registrationId stays null: these tests resolve by
-// name, the same path a Smoothcomp payload with no player id would take.
 function seat(name: string, won: boolean, club = ''): SmoothcompSeat {
   const [firstName, ...rest] = name.split(' ')
   return { type: 'registration', name, firstName, lastName: rest.join(' '), club, registrationId: null, won }
@@ -133,9 +131,7 @@ describe('a Smoothcomp match counts only when both names resolve to roster kids 
       teams: bigTeam, kids: [...eleven, opponent], url: 'https://smoothcomp.com/en/event/1', fetchedAt: '2026-09-17T18:00:00.000Z',
       brackets: { read: 2, failed: [] },
       matches: [
-        // Kid1 is marked: the submission earns Ridgeline three team points.
         match({ id: 1, left: seat('Kid1 Ridgeline', true), right: seat('Sage Coulter', false), wonBy: 'submission' }),
-        // Kid3 is not marked: the win counts, the team gets nothing for it.
         match({ id: 2, left: seat('Kid3 Ridgeline', true), right: seat('Sage Coulter', false), wonBy: 'submission' }),
       ],
     })

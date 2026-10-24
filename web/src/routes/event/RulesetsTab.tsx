@@ -12,9 +12,6 @@ import { FieldSet, FieldRow } from '@/components/ui/field-set'
 
 const ROW = 'flex h-8 items-center gap-3'
 
-// 6.7: "A ruleset card previews as the scorer's actual three column action grid at quarter
-// scale, so what the coach will see is what the organizer edits." Quarter of 7.15/6.16's
-// 64px cell and 12px gap; the moat (32px + a rule) is quartered the same way, at 8px.
 function ActionGridPreview({ actions, terminals }: { actions: RulesetAction[]; terminals: RulesetTerminal[] }) {
   return (
     <div aria-hidden className="px-3 py-3">
@@ -38,18 +35,12 @@ function RulesetCard({ ruleset, matchCount, onlyRuleset, entryMode, onEdit, onDe
   onEdit: () => void
   onDelete: () => void
 }) {
-  // Refuse rather than ask, which means the refusal is legible. A grey Delete with the
-  // reason nowhere on the card is a control the organizer clicks until they conclude the
-  // app is broken.
   const blocked = matchCount > 0
     ? `Used by ${matchCount} ${matchCount === 1 ? 'match' : 'matches'}`
     : onlyRuleset ? 'The event needs one ruleset' : null
   const blockedId = `rs-${ruleset.id}-blocked`
   return (
     <FieldSet data-frame="card">
-      {/* 6.7 asks for a titled ledger field, so the title row borrows the head's height and
-          recessed ground but not the column head treatment: uppercase inherits, and neither
-          a ruleset's own name nor its two controls are column labels. */}
       <div className="flex h-8 items-center gap-2 bg-gray-1 px-3">
         <span title={ruleset.name} className="min-w-0 flex-1 truncate t3 font-medium text-gray-12">{ruleset.name}</span>
         <span className="shrink-0 fig text-gray-10">{formatClock(ruleset.defaultLengthSec * 1000)}</span>
@@ -65,8 +56,6 @@ function RulesetCard({ ruleset, matchCount, onlyRuleset, entryMode, onEdit, onDe
           Delete
         </Button>
       </div>
-      {/* 6.7: action points read as a column of values on a fixed numeric track, not badges --
-          the shape an organizer scans to find the one value that is wrong. */}
       {ruleset.actions.map(a => (
         <FieldRow key={a.key} className={ROW}>
           <span className="min-w-0 flex-1 truncate t3 text-gray-12">{a.label}</span>
@@ -79,10 +68,6 @@ function RulesetCard({ ruleset, matchCount, onlyRuleset, entryMode, onEdit, onDe
           <span className="t3 text-right text-gray-10" style={{ minWidth: 'var(--col-num-s)' }}>{t.winType}</span>
         </FieldRow>
       ))}
-      {/* The preview is a still of the scorer's own action grid, and in desk mode no
-          coach ever sees that grid. The values above it are still the event's scoring
-          vocabulary, so the card keeps them and drops the picture of a screen that is
-          not going to exist. */}
       {!entryMode && <ActionGridPreview actions={ruleset.actions} terminals={ruleset.terminals} />}
     </FieldSet>
   )
@@ -91,8 +76,6 @@ function RulesetCard({ ruleset, matchCount, onlyRuleset, entryMode, onEdit, onDe
 export function RulesetsTab({ detail }: { detail: EventDetail }) {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<RulesetRow | undefined>(undefined)
-  // The room's own account of how the event runs, not this browser's detail cache, for
-  // the same reason every other surface reads the stream: another device switches it.
   const { live } = useSnapshot(detail.event.id)
   const entryMode = modeOf(live, detail.event.mode) === 'entry'
   const remove = useAdminMutation(detail.event.id, (id: number) => adminApi(`/api/rulesets/${id}`, { method: 'DELETE' }))
@@ -109,8 +92,6 @@ export function RulesetsTab({ detail }: { detail: EventDetail }) {
           </Alert>
         )}
       </div>
-      {/* One line, because a tab that looks the same in both modes is a tab an organizer
-          spends the afternoon tuning for a tablet nobody is holding. */}
       {entryMode && <p className="t2 text-gray-10">{DESK_RULESET_NOTE}</p>}
       <RulesetDialog detail={detail} open={open} onOpenChange={setOpen} ruleset={editing} />
       <div className="grid items-start gap-4 md:grid-cols-2">

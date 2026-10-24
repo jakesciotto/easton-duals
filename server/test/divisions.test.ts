@@ -74,8 +74,6 @@ describe('regenerateDivision', () => {
     const spare = await db.insert(athletes).values({
       eventId: s.eventId, teamId: s.teamC, firstName: 'Ines', lastName: 'Baptista', source: 'manual', erp: 8.4,
     }).returning().get()
-    // A pair made by hand holds M1, so the division's own numbers start after it and are
-    // minted again from the event's maximum once the old ones are gone.
     await createMatch(db, { eventId: s.eventId, athleteAId: s.a1, athleteBId: s.b1, source: 'designed' })
     const made = await createDivision(db, s.eventId, {
       name: 'Novice', format: 'single_elim', styles: 'gi', athleteIds: [s.a1, s.a2, s.b1, s.b2],

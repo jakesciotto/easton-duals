@@ -1,6 +1,3 @@
-// 6.4: "the banner gets ONE fixed placement everywhere." Fixed to the viewport rather than
-// laid out inline lets every caller mount it wherever is convenient in its own tree and
-// still have it land in the same physical spot.
 export function Connecting({ connected }: { connected: boolean }) {
   if (connected) return null
   return (

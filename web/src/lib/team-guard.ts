@@ -1,15 +1,9 @@
 import { TEAM_COLORS, TEAM_COLOR_KEYS, TEAM_COLOR_LABELS, type TeamColor } from '@shared/types'
 
-// The eight hues from 2.4, in degrees. They are the authored OKLCH hues rather than
-// hues re-measured off the shipped sRGB hexes, because three of the eight are chroma
-// clipped and a re-measured hue would move the separation table under the copy.
 const HUE: Record<TeamColor, number> = {
   red: 25, orange: 68, green: 112, amber: 150, teal: 196, blue: 250, purple: 300, pink: 340,
 }
 
-// Guard 1 blocks a pair closer than 60 degrees, which on this wheel is exactly the two
-// ring neighbours. Guard 2 blocks a pair that simulates closer than dE00 20 under either
-// dichromacy, and warns between 20 and 30.
 export const HUE_FLOOR = 60
 export const CONFUSION_FLOOR = 20
 export const CONFUSION_WARN = 30
@@ -17,16 +11,12 @@ export const CONFUSION_WARN = 30
 export type GuardLevel = 'ok' | 'warn' | 'block'
 export interface PairVerdict {
   level: GuardLevel
-  /** Generated from the tables below. Never hand written: a hand written string is how a
-   *  previous revision came to name a pair 125 degrees apart as too close to tell apart. */
   reason: string | null
 }
 
 const srgbToLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
 const hexToLinear = (hex: string) => [1, 3, 5].map(i => srgbToLinear(parseInt(hex.slice(i, i + 2), 16) / 255))
 
-// Vienot, Brettel and Mollon (1999): to LMS, collapse the missing cone onto the
-// dichromat plane, back to linear RGB. No dependency and no lookup table.
 function simulate(hex: string, kind: 'deuteranopia' | 'protanopia'): number[] {
   const [r, g, b] = hexToLinear(hex)
   const L = 17.8824 * r + 43.5161 * g + 4.11935 * b
@@ -97,7 +87,6 @@ export function hueSeparation(a: TeamColor, b: TeamColor): number {
   return d > 180 ? 360 - d : d
 }
 
-/** The worse of the two dichromacies, because the pair has to survive both. */
 export function confusion(a: TeamColor, b: TeamColor): number {
   const under = (kind: 'deuteranopia' | 'protanopia') =>
     deltaE00(toLab(simulate(TEAM_COLORS[a], kind)), toLab(simulate(TEAM_COLORS[b], kind)))
@@ -109,47 +98,31 @@ function legalPartners(taken: TeamColor[]): TeamColor[] {
     && taken.every(t => hueSeparation(t, c) >= HUE_FLOOR && confusion(t, c) >= CONFUSION_FLOOR))
 }
 
-// How far a candidate sits from the nearest colour already in use, which is the distance
-// that decides whether the room can tell it apart from all of them.
 const nearest = (taken: TeamColor[], c: TeamColor) =>
   taken.length === 0 ? 360 : Math.min(...taken.map(t => hueSeparation(t, c)))
 
-/**
- * The two most separated legal partners for a whole event, printed in the palette's own
- * order so the suggestion reads in the same sequence as the grid the organizer sees.
- */
 export function suggestions(taken: TeamColor[]): TeamColor[] {
   const best = [...legalPartners(taken)].sort((x, y) => nearest(taken, y) - nearest(taken, x)).slice(0, 2)
   return TEAM_COLOR_KEYS.filter(c => best.includes(c))
 }
 
-/** What the grid offers at all: a colour another team holds is never on it. */
 export function freeColors(taken: TeamColor[]): TeamColor[] {
   return TEAM_COLOR_KEYS.filter(c => !taken.includes(c))
 }
 
-/** The colour a fresh team opens on: the best legal one, and any free one if none is. */
 export function nextColor(taken: TeamColor[]): TeamColor {
   return suggestions(taken)[0] ?? freeColors(taken)[0] ?? TEAM_COLOR_KEYS[0]
 }
 
-// Past three or four teams there is often nothing legal left to suggest, and a sentence
-// that ends "Try ." is worse than one that just states the problem.
 const swapTail = (taken: TeamColor[]) => {
   const copy = suggestions(taken).map(c => TEAM_COLOR_LABELS[c]).join(' or ')
   return copy === '' ? '' : ` Try ${copy}.`
 }
 
-/**
- * The verdict on one colour against every other team on the event. An event holds up to
- * eight of them, so a candidate has to survive all of them rather than one opponent.
- */
 export function colourVerdict(candidate: TeamColor, others: TeamColor[]): PairVerdict {
   if (others.includes(candidate)) {
     return { level: 'block', reason: `${TEAM_COLOR_LABELS[candidate]} is already taken.${swapTail(others)}` }
   }
-  // Guard 1 first where both fire: distance is the reason the organizer will actually
-  // see across the gym, and guard 2's set is a strict superset of it.
   const near = others.find(o => hueSeparation(o, candidate) < HUE_FLOOR)
   if (near !== undefined) {
     return {

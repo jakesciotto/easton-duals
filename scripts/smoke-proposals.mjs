@@ -6,8 +6,6 @@ if (!base || !pin) {
   process.exit(1)
 }
 
-// fail() throws instead of exiting so the delete cleanup in the main finally block
-// still runs when a step fails partway through.
 class SmokeFailure extends Error {}
 
 async function j(method, p, body, token) {
@@ -42,11 +40,6 @@ async function pollSnapshot(eventId, since = -1) {
   fail('poll snapshot', { body: 'no new snapshot' })
 }
 
-// Three invented teams. Twelve invented kids, four per team, spread over three weight
-// classes (50, 65 and 85 lbs land in the "47 to 53", "62 to 70" and "81 to 90" bands, two
-// classes apart from a neighbour), one kid per team in the outer two classes and two per
-// team in the middle one, so every class has a kid from every team and the proposer always
-// has a cross-team pair on offer.
 const TEAMS = [
   { name: 'Boulder', color: 'red' },
   { name: 'Longmont', color: 'blue' },
@@ -73,7 +66,6 @@ let token
 let failed = false
 
 try {
-  // 1. health, admin auth
   const health = await j('GET', '/api/health')
   if (health.status < 200 || health.status >= 300) fail('health', health)
   ok('health', `status ${health.status}`)
@@ -83,7 +75,6 @@ try {
   token = auth.body.token
   ok('auth', 'token acquired')
 
-  // 2. create event: three teams, one mat, then exercise team add/remove edges
   const date = new Date().toISOString().slice(0, 10)
   const created = await j('POST', '/api/events', {
     name: `Smoke proposals ${Date.now()}`,
@@ -121,7 +112,6 @@ try {
 
   const teamIdByName = new Map([[boulder.name, boulder.id], [longmont.name, longmont.id], [mcmahon.name, mcmahon.id]])
 
-  // 3. bulk add the twelve kids across the three teams
   const bulk = KIDS.map(k => ({ firstName: k.firstName, lastName: k.lastName, age: k.age, weightLbs: k.weightLbs, teamId: teamIdByName.get(k.team) }))
   const addedKids = await j('POST', `/api/events/${eventId}/athletes`, { bulk }, token)
   if (addedKids.status !== 201) fail('bulk add athletes', addedKids)
@@ -135,7 +125,6 @@ try {
   const arlo = kidId('Arlo', 'Vantree')
   ok('bulk add athletes', `count ${addedKids.body.length}`)
 
-  // 4. propose: every pair crosses teams, no kid appears twice
   const proposed = await j('POST', `/api/events/${eventId}/proposals`, undefined, token)
   if (proposed.status < 200 || proposed.status >= 300) fail('propose', proposed)
   if (!Array.isArray(proposed.body) || proposed.body.length === 0) fail('propose empty', proposed)
@@ -149,7 +138,6 @@ try {
   ok('propose', `count ${proposed.body.length}`)
   console.log(`reasons: ${proposed.body.map(p => p.why).join(' | ')}`)
 
-  // 5. swap: pull in a free kid from the third team (neither side of the first draft)
   const first = proposed.body[0]
   const thirdTeamId = [boulder.id, longmont.id, mcmahon.id].find(id => id !== first.a.teamId && id !== first.b.teamId)
   const candidate = addedKids.body.filter(a => a.teamId === thirdTeamId).sort((x, y) => x.id - y.id)[0]
@@ -158,7 +146,6 @@ try {
   ok('swap', `proposal ${first.id}, removed ${swapped.body.removed.length}, warnings ${swapped.body.warnings.length}`)
   console.log(`swap removed: ${JSON.stringify(swapped.body.removed)}, warnings: ${JSON.stringify(swapped.body.warnings)}`)
 
-  // 6. remove the last proposal in the list
   const beforeRemove = await j('GET', `/api/events/${eventId}/proposals`, undefined, token)
   if (beforeRemove.status < 200 || beforeRemove.status >= 300) fail('list proposals before remove', beforeRemove)
   const toRemove = beforeRemove.body[beforeRemove.body.length - 1]
@@ -169,13 +156,11 @@ try {
   if (afterRemove.body.length !== beforeRemove.body.length - 1) fail('remove proposal count', { body: `before ${beforeRemove.body.length}, after ${afterRemove.body.length}` })
   ok('remove proposal', `count ${beforeRemove.body.length} -> ${afterRemove.body.length}`)
 
-  // 7. hand-design one match, two weight classes apart, before any match exists to have met in
   const designed = await j('POST', `/api/events/${eventId}/matches`, { athleteAId: milo, athleteBId: arlo }, token)
   if (designed.status < 200 || designed.status >= 300) fail('hand-design match', designed)
   if (designed.body.warnings.includes('Already met')) fail('hand-design match already met', designed)
   ok('hand-design match', `id ${designed.body.id}, warnings ${JSON.stringify(designed.body.warnings)}`)
 
-  // 8. confirm all remaining proposals
   const confirmed = await j('POST', `/api/events/${eventId}/proposals/confirm-all`, undefined, token)
   if (confirmed.status !== 201) fail('confirm all', confirmed)
   ok('confirm all', `created ${confirmed.body.created}, skipped ${confirmed.body.skipped}`)
@@ -187,7 +172,6 @@ try {
   if (!afterConfirm.body.matches.every(m => m.source === 'designed' || m.source === 'proposed')) fail('match source', afterConfirm)
   ok('verify pending matches', `pending ${pending.length} = 1 designed + ${confirmed.body.created} confirmed`)
 
-  // 9. propose again: only kids without a pending match are offered
   const pendingAthleteIds = new Set(pending.flatMap(m => [m.athleteAId, m.athleteBId]))
   const proposedAgain = await j('POST', `/api/events/${eventId}/proposals`, undefined, token)
   if (proposedAgain.status < 200 || proposedAgain.status >= 300) fail('propose again', proposedAgain)
@@ -196,7 +180,6 @@ try {
   }
   ok('propose again', `count ${proposedAgain.body.length}`)
 
-  // 10. score one match on the single mat and read the leaderboard
   const live = await j('PATCH', `/api/events/${eventId}`, { status: 'live' }, token)
   if (live.status !== 200) fail('event live', live)
   const connect = await j('GET', `/api/events/${eventId}/connect`, undefined, token)
@@ -230,8 +213,6 @@ try {
   const pattern = JSON.stringify(ranks)
   if (pattern !== '[1,2,2]' && pattern !== '[1,2,3]') fail('leaderboard ranks', { body: final.leaderboard })
   const winnerRow = final.leaderboard.find(r => r.teamId === winnerTeamId)
-  // The mount score, uncountered, decides the match on points: two team points, since
-  // every team here has four kids, well inside the cap, so the win pays out in full.
   if (!winnerRow || winnerRow.rank !== 1 || winnerRow.wins !== 1 || winnerRow.teamPoints !== 2) fail('winner rank', { body: final.leaderboard })
   ok('leaderboard', `ranks ${pattern}, winner team ${winnerTeamId} rank 1 wins 1 teamPoints 2`)
   console.log(`leaderboard: ${JSON.stringify(final.leaderboard)}`)
@@ -242,7 +223,6 @@ try {
     console.log(e instanceof Error ? (e.stack ?? e.message) : String(e))
   }
 } finally {
-  // 11. always try to delete the event, even after a failed step above
   if (eventId !== undefined) {
     try {
       const deleted = await j('DELETE', `/api/events/${eventId}`, { pin }, token)

@@ -17,8 +17,6 @@ import { proposalRoutes } from './routes/proposals.js'
 import { rosterRoutes } from './routes/roster.js'
 import { smoothcompRoutes } from './routes/smoothcomp.js'
 
-// Kept beside the package version by health.test.ts, so a release that bumps one and
-// forgets the other fails a test instead of reporting the wrong build in production.
 export const VERSION = '0.18.1'
 
 export function createApp(ctx: AppContext) {
@@ -29,8 +27,6 @@ export function createApp(ctx: AppContext) {
   })
   app.use('/api/*', attachAuth)
   app.get('/api/health', c => c.json({ ok: true, version: VERSION }))
-  // Public: the address an iPad has to type, for pages served to a laptop on localhost.
-  // In cloud mode, publicUrl replaces the LAN guess so QR codes point at the deployed origin.
   app.get('/api/lan', c => {
     const { publicUrl, port } = c.get('ctx')
     return c.json({ url: publicUrl ?? `http://${lanIp()}:${port}` })

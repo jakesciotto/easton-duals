@@ -15,10 +15,6 @@ export function fakeFetch(handler: (url: string, init?: RequestInit) => Reply | 
   return { fn, calls, body: (i: number) => JSON.parse(String(calls[i].init?.body)) }
 }
 
-// Simulates the versioned snapshot endpoint that useSnapshot polls: `since` equal to the
-// current version returns the lightweight `{ version, now }` shape, anything else returns
-// the full snapshot. The version is server-owned here too -- push() always assigns the next
-// one, so callers never have to keep a sample snapshot's version field in sync by hand.
 export interface SnapshotFeed {
   push(next: Snapshot): void
   handle(url: string): Reply | undefined
@@ -42,8 +38,6 @@ export function snapshotFeed(initial: Snapshot): SnapshotFeed {
   }
 }
 
-// The sample event holds one competitor per team, so both teams sit inside the scoring
-// cap and every one of their wins earns team points. A test about the cap states its own.
 const TEAM_SCORING = { marked: 0, size: 1, everyone: true }
 
 export function sampleMatch(over: Partial<MatchView> = {}): MatchView {
@@ -57,9 +51,6 @@ export function sampleMatch(over: Partial<MatchView> = {}): MatchView {
   }
 }
 
-// The leaderboard is derived from whichever teams the fixture ends up with rather than
-// pinned beside them, so a test that overrides `teams` cannot describe a standing its own
-// teams contradict. A test about the leaderboard itself still overrides it directly.
 export function sampleSnapshot(over: Partial<Snapshot> = {}): Snapshot {
   const match = sampleMatch()
   const snapshot: Snapshot = {

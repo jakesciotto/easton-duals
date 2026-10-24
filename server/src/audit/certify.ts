@@ -3,18 +3,9 @@ import type { DbLike } from '../db/client.js'
 import { events, matches, mats, athletes, teams, rulesets, divisions } from '../db/schema.js'
 import { MatchStateError } from '../match/events.js'
 
-// The one sentence every locked write answers with. The web client matches on it, so it
-// is a contract rather than wording.
 export { CERTIFIED_MESSAGE } from './log.js'
 import { CERTIFIED_MESSAGE } from './log.js'
 
-/**
- * The lock. Certification is the organizer's signature on the record, so it stops every
- * write on the event rather than only the results: a roster edit or a reordered match
- * list changes what the certified record says as surely as a score does.
- *
- * An event that is not there is not this guard's problem; the route's own 404 says so.
- */
 export async function assertNotCertified(db: DbLike, eventId: number): Promise<void> {
   const ev = await db.select({ status: events.status }).from(events).where(eq(events.id, eventId)).get()
   if (ev?.status === 'certified') throw new MatchStateError(CERTIFIED_MESSAGE)
@@ -22,8 +13,6 @@ export async function assertNotCertified(db: DbLike, eventId: number): Promise<v
 
 export type CertifyScope = 'match' | 'mat' | 'athlete' | 'team' | 'ruleset' | 'division'
 
-// Most write routes are addressed by something under the event rather than by the event,
-// so the guard resolves upwards first.
 export async function eventIdOf(db: DbLike, scope: CertifyScope, id: number): Promise<number | null> {
   const row = scope === 'match' ? await db.select({ eventId: matches.eventId }).from(matches).where(eq(matches.id, id)).get()
     : scope === 'mat' ? await db.select({ eventId: mats.eventId }).from(mats).where(eq(mats.id, id)).get()

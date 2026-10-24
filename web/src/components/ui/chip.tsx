@@ -2,13 +2,6 @@ import type { ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 
-// 7.14: dotless, for data (Badge's leading dot is the status semantic and
-// stays reserved for status). A label plus a mono value, or plain children
-// for a one-piece value such as a match's "why". Truncated with a title.
-//
-// size picks the type step instead of taking it through className: t1/t2/t3 are
-// plain classes, not a twMerge-recognised group, so a caller's className could
-// not reliably replace the default step (see label.tsx for the same gotcha).
 function Chip({
   label,
   value,

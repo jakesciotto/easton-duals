@@ -11,8 +11,6 @@ export interface WlBeltRecord {
   promotedAt: string | null
 }
 
-// Who a search is looking for: the uids already linked, and the name parts of the rest.
-// A record answers when any one of them matches.
 export interface WlNameFilter { uids: string[]; lastTokens: string[]; firstTokens: string[] }
 
 export interface WlLike {
@@ -48,8 +46,6 @@ export interface RosterCandidate {
   promotedAt: string | null
 }
 
-// Mirrors roster_candidates: the same fields as RosterCandidate, plus the row's own id
-// and the event it belongs to.
 export interface RosterCandidateRow extends RosterCandidate {
   id: number
   eventId: number

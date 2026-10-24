@@ -23,9 +23,6 @@ function today(): string {
 
 const STARTING_TEAMS: TeamDraft[] = [{ name: '', color: 'red' }, { name: '', color: 'blue' }]
 
-// 7.8: never <input type="number">. The spinner adds arrows the numeric track has no
-// room for and hijacks the scroll wheel, so every count is a text field that carries
-// its own range and reports its own invalidity.
 function whole(value: string, min: number, max: number): number | null {
   if (!/^\d+$/.test(value.trim())) return null
   const n = Number(value)
@@ -58,8 +55,6 @@ function CountField({ id, label, value, min, max, onChange }: {
   )
 }
 
-// The room's view, at the type step the console reads at. Nothing here is a board token:
-// the board is sized in cqh against its own stage and this is a still life of it.
 function LeaderboardPreview({ teams }: { teams: TeamDraft[] }) {
   const rows = rankTeams(teams.map((_, i) => ({ id: i, teamPoints: 0, wins: 0, points: 0, position: i })))
   return (
@@ -83,16 +78,12 @@ export function NewEventDialog({ open, onOpenChange, onCreated }: { open: boolea
   const [date, setDate] = useState(today)
   const [mode, setMode] = useState<EventMode>('live')
   const [matCount, setMatCount] = useState('1')
-  // Two rows to start, to eight, and never below two. The rows are still a draft here:
-  // nothing reaches the server until Continue.
   const [teams, setTeams] = useState<TeamDraft[]>(STARTING_TEAMS)
   const [sameGender, setSameGender] = useState(false)
   const [contactName, setContactName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const create = useAdminMutation(null, (body: unknown) => adminApi<EventDetail>('/api/events', { method: 'POST', body }))
 
-  // Opening the dialog is the only thing that resets the form, so the deps stay at [open]:
-  // the setters are stable and re-running on a changed create.reset would wipe live input.
   useEffect(() => {
     if (!open) return
     setName('')
@@ -146,8 +137,6 @@ export function NewEventDialog({ open, onOpenChange, onCreated }: { open: boolea
               </div>
             </div>
 
-            {/* One exported option set, so this dialog and the event shell name the two
-                ways an event runs in the same words, in the same order. */}
             <div className="grid gap-2">
               <span className="t2 text-gray-11 font-medium!">{MODE_GROUP_LABEL}</span>
               <Segment aria-label={MODE_GROUP_LABEL} value={mode} onValueChange={v => setMode(toMode(v))} options={MODE_OPTIONS} />
@@ -169,10 +158,6 @@ export function NewEventDialog({ open, onOpenChange, onCreated }: { open: boolea
               <Label htmlFor="same-gender" className="text-gray-11">Pair only competitors of the same gender</Label>
             </div>
 
-            {/* 6.4's escalation contact. Optional here on purpose: on the morning an
-                event is created nobody has decided who is running the desk, so the pair
-                is also settable from the event shell. Both halves or neither: a name
-                with no number gives a volunteer nothing to act on. */}
             <div className="grid gap-4 sm:grid-cols-[1fr_170px]">
               <div className="grid gap-2">
                 <Label htmlFor="ev-contact-name">Desk contact (optional)</Label>
@@ -201,8 +186,6 @@ export function NewEventDialog({ open, onOpenChange, onCreated }: { open: boolea
           </DialogBody>
           <DialogFooter className={dialogFooter}>
             <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
-            {/* The event is one of three steps, so the primary names the next screen
-                rather than the row it just wrote. */}
             <Button type="submit" disabled={!counts || create.isPending}>Continue</Button>
           </DialogFooter>
         </form>

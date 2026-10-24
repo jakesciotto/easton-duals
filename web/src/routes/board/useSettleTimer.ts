@@ -8,14 +8,6 @@ function sameSet(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
   return true
 }
 
-/**
- * A finished result holds for HOLD_MS and then settles.
- *
- * `ready` marks the first snapshot. Everything that arrives with it is history and
- * settles at once, because a board that has been up for an hour and then reloads must
- * not flash a screen of old results as if they had just landed. Everything after it is
- * news and gets the full hold.
- */
 export function useSettleTimer(ids: readonly number[], ready: boolean, holdMs = HOLD_MS): ReadonlySet<number> {
   const [settled, setSettled] = useState<ReadonlySet<number>>(() => new Set<number>())
   const seen = useRef(new Map<number, number>())

@@ -15,11 +15,6 @@ export class SeqConflict extends Error {
 
 export { MatchStateError } from '../shared/errors.js'
 
-/**
- * A write the server refuses because the body does not describe something it can do, as
- * opposed to something the event's state forbids. app.ts answers 422 validation, which is
- * what the zod validator answers for a body it can reject at the edge.
- */
 export class ValidationError extends Error {
   constructor(message: string) {
     super(message)
@@ -51,10 +46,8 @@ export interface EndInput {
   matchId: number
   lastSeq: number
   winnerAthleteId?: number
-  /** Read only when the outcome is undecided; a terminal or a points lead keeps its own type. */
   winType?: 'decision' | 'walkover' | 'dq'
   at?: string
-  /** Who the fill this end triggers is recorded under. The mat that ended it, usually. */
   actor?: AuditActor
 }
 
@@ -66,9 +59,6 @@ export interface ExtendInput {
   at?: string
 }
 
-// `scored` is the ruleset action this write resolved, carried out so the audit row can
-// keep the points and the label it was worth on the day. A ruleset edited later must not
-// change what the sheet says a match was.
 export interface AppendResult { duplicate: boolean; match: MatchRow; scored?: { points: number; label: string } }
 export interface UndoResult { match: MatchRow; deleted: MatchEventRow }
 
@@ -88,9 +78,6 @@ export async function loadEvents(db: DbLike, matchId: number): Promise<MatchEven
   return db.select().from(matchEvents).where(eq(matchEvents.matchId, matchId)).orderBy(asc(matchEvents.seq)).all()
 }
 
-// endedAt is not stored on the match row: it is read back from the latest `end` event so a
-// reopen followed by a re-end always reflects the newest end, and it works for matches that
-// finished before this field existed.
 export async function latestEndedAt(db: DbLike, matchId: number): Promise<string | null> {
   const row = await db.select({ at: matchEvents.at }).from(matchEvents)
     .where(and(eq(matchEvents.matchId, matchId), eq(matchEvents.type, 'end')))
@@ -117,11 +104,6 @@ export async function loadRuleset(db: DbLike, rulesetId: number): Promise<Rulese
   return row
 }
 
-/**
- * The two kids, or a refusal. A bracket side stays empty until its feeder ends, and
- * nothing scores a match in that state: a mat never loads one and the desk has no pair to
- * name a winner from.
- */
 export function sidesOf(match: MatchRow): { a: number; b: number } {
   if (match.athleteAId === null || match.athleteBId === null) throw new MatchStateError(`M${match.number} is waiting on a feed`)
   return { a: match.athleteAId, b: match.athleteBId }
@@ -211,9 +193,6 @@ export async function appendMatchEvent(db: DbLike, input: AppendInput): Promise<
   })
 }
 
-// A referee who runs out of time mid scramble stops the clock, adds time, and starts it
-// again. The added time is an event like any other, so undo takes it back, a replay of the
-// same press is a read, and the length the board counts down is rebuilt from the log.
 export async function extendClock(db: DbLike, input: ExtendInput): Promise<AppendResult> {
   return db.transaction(async tx => {
     const g = await guard(tx, input)
@@ -256,8 +235,6 @@ export async function endMatch(db: DbLike, input: EndInput): Promise<AppendResul
   })
 }
 
-// Returns the row it removed as well as the recomputed match: the delete is the only
-// write that leaves nothing behind in the match log, so the audit row has to carry it.
 export async function undoLastMatchEvent(db: DbLike, input: { matchId: number; lastSeq: number }): Promise<UndoResult> {
   return db.transaction(async tx => {
     const match = await loadMatch(tx, input.matchId)

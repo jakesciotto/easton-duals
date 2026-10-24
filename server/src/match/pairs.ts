@@ -3,18 +3,9 @@ import type { DbLike } from '../db/client.js'
 import { teams, athletes, mats, matches, type AthleteRow } from '../db/schema.js'
 import type { MatchStatus } from '../shared/types.js'
 
-/**
- * A match nobody has fought through yet. A kid in one is busy: the proposer leaves them
- * out, and the confirm and swap guards refuse them. Both finishing and skipping land on
- * 'done', so either frees the kid again. This is the one definition of busy, because the
- * console's "Without a match" list reads the same way and the two must not disagree.
- */
 export const UNFOUGHT: readonly MatchStatus[] = ['pending', 'live']
 export const isUnfought = (status: MatchStatus) => UNFOUGHT.includes(status)
 
-// Returns the pair with the kid from the earlier team first, or a message when the pair is
-// invalid. An event holds up to eight teams, so the order is the teams' own, which is what
-// makes a pair read the same whichever way round the console sent it.
 export async function resolvePair(db: DbLike, eventId: number, aId: number, bId: number): Promise<{ a: number; b: number } | string> {
   const teamRows = await db.select().from(teams).where(eq(teams.eventId, eventId)).orderBy(asc(teams.position)).all()
   const kids = await db.select().from(athletes).where(eq(athletes.eventId, eventId)).all()
@@ -28,12 +19,6 @@ export async function resolvePair(db: DbLike, eventId: number, aId: number, bId:
   return (positionOf.get(a.teamId) ?? 0) <= (positionOf.get(b.teamId) ?? 0) ? { a: a.id, b: b.id } : { a: b.id, b: a.id }
 }
 
-/**
- * The kids a format chose, validated but not reordered: a message when one of them is off
- * the event or a kid is drawn against themself, null when the sides are sound. Unlike
- * resolvePair this takes a same-team pair, because a bracket slot can hold one and the
- * division warns about it rather than refusing to generate.
- */
 export async function checkSides(db: DbLike, eventId: number, ids: number[]): Promise<string | null> {
   if (new Set(ids).size !== ids.length) return 'a kid cannot fight themself'
   if (ids.length === 0) return null
@@ -42,11 +27,6 @@ export async function checkSides(db: DbLike, eventId: number, ids: number[]): Pr
   return rows.length === ids.length ? null : 'both athletes must be on this event'
 }
 
-/**
- * The first of these kids who already has an unfought match on this event, or null. A
- * second unfought match for one kid is a mistake wherever the server is the one choosing
- * the pair, and a kid on a mat cannot be in two places at once.
- */
 export async function busyAthlete(db: DbLike, eventId: number, ids: number[]): Promise<AthleteRow | null> {
   if (ids.length === 0) return null
   const rows = await db.select({ a: matches.athleteAId, b: matches.athleteBId }).from(matches).where(and(

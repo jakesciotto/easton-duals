@@ -10,9 +10,6 @@ export const qk = {
   proposals: (id: number) => ['proposals', id] as const,
 }
 
-// Admin request: injects the token; a 401 clears it so PinGate asks again. Certify,
-// unlock and delete re-check the PIN and answer 401 bad_pin with the session still good,
-// so that one code keeps the token and the dialog that asked.
 export async function adminApi<T = unknown>(path: string, opts: Omit<ApiOptions, 'token'> = {}): Promise<T> {
   try {
     return await api<T>(path, { ...opts, token: getAdminToken() })
@@ -32,15 +29,6 @@ export interface EventDetailQuery {
   isLoading: boolean
 }
 
-/**
- * The event detail is everything the operator EDITS: which matches exist, who is in them,
- * their mat, ruleset, length and order, and every roster cell. react-query invalidates it
- * on every mutation success and refetches it on every window focus, so without 4.4's
- * suspension a reorder resolving mid drag re-indexed the list the gesture was pointing at
- * and a refetch unmounted a roster cell with a typed value still in it.
- *
- * Held by the same mechanism the snapshot poll uses, so the two paths cannot drift apart.
- */
 export function useEventDetail(eventId: number): EventDetailQuery {
   const q = useQuery({
     queryKey: qk.event(eventId),
@@ -49,33 +37,15 @@ export function useEventDetail(eventId: number): EventDetailQuery {
   return { data: useHeldWhileEngaged(q.data, eventId), error: q.error, isLoading: q.isLoading }
 }
 
-/**
- * The drafts the proposer made, which are never part of the snapshot and never part of
- * the event detail: a proposal is not a match until it is confirmed, so it lives in its
- * own cache entry and only the writes that touch it refetch it.
- */
 export function useProposals(eventId: number) {
   return useQuery({ queryKey: qk.proposals(eventId), queryFn: () => adminApi<Proposal[]>(`/api/events/${eventId}/proposals`) })
 }
 
 export interface AdminMutationOptions {
-  /** Whether the write also changes the draft list, which lives in its own cache entry. */
   proposals?: boolean
-  /**
-   * Whether the write is finished only once the event has been refetched. It is, for
-   * every screen that reports the write by showing the refreshed row, which is all of
-   * them but one.
-   *
-   * The Entry tab is the exception, and it has to be: it confirms in words from the
-   * POST's own response and it holds a timeout over the round trip, so counting the
-   * refetch as part of the write put a GET inside a deadline written for a POST and a
-   * slow success was reported to the desk as a network failure. Passing false hands the
-   * caller its result the moment the POST lands; the refetch still runs, just behind it.
-   */
   awaitRefetch?: boolean
 }
 
-// One mutation helper for every admin write: runs the request, then refetches the event and the list.
 export function useAdminMutation<TVars, TResult = unknown>(
   eventId: number | null,
   run: (vars: TVars) => Promise<TResult>,

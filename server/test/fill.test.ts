@@ -35,8 +35,6 @@ const reload = async (db: Db, id: number) => (await db.select().from(matches).wh
 describe('an ended feeder fills its dependents in the same transaction', () => {
   it('writes the winner and the loser into the sides that wait on them', async () => {
     const { db, s, rows } = await bracket('double_elim')
-    // Slot order 1, 4, 2, 3: M1 is the first semifinal, M3 the winners final and M4 the
-    // first losers round, which takes the losers of both semifinals.
     expect(sides(rows[0])).toEqual([s.a1, s.b2])
     await win(db, rows[0], s.a1)
     expect(sides(await reload(db, rows[2].id))).toEqual([s.a1, null])

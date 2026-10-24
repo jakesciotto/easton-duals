@@ -69,7 +69,6 @@ describe('a match paste creates pairs and division lines', () => {
       { athleteAId: 100, athleteBId: 200, style: 'gi' },
       { athleteAId: 100, athleteBId: 200, style: 'nogi' },
     ])
-    // Both rows point at the line that asked for them, so the preview says so.
     expect(r.lines.map(l => l.n)).toEqual([1, 1])
   })
 
@@ -191,7 +190,6 @@ describe('a match paste creates pairs and division lines', () => {
     expect(r.errors).toEqual(['line 2: Unknown name: Zebedee Quill'])
     expect(r.matches).toEqual([])
     expect(r.divisions).toEqual([])
-    // The preview still shows the good line, so the reader sees what survives the fix.
     expect(r.lines[0].row).toMatchObject({ kind: 'pair', athleteAId: 100, athleteBId: 200 })
     expect(r.lines[1].problem).toBe('Unknown name: Zebedee Quill')
   })

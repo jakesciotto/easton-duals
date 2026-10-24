@@ -9,14 +9,6 @@ import { boardName } from './names'
 
 const NEAR_EXPIRY_MS = 30_000
 
-/**
- * A figure crossfades whole when its value changes and never interpolates. Two slots
- * that both stay mounted are what makes it a crossfade rather than a fade in: keying a
- * single span on the value unmounts the old numeral in the same commit, so the room
- * only ever saw the new one arrive out of nothing. The incoming slot takes the value,
- * the outgoing one keeps the old digits while it fades, and because both elements
- * persist the cue is a CSS transition, which is the form 4.3 keeps under Reduce Motion.
- */
 export function Fig({ value, className }: { value: number | string; className?: string }) {
   const text = String(value)
   const [state, setState] = useState(() => ({ slots: [text, ''] as [string, string], active: 0, shown: text }))
@@ -44,18 +36,6 @@ export function figTone(mine: number, theirs: number): string {
   return mine >= theirs ? 'b-lead' : 'b-trail'
 }
 
-/**
- * The tone for one side of a row's score, and for its name once the row has settled.
- *
- * A live row is read by score, because the score is what the room is watching change. A
- * finished row is read by the recorded winner, because the score is not what settled it:
- * a submission at 0 to 0 gave both sides the lead tone and the row showed no winner at
- * all, which is the one thing a result row exists to say.
- *
- * After the ten second hold the winner keeps the settled row's --gray-11 and the loser
- * drops one step to --gray-10. That is the floor 3.4 allows, it keeps the settled row as
- * quiet as 6.15 asks, and a parent walking in late can still tell who won.
- */
 export function rowTone(won: boolean | null, mine: number, theirs: number, settled: boolean): string | null {
   if (won === null) return settled ? null : figTone(mine, theirs)
   if (settled) return won ? null : 'b-fade'
@@ -72,11 +52,6 @@ export function BoardName({ full, side, className }: { full: string; side: 'a' |
   )
 }
 
-/**
- * Spec 10. A side still waiting on its feeder is not a competitor, so it is not laid out
- * as one: "Winner of M7" is one muted line rather than a first name and an initial, and
- * the row carries no team edge for a child nobody knows yet.
- */
 export function BoardSide({ side, which, className }: { side: MatchSide; which: 'a' | 'b'; className?: string }) {
   if (side.athleteId === null) {
     return <span className={cn('b-name b-feed font-sans', which === 'a' ? 'b-name-a' : 'b-name-b')}>{side.name}</span>
@@ -84,17 +59,6 @@ export function BoardSide({ side, which, className }: { side: MatchSide; which: 
   return <BoardName full={side.name} side={which} className={className} />
 }
 
-/**
- * 7.6's five states, on the board's own scale. Whole seconds only, no colour
- * transition, no interpolation between polls: the server writes clock_pause at the
- * expiry instant and a smoothed client clock would disagree with it at exactly the
- * moment that matters.
- *
- * Past three missed polls the readout freezes at the value the last snapshot actually
- * carried, computed from `lastSuccessAt` rather than from the device clock. A frozen
- * board is pixel identical to a working one, so a board that keeps counting through an
- * outage is the single failure this state exists to prevent.
- */
 function BoardClock({ clock, serverNow, lastSuccessAt, pollIntervalMs }: {
   clock: ClockState
   serverNow: string | null
@@ -121,31 +85,17 @@ export interface MatRowProps {
   live?: boolean
   settled?: boolean
   upcoming?: boolean
-  /** The recorded winner on a finished row. Null on a row that has not settled anything,
-      which is what tells the row to read its tones off the scores instead. */
   winnerAthleteId?: number | null
-  /** What a row with no pair at all says, in the name track: "Mat 3 complete" (7.10). */
   note?: string | null
-  /** 7.3's room register: a full height team edge per competitor line, in that team's own
-      colour. Null on a row with no pair, and on a board that cannot name the team. */
   colorA?: string | null
   colorB?: string | null
-  /** Reserves the clock track. Held independently of `clock` so a row keeps its column
-      geometry when the match on it finishes and the clock stops being shown. */
   withClock?: boolean
   clock?: ClockState | null
   serverNow?: string | null
-  /** 7.6: the timestamp of the last poll that reached the server, and the interval it
-      is measured against. Without them the clock cannot know it has gone quiet. */
   lastSuccessAt?: number | null
   pollIntervalMs?: number
 }
 
-/**
- * One mirrored row: each name sits beside its own score and the two scores meet at the
- * centre, so the pair groups before the eye reads a digit. The leading gutter is the
- * only place --live appears on the board.
- */
 export function MatRow({
   a, b, matNumber, scores = true, live = false, settled = false, upcoming = false,
   winnerAthleteId = null, note = null, colorA = null, colorB = null,
@@ -156,10 +106,6 @@ export function MatRow({
   const wonA = !showScores || winnerAthleteId === null || a === null ? null : a.athleteId === winnerAthleteId
   const toneA = !showScores || a === null || b === null ? null : rowTone(wonA, a.score, b.score, settled)
   const toneB = !showScores || a === null || b === null ? null : rowTone(wonA === null ? null : !wonA, b.score, a.score, settled)
-  // 7.5 scopes the lead and trail tones to the score display, and a name on this board is
-  // the largest text in the room: taking --fig-trail dropped the competitor who is behind
-  // to --gray-10 on the one line a parent across the gym is reading. Only the settled row
-  // tones its names, where the step down is what names the winner after the hold.
   const nameToneA = settled ? toneA : null
   const nameToneB = settled ? toneB : null
   return (
@@ -176,9 +122,6 @@ export function MatRow({
       {a?.athleteId != null && colorA && <span aria-hidden style={teamStyle(colorA)} className="b-edge b-edge-a" />}
       {b?.athleteId != null && colorB && <span aria-hidden style={teamStyle(colorB)} className="b-edge b-edge-b" />}
       {matNumber !== undefined && <span className="b-mat">{matNumber}</span>}
-      {/* 7.10: a mat with nothing on it and nothing left to call says so. Before this it
-          rendered the gutter and the numeral alone, so after a reload every mat that had
-          finished was a blank row for the rest of the afternoon. */}
       {note !== null && <span className="b-row-note font-sans">{note}</span>}
       {a && <BoardSide side={a} which="a" className={nameToneA ?? undefined} />}
       {showScores && a && b && <Fig className={cn('b-score b-score-a', toneA)} value={a.score} />}
@@ -205,11 +148,6 @@ export function NextLine({ a, b }: { a: MatchSide; b: MatchSide }) {
   )
 }
 
-/**
- * Spec 10's desk line: the same pairing, led by the match's own number and style. Nothing
- * runs on a mat in that composition, so the column has a track to spend on naming the
- * match that the mat ledger has already promised to a competitor's name.
- */
 export function OrderLine({ match }: { match: MatchView }) {
   return (
     <div className="b-order-line">

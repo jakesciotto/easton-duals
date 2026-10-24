@@ -9,8 +9,6 @@ import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTi
 
 export const NOTHING_CHANGED = 'Nothing changed.'
 
-// Label, then value, on two fixed tracks so every value starts on one edge down the
-// sheet, which is what makes it scannable.
 const ROW = 'grid grid-cols-[128px_minmax(0,1fr)] items-baseline gap-3'
 
 const CHANGE_LABEL: Record<string, string> = {
@@ -21,24 +19,17 @@ const CHANGE_LABEL: Record<string, string> = {
   gender: 'Gender',
   wlLocation: 'Location',
   promotedAt: 'Promoted',
-  // The sync writes this one when a linked competitor is no longer in the pool.
   pool: 'Pool',
 }
 
 const changed = (v: unknown): string => (v === null || v === undefined ? 'none' : String(v))
 
-/**
- * What the last sync did to this row, as a sentence. The values are the stored ones and
- * not the display ones: this line reports a write, so it has to name what was written.
- */
 export function changeSentence(changes: Record<string, { from: unknown; to: unknown }> | null): string {
   const fields = Object.entries(changes ?? {})
   if (fields.length === 0) return NOTHING_CHANGED
   return fields.map(([key, d]) => `${CHANGE_LABEL[key] ?? key} ${changed(d.from)} to ${changed(d.to)}.`).join(' ')
 }
 
-// Where a number came from, as the tooltip on the value. The row prints the number alone
-// and the source is a hover away, rather than a word after every figure.
 const SOURCE_TITLE: Record<'age' | 'weight', Record<string, string>> = {
   age: { manual: 'Entered by hand', leaderboard: "From the leaderboard's age group", wl: 'From WellnessLiving' },
   weight: { manual: 'Entered by hand', leaderboard: "From the leaderboard's weight class", wl: 'From WellnessLiving' },
@@ -72,11 +63,6 @@ function Row({ label, value, title }: { label: string; value: string; title?: st
   )
 }
 
-/**
- * Everything the app holds about one competitor, read only, on the same surface the
- * match history uses. It answers the question the roster row cannot: where a number came
- * from, when the gym last promoted this child, and what the last sync moved.
- */
 export function ProfileSheet({ detail, kid, open, onOpenChange }: {
   detail: EventDetail
   kid: AthleteRow | null

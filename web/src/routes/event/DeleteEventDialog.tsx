@@ -17,11 +17,6 @@ export const DELETE_EVENT_PIN_LABEL = 'Enter the PIN to delete an event with res
 
 const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
 
-/**
- * What the delete takes, in the numbers the organizer already has on the strip above.
- * A confirm that says only "this cannot be undone" is a confirm nobody can weigh: the
- * whole question is whether this is the empty event from last week or the one that ran.
- */
 export function deleteConsequence(detail: EventDetail): string {
   const results = detail.matches.filter(m => m.status === 'done').length
   const what = [
@@ -32,15 +27,6 @@ export function deleteConsequence(detail: EventDetail): string {
   return `${detail.event.name}, ${detail.event.date}: ${what}. This cannot be undone.`
 }
 
-/**
- * Spec 3.2. An event that never left setup deletes on a plain confirm, because there is
- * nothing to lose but the typing. An event that started asks for the PIN again, and the
- * field is the one the Unlock dialog uses so the desk types the same six wells for both
- * of the destructive paths on the record.
- *
- * A certified event never reaches here: the overflow item is dead and the way out is the
- * Live tab's Unlock.
- */
 export function DeleteEventDialog({ detail, open, onOpenChange }: {
   detail: EventDetail
   open: boolean
@@ -78,7 +64,6 @@ export function DeleteEventDialog({ detail, open, onOpenChange }: {
               <CodeField id="delete-event-pin" length={6} aria-label="Admin PIN" value={pin} onValueChange={setPin} autoFocus />
             </div>
           )}
-          {/* A refusal is read where it was asked for, never on the shell behind. */}
           {del.error && (
             <Alert>
               <AlertTitle>This event was not deleted</AlertTitle>

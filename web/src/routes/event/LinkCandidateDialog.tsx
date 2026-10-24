@@ -16,7 +16,6 @@ import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTi
 
 export const LINK_TITLE = 'Link to WellnessLiving'
 
-/** What the roster holds for this competitor, so the picker is read against it. */
 export function linkedRowLine(kid: AthleteRow): string {
   return [
     athleteName(kid),
@@ -28,14 +27,6 @@ export function linkedRowLine(kid: AthleteRow): string {
 
 const candidateName = (c: RosterCandidate): string => `${c.firstName} ${c.lastName}`
 
-/**
- * Spec 5.3. The sync links a name it finds exactly once. Everything else is a person's
- * decision, so this is the screen that decision is made on: WellnessLiving asked for the
- * row's own last name, nearest that name first, with the location and the rating that tell
- * two children of one name apart.
- *
- * The route only ORDERS the answer. Nothing here links on a score.
- */
 export function LinkCandidateDialog({ detail, kid, open, onOpenChange }: {
   detail: EventDetail
   kid: AthleteRow | null

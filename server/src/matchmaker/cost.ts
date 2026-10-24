@@ -8,8 +8,6 @@ function ladder(belt: string | null): { family: number; step: number } | null {
   return { family: FAMILY[family], step: stripe === 'white' ? 0 : stripe === 'black' ? 2 : 1 }
 }
 
-// A belt family is a whole step and a stripe a third of one. An unknown belt is held two
-// families away, which is far enough to lose a tie without excluding the pair.
 export function beltDistance(a: string | null, b: string | null): number {
   const la = ladder(a)
   const lb = ladder(b)

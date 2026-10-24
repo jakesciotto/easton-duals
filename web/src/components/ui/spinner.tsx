@@ -5,10 +5,6 @@ import { cn } from "@/lib/utils"
 const SHOW_DELAY_MS = 150
 const MIN_VISIBLE_MS = 400
 
-// 7.11: a spinner is for one in-flight action, gated by a 150ms show delay
-// and a 400ms minimum visible time so a fast mutation never strobes against
-// a 1000ms poll. show tracks the action; the component owns its own
-// mount/unmount timing rather than trusting the caller to hold it open.
 function Spinner({
   show,
   className,

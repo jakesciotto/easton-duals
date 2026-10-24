@@ -15,8 +15,6 @@ import { FieldSet, FieldHead, FieldRow } from '@/components/ui/field-set'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 
-// 6.2: state rule replaces the status badge as the second read -- live for a live event,
-// gray-7 for setup, transparent (nothing to report) for done.
 const STATE_RULE: Record<EventSummary['status'], string> = {
   live: 'bg-live',
   setup: 'bg-gray-7',
@@ -24,17 +22,8 @@ const STATE_RULE: Record<EventSummary['status'], string> = {
   certified: 'bg-transparent',
 }
 
-// Finding 5: `ch` (and so var(--col-num-s)) resolves against each element's own
-// font-size. The head was left at the general t1 column-head size while a row
-// inherited the shell's ambient t3, both on the sans face, so the shared string
-// still resolved the Mats track to two different pixel widths. Both are pinned to
-// the mono face at the row's own t2 -- the same technique the roster row and the
-// candidate row already document -- and the labels take t1 back on themselves.
 const ROW = 'grid h-10 grid-cols-[var(--col-state)_minmax(0,1fr)_92px_116px_var(--col-num-s)_auto] items-center gap-x-3 font-mono t2'
 
-// Two plates fit beside the name; an event holds up to eight teams, so past that the row
-// states the count rather than pushing the name, which is its identity and its link, out
-// of the cell.
 const PLATES = 2
 
 function EventRow({ ev }: { ev: EventSummary }) {
@@ -43,34 +32,19 @@ function EventRow({ ev }: { ev: EventSummary }) {
   return (
     <FieldRow className={cn(ROW, 'relative')}>
       <span aria-hidden className={cn('h-full self-stretch', STATE_RULE[ev.status])} />
-      {/* The row sets the mono face so the numeric track resolves ch correctly.
-          Every cell holding words takes the sans face back. */}
       <div className="flex min-w-0 items-center gap-3 font-sans">
-        {/* The name is the row's link, so the whole row has to be its target. Left as
-            text alone the hit area is the glyphs: an event named "test" gives a 25 by
-            20px target in a 1102 by 40px row, which reads as a row that does nothing.
-            The overlay takes the target to the row itself, which is the default 40px
-            rung by the full column width. That clears WCAG 2.5.8's 24px minimum; it
-            does not reach the 44px of 2.5.5, which the rung would have to grow for. */}
         <Link
           to={`/events/${ev.id}`}
           className="truncate t3 font-medium text-gray-12 outline-none after:absolute after:inset-0 after:rounded-none focus-visible:shadow-focus"
         >
           {ev.name}
         </Link>
-        {/* Below 640px the plates and the date leave the name about one character, and
-            the name is the row's identity and its link. The plates stand down: the teams
-            are on the event's own page, the name is the only thing that is not. */}
         {shown.map(t => <TeamPlate key={t.id} color={t.color} name={t.name} size="inline" className="hidden sm:inline-flex" />)}
         {rest > 0 && <span className="hidden shrink-0 t2 text-gray-10 sm:inline">and <span className="fig">{rest}</span> more</span>}
       </div>
       <span className="fig text-gray-10">{ev.date}</span>
-      {/* One word per row for how the event runs, in the one exported vocabulary the New
-          event dialog and the event shell already say it in. Without it a desk event and
-          a mat event are the same row, and the organizer opens the wrong one. */}
       <span className="truncate font-sans text-gray-10" title={MODE_LABEL[ev.mode]}>{MODE_LABEL[ev.mode]}</span>
       <span className="fig text-right text-gray-10">{ev.matCount}</span>
-      {/* Above the row overlay, or the only other destination in the row is unreachable. */}
       <Link to={`/board/${ev.id}`} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'relative font-sans')}>Board</Link>
     </FieldRow>
   )
@@ -104,8 +78,6 @@ function EventList() {
             </FieldHead>
             {events.data.length === 0
               ? (
-                // Finding 6 / 7.10: a sentence with no control is a dead end. The verb
-                // moves to a real inline action instead of sitting in plain grey text.
                 <EmptyState
                   message="No events yet."
                   action={<Button size="sm" variant="ghost" onClick={() => setOpen(true)}>Create the first one</Button>}

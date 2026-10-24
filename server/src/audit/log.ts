@@ -5,8 +5,6 @@ import { MatchStateError } from '../shared/errors.js'
 import type { TokenPayload } from '../auth/tokens.js'
 import type { AuditAction, AuditActor, AuditDetail } from '../shared/types.js'
 
-// A match carries a few dozen audit rows at most, so this is a guard against a bug
-// rather than a page size.
 export const HISTORY_LIMIT = 500
 
 export interface AuditInput {
@@ -18,10 +16,6 @@ export interface AuditInput {
   at?: string
 }
 
-/**
- * One row per write, inserted inside the transaction of the write it describes, so a
- * change that rolls back leaves no claim that it happened.
- */
 export const CERTIFIED_MESSAGE = 'event is certified'
 
 const OPEN_ON_CERTIFIED: ReadonlySet<AuditAction> = new Set(['certify', 'uncertify', 'unbind', 'smoothcomp_standings'])
@@ -41,9 +35,6 @@ export async function recordAudit(db: DbLike, row: AuditInput): Promise<void> {
   }).run()
 }
 
-// A mat token is the tablet scoring that mat. Any other token is the console, and the
-// server's own sweeps carry none at all. The entries routes pass 'desk' rather than
-// calling this, because the desk holds an admin token like every other console screen.
 export function actorOf(auth: TokenPayload | null, matNumber?: number | null): AuditActor {
   if (auth === null) return 'system'
   if (auth.role === 'admin') return 'admin'
@@ -56,9 +47,6 @@ export async function matNumberOf(db: DbLike, auth: TokenPayload | null): Promis
   return row?.number ?? null
 }
 
-// The match log has carried provenance in its id prefixes since the first release. Undo
-// reads it back so the row recording a deletion names whoever wrote the thing deleted,
-// and migration 0007's backfill maps the same three prefixes.
 export function actorOfMatchEventId(id: string, fallback: AuditActor): AuditActor {
   if (id.startsWith('entry:')) return 'desk'
   if (id.startsWith('admin:')) return 'admin'

@@ -5,7 +5,7 @@ The React client: the admin console, the tablet scorer, the TV board, the pastes
 - roster paste columns: A roster paste maps columns by header or by position.
   over: a tab separated sheet with a header, split first and last name columns, header aliases such as Weight (lbs) and Rank, an unknown column, two columns for one field, a header with no name column, a team column, positional lines with optional fields, bad and out of range lines, the boundary values, one cell lines, a bare number line and the Scoring column in header and positional pastes
   via: a roster paste maps columns by header or by position
-  because: parseRosterPaste reads a detected header through its mapped columns and every other paste through the fixed positional columns, so a cell lands in the field the organizer meant
+  because: parseRosterPaste reads a detected header through its mapped columns and every other paste through the fixed positional columns, so a cell lands in the field the organizer meant; a one cell line is a header only on an exact field name, because a names-only paste can open with a surname that resembles an alias and a header read there drops that competitor without a word
   refuted: header rows read their cells by the positional columns -> the test a roster paste maps columns by header or by position went red (2026-10-22)
   kinds: encoding
   checklist: key-rotation-compatibility dismissed: nothing is encrypted
@@ -14,7 +14,7 @@ The React client: the admin console, the tablet scorer, the TV board, the pastes
 - match paste lines: A match paste creates pairs and division lines.
   over: an empty paste, comma and tab cells, vs and v separators, four name cells, style tokens, refused lines (one name, one kid twice, a kid on no team, an unknown or shared name), same team and already met warnings, exact and near names, a double surname, division lines with format, style, member limits and near notes, a paste with a problem and a paste of both kinds
   via: a match paste creates pairs and division lines
-  because: parseMatchPaste turns each line into a pair or a division through the shared similarity rules, and creates nothing while any line carries a problem
+  because: parseMatchPaste turns each line into a pair or a division through the shared similarity rules, and creates nothing while any line carries a problem; a name the roster does not carry is a problem on its line, never a competitor added quietly, and the paste's own earlier lines count as already met
   refuted: the pair branch requires three names -> the test a match paste creates pairs and division lines went red (2026-10-22)
   kinds: encoding
   checklist: key-rotation-compatibility dismissed: nothing is encrypted
@@ -23,13 +23,13 @@ The React client: the admin console, the tablet scorer, the TV board, the pastes
 - scoring cap before send: The scoring cap is checked before the paste is sent.
   over: a paste whose marks plus the team's existing marks pass ten, marked rows with no team, and a paste with no marks
   via: the scoring cap is checked before the paste is sent
-  because: scoringCapProblems counts the existing marks and the paste's marks per team against SCORING_CAP, so the dialog names the problem before the server refuses the eleventh with 422
+  because: scoringCapProblems counts the existing marks and the paste's marks per team against SCORING_CAP, so the dialog names the problem before the server refuses the eleventh with 422; a marked row with no effective team cannot be counted against any team, so it is named on its own rather than dropped
   refuted: the cap threshold is raised by 100 -> the test the scoring cap is checked before the paste is sent went red (2026-10-22)
   kinds: none
 - open dialog hold: An open dialog holds the snapshot unless it opts out by name.
   over: a free pass through, a hold and release on the first free recheck, a change of subject, the first arrival, an unmount, the engaged signals (an open dialog, a drag, a focused field, an open listbox, a dialog that opts out) and the field grant the app focuses
   via: an open dialog holds the snapshot unless it opts out by name
-  because: useHeldWhileEngaged commits a new snapshot only while operatorEngaged answers false and then commits the newest arrival, so a poll never replaces state under the operator's hand
+  because: useHeldWhileEngaged commits a new snapshot only while operatorEngaged answers false and then commits the newest arrival, so a poll never replaces state under the operator's hand; only an open listbox counts, because a closed base-ui popup stays in the portal carrying data-closed and matching it left the screen engaged for good; the field the app focuses after a save is granted until the operator's first touch, or the refetch carrying the saved row is held; the scorer's confirm sheet opts out because its content is the live match, and its confirm refuses a result that moved after the sheet was raised
   refuted: useHeldWhileEngaged commits the incoming value while the operator is engaged -> the test an open dialog holds the snapshot unless it opts out by name went red (2026-10-22)
   kinds: state
   checklist: revalidated-permission dismissed: the hold carries no permission
@@ -43,7 +43,7 @@ The React client: the admin console, the tablet scorer, the TV board, the pastes
   protects: operatorEngaged
   chokepoint: useHeldWhileEngaged
   from: anywhere
-  because: one mechanism decides when a polled value may replace what the operator works on, so no screen can commit under a dialog by its own rule
+  because: one mechanism decides when a polled value may replace what the operator works on, so no screen can commit under a dialog by its own rule; the snapshot poll and the event detail query both pass through it, because a detail refetch mid drag once re-indexed the list the gesture pointed at
   kinds: state
   checklist: revalidated-permission dismissed: the hold carries no permission
   checklist: separation-of-duties dismissed: no approval policy exists in the client
@@ -56,7 +56,7 @@ The React client: the admin console, the tablet scorer, the TV board, the pastes
   protects: setAdminToken
   chokepoint: PinGate
   from: anywhere
-  because: the console holds an admin token only after the PIN route answered one, so no screen can sign itself in
+  because: the console holds an admin token only after the PIN route answered one, so no screen can sign itself in; PinGate reads the token's own unsigned exp to tell a genuine expiry from a deliberate Sign out, since both clear the token the same way
   kinds: credential
   checklist: capability-authorization dismissed: the server verifies the token on every request, and the client only stores what the PIN route answered
   checklist: revalidated-permission dismissed: the server checks the token signature and expiry on every request
@@ -64,3 +64,14 @@ The React client: the admin console, the tablet scorer, the TV board, the pastes
   checklist: encrypted-storage dismissed: the token sits in the browser's localStorage in plain text for its 24 hour life, as the console session
   checklist: key-rotation-compatibility dismissed: nothing is encrypted
   checklist: separation-of-duties dismissed: one admin role exists and no approval policy
+
+## why
+Console: one event, one poll loop, one pause. The shell's freshness readout and every tab read the same useSnapshot stream, and the mode and status come from that stream before the event detail, because the detail is a react-query cache that nothing invalidates when another device changes the event. A write carries the newest snapshot's sequence, not the paused picture's. A control the state refuses is disabled with the reason printed beside it rather than answered with an error after the tap.
+
+Entry tab: one entryId is held through every retry and a reload so the server dedupes a resend. A corrected retry gets a new id only after a failure the server definitely refused; after a timeout, a dropped connection, a 5xx, 408 or 429 the first write may be on file and a new id would count the win twice. The automatic retry is armed by a rising number, not a boolean, because React batches the stop and restart into one render and a boolean would stop the loop after one retry.
+
+Board: every size is in cqh against the stage, and the 90cqh safe frame never scales; --far multiplies the type steps only. budget.ts sums every composition to exactly 90cqh, drops the row count before it steps the type down, and says in words when a fact cannot be printed at the b3 floor. A figure crossfades whole through a CSS transition, never an odometer, because reduced motion keeps opacity transitions.
+
+Scorer: the column is budgeted for a 1024 x 768 iPad minus Safari's chrome, not the screen height; the head, the expiry alarm and the three commit controls are guaranteed and the reference lines scroll. Every scoring write runs through one serial chain that reads seqRef at execution time, and a returned seq is taken verbatim in both directions, because another device's undo lowers it. A terminal takes one press. The tablet's action ledger lives in sessionStorage and entries above the server's seq are discarded on restore.
+
+Styles: a numeric track in ch resolves against the element's own font, so the grid that declares it carries the mono face and a numeric head is pinned to the body's t2 step. Inputs are floored at 16px on coarse pointers because iOS Safari zooms on focus below that and never zooms back. Every focus ring carries an outline beside its box-shadow, because forced-colors mode drops box-shadow.

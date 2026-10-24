@@ -2,45 +2,20 @@ import type { EventStatus, MatchView } from '@shared/types'
 import { isFinished } from '@/lib/eventMode'
 import type { LocalAction } from './actions'
 
-/**
- * 6.16, refuse rather than reject: a control the state machine will turn down renders
- * disabled with the reason printed, rather than accepting a tap and answering with an
- * error a second later. Every reason is a sentence, because the person reading it is
- * looking away from a match and gets one glance.
- *
- * Every reason below is also short enough to paint inside the single line the centre
- * column reserves for it (budget.REASON). A second line would render over the control
- * underneath, which is why the suite asserts the length of each one.
- *
- * The deliberate inverse is that a paused clock refuses nothing: referees stop the clock
- * to award points, so no reason here may be derived from the clock running.
- */
-
 export const OFFLINE = 'Not connected. Nothing will send.'
 export const PENDING = 'A result is waiting. Record it.'
 export const NOTHING = 'Nothing to take back yet.'
 export const NO_MATCH = 'No match on this mat.'
 export const ENDED = 'This match has ended.'
 export const NOT_STARTED = 'This match has not started.'
-/** Two ways out of an expired clock now, so the reason names both of them. */
 export const TIME_UP = 'Time is up. Add time or end the match.'
-/** Both clock presses this tablet recorded: the server's undo reaches neither. */
 export const CLOCK_EVENT = 'Undo does not reach the clock.'
 export const ELSEWHERE = 'The newest action came from elsewhere.'
-/** A minus takes back a point, and an extension is not one. Undo still reaches it. */
 export const EXTEND_EVENT = 'The newest action added time.'
-/** The server refuses an extension while the clock runs, so the control says so first. */
 export const CLOCK_RUNNING = 'Add time while the clock is stopped.'
-/** A bout nobody has started has the length its ruleset gave it, and nothing to correct. */
 export const CLOCK_UNSTARTED = 'Start the clock before adding time.'
-/** After Finish the server refuses every write, whatever the match itself says. */
 export const EVENT_DONE = 'This event is finished.'
 
-/**
- * Every refusal sentence, for the length check that guards the one line the centre column
- * reserves. It covers reasons the column chooses not to print as well, because which of
- * them reaches the line is a decision the column makes and can change.
- */
 export const REASONS = [
   OFFLINE, PENDING, NOTHING, NO_MATCH, ENDED, NOT_STARTED, TIME_UP, CLOCK_EVENT, ELSEWHERE,
   EXTEND_EVENT, CLOCK_RUNNING, CLOCK_UNSTARTED, EVENT_DONE,
@@ -54,7 +29,6 @@ function unavailable(connected: boolean, match: MatchView | null): string | null
   return null
 }
 
-/** Covers the whole half: the point buttons and the terminals behind the moat. */
 export function scoreRefusal(connected: boolean, match: MatchView | null): string | null {
   const gone = unavailable(connected, match)
   if (gone) return gone
@@ -65,23 +39,10 @@ export function clockRefusal(connected: boolean, match: MatchView | null, expire
   const gone = unavailable(connected, match)
   if (gone) return gone
   if (match!.pendingTerminal) return PENDING
-  // The server refuses clock_start once the elapsed time has reached the length, so what is
-  // left is to add time or to record the result. An extension moves the length, which clears
-  // `expired` and hands the clock back.
   if (expired) return TIME_UP
   return null
 }
 
-/**
- * The extension. The server sweeps an overdue clock into a pause before it writes one, so an
- * expired clock takes time as readily as a paused one; a RUNNING clock is the state it turns
- * down, and this is the sentence that says so before the tap rather than after it.
- *
- * The server takes an extension on a match that has not started too, and there it is not a
- * correction at all: the length came from the ruleset, nothing has run against it, and the
- * only thing the press does is lengthen the bout without anybody deciding to. A clock that
- * has run for zero milliseconds and is not out of time is a clock nobody has started.
- */
 export function addTimeRefusal(connected: boolean, match: MatchView | null, expired: boolean): string | null {
   const gone = unavailable(connected, match)
   if (gone) return gone
@@ -91,21 +52,10 @@ export function addTimeRefusal(connected: boolean, match: MatchView | null, expi
   return null
 }
 
-/**
- * Undo removes the newest event and nothing else, so a tablet that cannot name that event
- * cannot say what the press would do. It refuses instead of guessing: the server turns down
- * an undo of a pause, including the one expiry writes, and an undo of a start stops a clock
- * nobody asked it to stop.
- */
 export function undoRefusal(
   connected: boolean,
   match: MatchView | null,
   last: LocalAction | null,
-  // Kept because the caller passes it; deliberately unused. Time being up does NOT tell
-  // this tablet what the newest event was. The server writes a pause at expiry, but the
-  // desk can record an advantage after it, and naming the clock on that assumption printed
-  // a reason that was simply wrong. An event this tablet cannot see gets the one sentence
-  // that is true either way.
   _expired: boolean,
 ): string | null {
   const gone = unavailable(connected, match)
@@ -113,15 +63,9 @@ export function undoRefusal(
   if (match!.lastSeq === 0) return NOTHING
   if (!last || last.seq !== match!.lastSeq) return ELSEWHERE
   if (last.kind === 'clock') return CLOCK_EVENT
-  // An extension is removed like any other event, so undo reaches it and says so by name.
   return null
 }
 
-/**
- * The per side affordance. The common error is the wrong side, so this one has to name
- * whose action it would take back, which means it refuses whenever this tablet cannot
- * see the newest event.
- */
 export function minusRefusal(
   connected: boolean,
   match: MatchView | null,
@@ -130,30 +74,16 @@ export function minusRefusal(
 ): string | null {
   const gone = unavailable(connected, match)
   if (gone) return gone
-  // A side waiting on a feeder has nothing to take a point back from.
   if (athleteId === null) return NOTHING
   if (match!.lastSeq === 0) return NOTHING
   if (!last || last.seq !== match!.lastSeq) return ELSEWHERE
   if (last.kind === 'clock') return CLOCK_EVENT
-  // A minus takes a point back off one side, and an extension belongs to neither of them.
   if (last.kind === 'extend') return EXTEND_EVENT
-  // The only refusal that names a competitor, and so the only one that can outrun the
-  // reserved line. It never prints there: it is raised for exactly one of the two sides,
-  // and the line prints only what both of them, and Undo, refuse for.
   if (last.athleteId !== athleteId) return `The newest action was ${last.name}'s.`
   return null
 }
 
-/**
- * Every refusal the page prints, decided in one place, because the event outranks all of
- * them. After Finish the server turns down every write with `event is done`, so a tab that
- * has not polled since must refuse the tap rather than send it and translate the answer.
- *
- * This is the only production caller of the functions above: each of them answers for its
- * own control, and none of them can see the event.
- */
 export interface ScorerRefusals {
-  /** Covers a whole half: its point buttons and the terminals behind the moat. */
   half: string | null
   clock: string | null
   addTime: string | null

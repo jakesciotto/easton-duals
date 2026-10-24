@@ -15,8 +15,6 @@ import { Toggle } from '@/components/ui/toggle'
 import { TeamPlate } from '@/components/TeamPlate'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
-// Every outcome the desk can record. A walkover and a DQ end a match that was never
-// fought to a score, so this is the one surface that offers them.
 const WIN_TYPES: { value: WinType; word: string }[] = [
   { value: 'points', word: 'Points' },
   { value: 'submission', word: 'Submission' },
@@ -25,12 +23,6 @@ const WIN_TYPES: { value: WinType; word: string }[] = [
   { value: 'dq', word: 'DQ' },
 ]
 
-/**
- * 6.13. The head states what is being corrected as one sentence: match, mat, time,
- * score and win type. It is captured when the dialog opens and never re-rendered from
- * a later poll, so the correction is made against a stated fact rather than against a
- * record that can move under the operator mid-edit.
- */
 export function originalSentence(match: MatchView, matNumber: number | null): string {
   const parts = [`M${match.number}`]
   parts.push(matNumber === null ? 'no mat' : `mat ${matNumber}`)
@@ -46,8 +38,6 @@ export function originalSentence(match: MatchView, matNumber: number | null): st
   return `${parts.join(', ')}.`
 }
 
-// The same well the Entry tab uses, so a correction is the same physical action as an
-// entry: 88px, black fill, radius 0 inside a padded field, one t8 numeral in a 2ch slot.
 function PointsField({ id, label, value, align, onChange }: {
   id: string
   label: string
@@ -81,16 +71,10 @@ export function ResultDialog({ detail, match, open, onOpenChange }: { detail: Ev
   const [pointsB, setPointsB] = useState('')
   const [winner, setWinner] = useState<number | null>(null)
   const [winType, setWinType] = useState<WinType>('points')
-  // Optional: a correction made in the heat of the afternoon should not stall on a
-  // sentence, and the trail already records who changed what and when.
   const [reason, setReason] = useState('')
   const save = useAdminMutation(eventId, (v: { id: number; body: unknown }) =>
     adminApi(`/api/matches/${v.id}/entry`, { method: 'POST', body: v.body }))
 
-  // Reopening (even for the same match) always starts from the current result, so a
-  // cancelled edit never leaves a stale pick behind for next time. The deps stay at the
-  // open flag and the match id: a fresh snapshot of the same match must not overwrite
-  // the pick being made, and must not rewrite the sentence being corrected against.
   useEffect(() => {
     if (!open || !match) return
     setEntryId(newEventId())
@@ -103,13 +87,8 @@ export function ResultDialog({ detail, match, open, onOpenChange }: { detail: Ev
     save.reset()
   }, [open, match?.id])
 
-  // Spec 9: a bracket match whose sides are not both filled has no result to correct and
-  // no competitor to name as the winner, so the dialog is never the thing that opens on
-  // one. The callers do not offer it either; this is the door itself.
   if (!match || match.a.athleteId === null || match.b.athleteId === null) return null
 
-  // G20: a live match reaches this dialog from the dead tablet path, where the desk is
-  // entering the first result rather than correcting a stored one, and the head says so.
   const correcting = match.status === 'done'
   const team = (teamId: number | null): TeamRow => detail.teams.find(t => t.id === teamId) ?? detail.teams[0]
 
@@ -121,8 +100,6 @@ export function ResultDialog({ detail, match, open, onOpenChange }: { detail: Ev
       id: match.id,
       body: {
         entryId, pointsA: Number(pointsA || 0), pointsB: Number(pointsB || 0), winnerAthleteId: winner, winType,
-        // Absent rather than empty: the server reads a blank as no reason at all, and
-        // sending one would write an empty string into the record.
         ...(trimmed === '' ? {} : { reason: trimmed }),
       },
     }, { onSuccess: () => onOpenChange(false) })

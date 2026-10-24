@@ -45,30 +45,11 @@ const STATUS: Record<EventStatus, { label: string; variant: 'default' | 'live' |
   certified: { label: 'Certified', variant: 'done' },
 }
 
-// 6.18: one column with 16px gutters below 640px. The panel gutter matches the shell's.
 const PANEL = 'px-4 pt-6 pb-10 sm:px-6'
 
-/**
- * G24 / 3.4's knob, on the event rather than in one browser.
- *
- * It lived in localStorage, so a second television, a cleared cache or a laptop somebody
- * swapped in reverted to 1.00 in front of the room, and the only way to set it was a
- * query string typed at the panel. An event that carries none reads as no cell chosen,
- * because that is the truth: every board is then following whatever its own browser has.
- */
 export const FAR_GROUP_LABEL = 'Board far'
 const FAR_OPTIONS = FAR_STEPS.map(value => ({ value: String(value), label: String(value) }))
 
-/**
- * Ask rather than refuse, for the one case where the switch is legal and still costs
- * somebody something.
- *
- * A mat holding a paused or not yet started match is not a referee stranded mid bout, so
- * refusing it would take the desk fallback away for a state that resolves itself. What it
- * does cost is that the result on that mat stops being the tablet's job the moment the
- * board repaints, and that is a consequence an organizer has to be told once rather than
- * per mat. Both buttons say what they do.
- */
 function DeskSwitchDialog({ mats, pending, error, onCancel, onConfirm }: {
   mats: MidMatchMat[]
   pending: boolean
@@ -109,25 +90,6 @@ function DeskSwitchDialog({ mats, pending, error, onCancel, onConfirm }: {
   )
 }
 
-/**
- * The metadata strip plus the one control for the whole event, mounted on the shell so it
- * is the same control on every tab. It stays enabled while the event is live on purpose:
- * the desk path is the fallback for the day the tablets do not work, and a setting that
- * locks at Start is a setting nobody can fall back to.
- *
- * `refusal` is the hard guard (6.8), and it now stands only while a clock is running.
- * While it stands the control renders disabled and the reason is printed under the strip,
- * naming the mat. The Segment primitive takes no per option disabled, so the refusal is
- * carried by the field the group sits in: base-ui reads `disabled` off the field context,
- * marks every cell aria-disabled and refuses the selection itself. Disabling the pair
- * rather than the one cell takes nothing legal away, because the refusal is only ever
- * computed while the event is on Scored on mats and the other cell is the value already
- * held. The handler refuses too, since a programmatic change can still reach it.
- *
- * The strip also carries the escalation contact (6.4), because the only version of that
- * field anybody fills in is the one reachable from the event itself. Certification refuses
- * a write to the contact as much as to the mode, so it takes the contact button too.
- */
 function EventMeta({ eventId, detail, mode, refusal, certified, snapshot }: {
   eventId: number
   detail: EventDetail
@@ -143,9 +105,6 @@ function EventMeta({ eventId, detail, mode, refusal, certified, snapshot }: {
   const setFar = useAdminMutation(eventId, (far: number) => adminApi(`/api/events/${eventId}`, { method: 'PATCH', body: { far } }))
   const storedFar = farOf(detail)
   const shownFar = setFar.isPending && setFar.variables !== undefined ? setFar.variables : storedFar
-  // The segment reports the write it is carrying, not the row it was rendered from: the
-  // stream only catches up on the next poll, and a control that snaps back for a beat
-  // reads as a refused change. A failed write drops back to the stored value.
   const shown = set.isPending && set.variables !== undefined ? set.variables : mode
   const contact = detail.event.contact ?? null
 
@@ -164,8 +123,6 @@ function EventMeta({ eventId, detail, mode, refusal, certified, snapshot }: {
         <span className="fig">{detail.event.date}</span>
         <span><span className="fig">{detail.athletes.length}</span> competitors</span>
         <span><span className="fig">{detail.matches.length}</span> matches</span>
-        {/* An event holds two to eight teams, and the list that sets them lives on the
-            event rather than only in the dialog that created it. */}
         <Button variant="ghost" size="sm" onClick={() => setTeamsOpen(true)}>
           <span className="fig">{detail.teams.length}</span> teams
         </Button>
@@ -209,8 +166,6 @@ function EventMeta({ eventId, detail, mode, refusal, certified, snapshot }: {
           <AlertDescription>{writeErrorMessage(setFar.error)}</AlertDescription>
         </Alert>
       )}
-      {/* The dialog stays up for the round trip and closes on success, so its own control
-          reports the write and a refused switch is read where it was asked for. */}
       <DeskSwitchDialog
         mats={confirming}
         pending={set.isPending}
@@ -226,22 +181,15 @@ function EventMeta({ eventId, detail, mode, refusal, certified, snapshot }: {
 
 function EventBody({ eventId }: { eventId: number }) {
   const q = useEventDetail(eventId)
-  // The setup step is a URL fact, so a reload resumes it. The tab a click chose is not, so
-  // it stays local and only decides which panel is shown once no step is open.
   const [params, setParams] = useSearchParams()
   const step = setupStepOf(params.get(SETUP_PARAM))
   const [picked, setPicked] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [smoothcompOpen, setSmoothcompOpen] = useState(false)
-  // 6.4 / 7.15: the one poll for this event. The header's freshness readout and every tab
-  // under the provider read this same stream, so the shell can never report fresh data for
-  // a screen that is deliberately frozen, and one browser tab makes one request per tick.
   const stream = useSnapshot(eventId)
   const shared = useMemo(() => ({ eventId, state: stream }), [eventId, stream])
   if (q.isLoading) return <RouteFallback rung="two-line" />
   if (q.error || !q.data) {
-    // A refusal the server answered, a missing event above all, is not an outage: the
-    // stream fails on the same id, and a banner over "not found" would say the wrong thing.
     return (
       <AdminShell title="Event" connected={q.error instanceof ApiError ? undefined : stream.connected}>
         <div className={PANEL}>
@@ -253,18 +201,9 @@ function EventBody({ eventId }: { eventId: number }) {
     )
   }
   const detail = q.data
-  // One fact, one source: the shell, the tabs under it and the board all read the mode out
-  // of the polled stream, and the detail is the fallback only until the first snapshot
-  // lands. The newest snapshot rather than the shown one, because a pause freezes the mat
-  // rack and not the event's own configuration, and because the guard below is a statement
-  // about the room rather than about the picture.
   const mode = modeOf(stream.live, detail.event.mode)
-  // Certification outranks the mid-bout guard: it refuses every write on the event, so it
-  // is the reason the strip prints and the reason its controls are dead (6.8).
   const certified = statusOf(stream.live, detail.event.status) === 'certified'
   const refusal = certified ? CERTIFIED_REFUSAL : mode === 'live' ? deskSwitchRefusal(stream.live) : null
-  // Leaving a step keeps the operator on the tab that step was standing over: Open the
-  // event lands on the running order it just generated, not back on the roster.
   const leave = (next: SetupStep | null) => {
     if (step !== null) setPicked(step)
     setParams(prev => {
@@ -274,10 +213,6 @@ function EventBody({ eventId }: { eventId: number }) {
       return n
     }, { replace: true })
   }
-  // The stored mode decides which tab a freshly opened event lands on, and it decides it
-  // ONCE. Deriving the tab from the live mode every render would move an operator who never
-  // touched the rail onto another tab the moment somebody switched the event from a phone at
-  // the same desk, which is what `defaultValue` used to rule out.
   const landing = mode === 'entry' ? 'entry' : 'roster'
   if (picked === null) setPicked(landing)
   const tab = step ?? picked ?? landing
@@ -289,10 +224,6 @@ function EventBody({ eventId }: { eventId: number }) {
       actions={(
         <>
           <Link to={`/board/${eventId}`} target="_blank" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>Open board</Link>
-          {/* 6.9: the two rare actions on the whole event. Reading the standings changes
-              nothing, so the item stands on a certified event and the dialog locks only the
-              URL field, which is a write; the delete is the only destructive action the
-              shell holds, and a certified event is unlocked on the Live tab first. */}
           <OverflowMenu
             label="Event actions"
             items={[
@@ -313,11 +244,6 @@ function EventBody({ eventId }: { eventId: number }) {
       footer={contactFooter(detail)}
     >
       <SnapshotStreamContext value={shared}>
-        {/*
-          The tab follows the open setup step, and otherwise whatever the rail was last set
-          to, which starts at the landing tab pinned above. Controlled only so a step can
-          select the tab it stands over.
-        */}
         <Tabs value={tab} onValueChange={v => setPicked(String(v))} className="gap-0">
           <TabsList className="px-4 sm:px-6">
             <TabsTrigger value="roster">Roster<span className="ml-1.5 fig text-gray-10">{detail.athletes.length}</span></TabsTrigger>
@@ -332,8 +258,6 @@ function EventBody({ eventId }: { eventId: number }) {
           <TabsContent value="matches" className={PANEL}><MatchesTab detail={detail} /></TabsContent>
           <TabsContent value="live" className={PANEL}><LiveTab detail={detail} /></TabsContent>
         </Tabs>
-        {/* Inside the provider: the matches step reads the same stream every tab reads, so
-            it refuses a regenerate for the same live mat the Matches tab refuses it for. */}
         <SetupRosterStep
           detail={detail}
           open={step === 'roster'}

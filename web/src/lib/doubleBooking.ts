@@ -1,8 +1,6 @@
 import { matchAthleteIds } from './matchView'
 import type { MatchRow } from './types'
 
-// The server allows a competitor to sit in two pending matches at once (uneven rosters
-// make it a legitimate organizer choice); the designer only warns.
 export function isDoubleBooked(athleteId: number, matches: MatchRow[], excludeMatchId?: number): boolean {
   return matches.some(m => m.status === 'pending' && m.id !== excludeMatchId && (m.athleteAId === athleteId || m.athleteBId === athleteId))
 }

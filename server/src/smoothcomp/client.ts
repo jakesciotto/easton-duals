@@ -1,8 +1,5 @@
 import { isSmoothcompHost } from './url.js'
 
-// Smoothcomp serves its HTML pages behind a Cloudflare challenge, but answers its JSON
-// endpoints normally to a plain server request carrying a browser User-Agent. Never add
-// challenge-solving code here.
 export const USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0'
 const MAX_RETRIES = 4
 const MAX_REDIRECTS = 5
@@ -19,8 +16,6 @@ export interface ClientOptions { fetchFn?: typeof fetch; backoffMs?: number; dea
 
 const sleep = (ms: number) => ms > 0 ? new Promise<void>(r => setTimeout(r, ms)) : Promise.resolve()
 
-// A retry never sleeps past the deadline: the next attempt throws the timeout on time
-// rather than oversleeping into a caller that has already given up.
 function wait(ms: number, deadlineAt: number | undefined): number {
   return deadlineAt === undefined ? ms : Math.min(ms, Math.max(0, deadlineAt - Date.now()))
 }

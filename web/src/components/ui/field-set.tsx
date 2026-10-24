@@ -2,20 +2,6 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-/**
- * A ledger field: a group of rows under one head, which is what the four dense
- * screens are made of.
- *
- * `data-frame` decides whether the group draws a box. The ruled frame is the one
- * the owner approved: no box at rest, a recessed head band, and a 2px boundary
- * only where a boundary means something. A 1px rule on this ground is 1.80:1
- * under a gym veil and sits near the acuity limit at desk distance, so structure
- * comes from alignment first and from a line last.
- *
- * The card frame stays reachable because a screen converts to the Ledger Grid
- * structurally before it changes how it looks, so a half migrated app never
- * reads as unfinished and a rollback is one attribute.
- */
 function FieldSet({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -33,10 +19,6 @@ function FieldSet({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-/**
- * The head carries the column labels once, instead of every row repeating them.
- * A numeric column adds the `tick` class, which marks where its digits end.
- */
 function FieldHead({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

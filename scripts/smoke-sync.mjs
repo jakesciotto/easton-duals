@@ -9,8 +9,6 @@ if (!base || !pin || !exactFull || !nearFull || !fakeFull) {
   process.exit(1)
 }
 
-// fail() throws instead of exiting so the delete cleanup in the main finally block
-// still runs when a step fails partway through.
 class SmokeFailure extends Error {}
 
 async function j(method, p, body, token) {
@@ -36,8 +34,6 @@ function ok(step, detail) {
   console.log(`ok ${step} (${detail})`)
 }
 
-// Never print a real name. First letters only, so a person reading the log can tell
-// the three rows apart without the file or its output ever carrying a full name.
 function mask(full) {
   return full.trim().split(/\s+/).filter(Boolean).map(w => `${w[0].toUpperCase()}.`).join(' ')
 }
@@ -67,18 +63,15 @@ let token
 let failed = false
 
 try {
-  // 1. health
   const health = await j('GET', '/api/health')
   if (health.status < 200 || health.status >= 300) fail('health', health)
   ok('health', `status ${health.status}`)
 
-  // 2. admin auth
   const auth = await j('POST', '/api/auth/admin', { pin })
   if (auth.status < 200 || auth.status >= 300) fail('auth', auth)
   token = auth.body.token
   ok('auth', 'token acquired')
 
-  // 3. create event: one mat, two teams
   const date = new Date().toISOString().slice(0, 10)
   const created = await j('POST', '/api/events', {
     name: `Smoke sync ${Date.now()}`,
@@ -91,7 +84,6 @@ try {
   const teamId = created.body.teams[0].id
   ok('create event', `id ${eventId}`)
 
-  // 4. bulk add the three rows on the first team, no age/weight/belt/gender
   const bulk = [exact, near, fake].map(p => ({ firstName: p.firstName, lastName: p.lastName, teamId }))
   const added = await j('POST', `/api/events/${eventId}/athletes`, { bulk }, token)
   if (added.status !== 201) fail('add athletes', added)
@@ -101,7 +93,6 @@ try {
   if (!exactRow || !nearRow || !fakeRow) fail('add athletes', { body: 'one or more rows missing after bulk add' })
   ok('add athletes', `${mask(exactFull)}, ${mask(nearFull)}, ${mask(fakeFull)}`)
 
-  // 5. sync with no body
   const t0 = Date.now()
   const sync1 = await j('POST', `/api/events/${eventId}/roster/sync`, undefined, token)
   const ms1 = Date.now() - t0
@@ -122,7 +113,6 @@ try {
   if (!fakeAfter1 || fakeAfter1.wlUid || fakeAfter1.suggestedWlUid || !fakeAfter1.syncedAt) fail('fake row unmatched', { body: fakeAfter1 })
   ok('verify sync', `exact linked, near suggested (score ${nearAfter1.suggestedScore}), fake unmatched with syncedAt`)
 
-  // 6. wl-search: default query returns the exact row on top, a one letter query is rejected
   const ts = Date.now()
   const search1 = await j('GET', `/api/events/${eventId}/wl-search?q=${encodeURIComponent(searchText)}`, undefined, token)
   const msSearch = Date.now() - ts
@@ -137,7 +127,6 @@ try {
   if (!err2 || err2.code !== 'validation' || err2.message !== 'Type at least two letters.') fail('wl search short query shape', search2)
   ok('wl search validation', '422 validation on a one letter query')
 
-  // 6b. a two letter query already searches, and still finds the exact row
   if (usingDefaultSearch && searchText.length >= 2) {
     const two = searchText.slice(0, 2)
     const search3 = await j('GET', `/api/events/${eventId}/wl-search?q=${encodeURIComponent(two)}`, undefined, token)
@@ -146,7 +135,6 @@ try {
     ok('wl search two letters', `${search3.body.length} results include the exact row`)
   }
 
-  // 7. link the near row to its suggestion
   const linked = await j('POST', `/api/athletes/${nearRow.id}/link`, { wlUid: nearAfter1.suggestedWlUid }, token)
   if (linked.status < 200 || linked.status >= 300) fail('link near row', linked)
   ok('link near row', 'linked to suggested wlUid')
@@ -157,7 +145,6 @@ try {
   if (!nearAfter2 || nearAfter2.wlUid !== nearAfter1.suggestedWlUid) fail('near row wlUid after link', { body: nearAfter2 })
   ok('verify link', 'near row wlUid matches the suggestion')
 
-  // 8. dismiss on the fake row, only if a candidate exists to dismiss
   const fakeSearch = await j('GET', `/api/events/${eventId}/wl-search?q=${encodeURIComponent(fake.lastName)}`, undefined, token)
   if (fakeSearch.status < 200 || fakeSearch.status >= 300) fail('wl search fake row', fakeSearch)
   if (Array.isArray(fakeSearch.body) && fakeSearch.body.length > 0) {
@@ -173,7 +160,6 @@ try {
     console.log('skip dismiss (no candidate)')
   }
 
-  // 9. sync again, no body: exact and near keep their wlUid, fake stays unlinked
   const t1 = Date.now()
   const sync2 = await j('POST', `/api/events/${eventId}/roster/sync`, undefined, token)
   const ms2 = Date.now() - t1
@@ -190,12 +176,10 @@ try {
   if (!fakeAfter4 || fakeAfter4.wlUid) fail('fake row still unlinked', { body: fakeAfter4 })
   ok('verify second sync', 'exact and near kept wlUid, fake stayed unlinked')
 
-  // 10. sync with a body: the body is ignored under the new contract
   const sync3 = await j('POST', `/api/events/${eventId}/roster/sync`, { kBusinesses: ['ignored'] }, token)
   if (sync3.status < 200 || sync3.status >= 300) fail('roster sync with body', sync3)
   ok('roster sync with body', 'ignored body still answers 2xx')
 
-  // 11. the candidate pool is the subset, not the whole gym
   const cands = await j('GET', `/api/events/${eventId}/candidates`, undefined, token)
   if (cands.status < 200 || cands.status >= 300) fail('candidates', cands)
   if (!Array.isArray(cands.body)) fail('candidates shape', cands)
@@ -208,7 +192,6 @@ try {
     console.log(e instanceof Error ? (e.stack ?? e.message) : String(e))
   }
 } finally {
-  // 12. always try to delete the event, even after a failed step above
   if (eventId !== undefined) {
     try {
       const deleted = await j('DELETE', `/api/events/${eventId}`, undefined, token)

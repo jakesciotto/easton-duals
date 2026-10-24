@@ -68,8 +68,6 @@
 }
 
 :root {
-  /* The neutral ramp. One OKLCH hue, 276. Chroma peaks at --gray-9 and falls back
-     at the near white. Every ratio in the design brief is against --gray-2. */
   --black: #000000;
   --gray-1: #0e0e11;
   --gray-2: #131316;
@@ -85,11 +83,9 @@
   --gray-12: #d9d9de;
   --white: #ffffff;
 
-  /* Exactly three state accents, one meaning each. Nothing else may use these hues. */
   --live: #56dc85;
   --attend: #f7ae0c;
   --fault: #fd736a;
-  /* Kids belt families and stripes, for the roster row dot. */
   --belt-white: #e6e6e6;
   --belt-grey: #8b8f96;
   --belt-yellow: #e2bd45;
@@ -98,14 +94,10 @@
   --stripe-white: #fafafa;
   --stripe-black: #111111;
 
-  /* Leading and trailing figures. Both stay inside the near-white rule. */
   --fig-lead: var(--gray-12);
   --fig-trail: var(--gray-10);
   --fig-tied: var(--gray-12);
 
-  /* Aliases. Every old semantic name points at the ramp, so a screen keeps
-     rendering until it migrates. --accent is the hover background in this
-     codebase, not the press background. */
   --background: var(--black);
   --foreground: var(--white);
   --card: var(--gray-2);
@@ -130,8 +122,6 @@
   --ok: var(--live);
   --warn: var(--attend);
 
-  /* Ledger Grid tracks. Every numeric track must be declared on an element whose
-     font-family is the mono face, or ch measures the sans zero. */
   --col-select: 16px;
   --col-state: 3px;
   --col-num-s: calc(2ch + 24px);
@@ -147,14 +137,8 @@
   body { @apply bg-background text-foreground font-sans antialiased; }
   .touch { touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
 
-  /* box-shadow is dropped in forced-colors mode while outline is retained, so
-     every focus ring needs both or the app has no visible focus there. */
   :focus-visible { outline: 2px solid transparent; outline-offset: 2px; }
 
-  /* Tailwind v4 preflight sets button { cursor: default }, so every control in the
-     app showed the arrow unless a component styled its own pointer. One rule for
-     every interactive role, so a new control never needs a cursor-pointer class of
-     its own. Text inputs and textareas keep the platform's text cursor. */
   button,
   a[href],
   [role='button'],
@@ -176,11 +160,6 @@
 }
 
 @layer utilities {
-  /* The console type ramp. Nine steps, three weights, tracking that reverses
-     sign below 14px. Each step also publishes its size as --step, which is what
-     lets the coarse-pointer floor below raise a small control without capping a
-     large one. --step inherits, so a control that takes its size from an ancestor
-     is measured by that ancestor's step. */
   .t1 { font-size: 11px; --step: 11px; line-height: 16px; font-weight: 500; letter-spacing: .016em; }
   .t2 { font-size: 13px; --step: 13px; line-height: 18px; font-weight: 500; letter-spacing: .004em; }
   .t3 { font-size: 14px; --step: 14px; line-height: 20px; font-weight: 400; letter-spacing: 0; }
@@ -194,8 +173,6 @@
   .label { font-size: 13px; line-height: 18px; font-weight: 500; letter-spacing: .004em; color: var(--muted-foreground); }
   .meta { font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: .004em; color: var(--muted-foreground); }
 
-  /* Every number, everywhere. The fixed slot means a value change never changes
-     the width of its container. */
   .fig { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 500; }
   .fig-1 { min-width: 1ch; }
   .fig-2 { min-width: 2ch; }
@@ -206,11 +183,6 @@
   .tabular { font-variant-numeric: tabular-nums; }
   .team-dot { background: var(--team); }
 
-  /* 6.18. Five underline tabs plus their gaps and gutters measure about 438px, which is
-     wider than a 393px phone, so the rail takes its own overflow and the shell never
-     scrolls sideways. The 24px mask is the affordance that says there are tabs behind
-     the edge. Above 640px the row fits, and a scroll container there would only clip
-     the focus ring, so the whole behaviour is inside the breakpoint. */
   @media (max-width: 639px) {
     .rail {
       overflow-x: auto;
@@ -222,8 +194,6 @@
     .rail::-webkit-scrollbar { display: none; }
   }
 
-  /* The register tick. The only decorative mark in the product: it marks where
-     the digits in a numeric column end. */
   .tick { position: relative; }
   .tick::after {
     content: ''; position: absolute; right: 0; bottom: -9px;
@@ -231,24 +201,11 @@
   }
 }
 
-/* 6.18, and not deferred. iOS Safari zooms the viewport when a control whose text is under
-   16px takes focus, and it does not zoom back out on blur, so one tap on a 13px roster cell
-   leaves every later tap landing on a zoomed layout. t1, t2 and t3 are all below the floor.
-   This is a floor and never a cap: max() keeps the entry and scorer figures at their own
-   step, and --step is what carries that step here (see the ramp above). Unlayered so it
-   outranks the ramp utilities it is raising. Never solved with user-scalable=no, which is
-   a WCAG 1.4.4 failure and which iOS ignores for this case anyway. */
 @media (pointer: coarse) {
   input, textarea, select, [contenteditable] {
     font-size: max(16px, var(--step, 1em));
   }
 
-  /* The floor raises the input but a numeric track resolves ch on its ANCESTOR at the
-     unfloored size, so the two disagree again and the digits overflow the column the
-     register tick marks. The tracks are therefore resolved against the floored size:
-     the mono advance is 0.6em, so one character at 16px is 9.6px. That is wider than a
-     track holding plain text needs, which costs a few pixels of the flexible name track
-     and never overflows. */
   :root {
     --col-num-s: calc(2 * 9.6px + 24px);
     --col-num-m: calc(3 * 9.6px + 24px);
@@ -256,8 +213,6 @@
   }
 }
 
-/* Fewer and gentler, not zero. The global nuke deleted the app's only change
-   cue, so movement drops and everything a person needs to see is kept. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

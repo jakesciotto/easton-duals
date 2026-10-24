@@ -29,8 +29,6 @@ const createSchema = z.object({
 })
 const patchSchema = createSchema.partial()
 
-// One paste. The pairs carry no length, ruleset or mat: those are the row's own controls
-// once the match exists, and a paste is a list of who fights whom.
 const bulkSchema = z.object({
   matches: z.array(z.object({
     athleteAId: z.number().int(),
@@ -40,15 +38,11 @@ const bulkSchema = z.object({
   divisions: z.array(divisionSchema).default([]),
 })
 
-// A bracket match has nothing to warn about until both of its sides are filled, and the
-// pair it ends up with was never anybody's choice.
 const matchWarnings = async (db: DbLike, m: MatchRow) =>
   m.athleteAId === null || m.athleteBId === null
     ? []
     : pairWarnings(db, m.eventId, m.athleteAId, m.athleteBId, { exceptMatchId: m.id, style: m.style })
 
-// A refusal from one line of a paste, carrying the line it came from. The code decides the
-// status the same way a single-match refusal does.
 const labelled = (label: string, r: { code: 'validation' | 'match_state'; message: string }) =>
   r.code === 'match_state' ? new MatchStateError(`${label}: ${r.message}`) : new ValidationError(`${label}: ${r.message}`)
 
@@ -60,9 +54,6 @@ const relabelled = (label: string, err: unknown) => {
 
 export const matchRoutes = new Hono<Env>()
 
-// No existence check: the audit log outlives the rows it describes, so the history of a
-// match somebody deleted is exactly the history worth reading. An unknown id has no rows
-// and answers with none. Oldest first, because the sheet reads downwards.
 matchRoutes.get('/matches/:matchId/history', requireAdmin, async c => {
   const { db } = c.get('ctx')
   const rows: AuditEntry[] = await db.select({
@@ -77,9 +68,6 @@ matchRoutes.post('/events/:eventId/matches', requireAdmin, validate('json', crea
   if (!await db.select({ id: events.id }).from(events).where(eq(events.id, eventId)).get()) return errorJson(c, 404, 'not_found', 'event not found')
   await assertNotCertified(db, eventId)
   const body = c.req.valid('json')
-  // A hand-designed pair can make an existing draft stale on either side, the way
-  // confirming a proposal drops its own draft. Left alone, the draft would sit in the
-  // table looking live until somebody tried to confirm it and was refused.
   let removedProposals = 0
   const created = await createMatch(db, { eventId, ...body, source: 'designed' }, {
     also: async (tx, match) => {
@@ -93,20 +81,10 @@ matchRoutes.post('/events/:eventId/matches', requireAdmin, validate('json', crea
     },
   })
   if (!created.ok) return errorJson(c, created.code === 'match_state' ? 409 : 422, created.code, created.message)
-  // A pair a person picked is never refused for being odd, only reported back, because the
-  // organizer knows things the roster does not.
   const warnings = await matchWarnings(db, created.match)
   return c.json({ ...created.match, warnings, removedProposals }, 201)
 })
 
-/**
- * The whole paste in one transaction. A line the server cannot make sense of takes the
- * body back out with it, because half a pasted sheet is worse than none: the organizer
- * would have to work out which lines landed before pasting the rest.
- *
- * The refusal names the line by its index in the array it came from, which is what the
- * dialog needs to point at the row that has to change.
- */
 matchRoutes.post('/events/:eventId/matches/bulk', requireAdmin, validate('json', bulkSchema), async c => {
   const { db } = c.get('ctx')
   const eventId = Number(c.req.param('eventId'))
@@ -147,8 +125,6 @@ matchRoutes.patch('/matches/:matchId', requireAdmin, validate('json', patchSchem
   const body = c.req.valid('json')
   const update: Partial<typeof matches.$inferInsert> = {}
   if (body.athleteAId !== undefined || body.athleteBId !== undefined) {
-    // A division decides its own pairs, so a kid is changed by editing the division and
-    // generating it again. The mat, the order, the length and the style stay editable.
     if (existing.divisionId !== null) return errorJson(c, 409, 'match_state', 'edit the division')
     const aId = body.athleteAId ?? existing.athleteAId
     const bId = body.athleteBId ?? existing.athleteBId

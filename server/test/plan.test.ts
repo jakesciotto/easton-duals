@@ -105,7 +105,7 @@ describe('every gi match runs before any nogi match', () => {
 
   it('sums the longest match of every wave that ran plus a minute, gapped waves free', () => {
     expect(result.waves).toBe(4)
-    expect(result.minutes).toBe(18) // (300+60)*3 placed waves / 60, wave 1 contributes nothing
+    expect(result.minutes).toBe(18)
   })
 
   it('places an all-nogi list in priority order with no gap', () => {
@@ -149,7 +149,7 @@ describe('a feeder runs at least two waves before its dependent', () => {
       { matId: 10, number: 1, count: 2 },
       { matId: 20, number: 2, count: 1 },
     ])
-    expect(result.minutes).toBe(12) // (300+60) at wave 0, (300+60) at wave 2
+    expect(result.minutes).toBe(12)
   })
 
   it('treats an id that names neither a pending nor a live match as already done', () => {
@@ -189,9 +189,9 @@ describe('a kid never fights in two adjacent waves unless nothing else fits', ()
   it('relaxes to back-to-back with a warning when a three-way round robin has nothing else to run', () => {
     const names: Record<number, string> = { 1: 'Priya', 2: 'Jonah', 3: 'Mika' }
     const result = plan([
-      pm({ id: 1, number: 1, athleteIds: [1, 2] }), // Priya v Jonah
-      pm({ id: 2, number: 2, athleteIds: [1, 3] }), // Priya v Mika
-      pm({ id: 3, number: 3, athleteIds: [2, 3] }), // Jonah v Mika
+      pm({ id: 1, number: 1, athleteIds: [1, 2] }),
+      pm({ id: 2, number: 2, athleteIds: [1, 3] }),
+      pm({ id: 3, number: 3, athleteIds: [2, 3] }),
     ], {}, id => names[id])
 
     expect(matchIds(result)).toEqual([1, 2, 3])
@@ -233,7 +233,7 @@ describe('planSchedule estimate', () => {
       pm({ id: 2, number: 2, athleteIds: [3, 4], lengthSec: 240 }),
     ])
     expect(result.waves).toBe(2)
-    expect(result.minutes).toBe(11) // (300+60) + (240+60) = 660s = 11m exactly
+    expect(result.minutes).toBe(11)
   })
 })
 

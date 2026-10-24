@@ -92,8 +92,6 @@ describe('every write records an audit row', () => {
     await call(app, 'POST', `/api/matches/${first}/clock/extend`, { id: 'add-0001', lastSeq: 0, addMs: 60_000 }, token)
     expect((await last(db, s.eventId)).detail).toEqual({ seq: 1, addMs: 60_000 })
     await call(app, 'POST', `/api/matches/${first}/end`, { id: 'end-0001', lastSeq: 1, winnerAthleteId: s.a1 }, token)
-    // Ending the match on mat 1 frees it, and the mat loads the next pending match in the
-    // same write, which is why the advance row that follows also carries mat 1's actor.
     const all = await rows(db, s.eventId)
     const [ended, advanced] = all.slice(-2)
     expect(ended.actor).toBe('mat:1')
@@ -143,7 +141,6 @@ describe('every write records an audit row', () => {
       entryId: 'entry-0003', pointsA: 1, pointsB: 6, winnerAthleteId: s.b1, winType: 'points', reason: 'x'.repeat(121),
     }, adminToken)
     expect(tooLong.status).toBe(422)
-    // An empty box is not a validation error, and leaves no reason behind.
     const blank = await call(app, 'POST', url, {
       entryId: 'entry-0004', pointsA: 2, pointsB: 2, winnerAthleteId: s.a1, winType: 'decision', reason: '',
     }, adminToken)
@@ -197,7 +194,6 @@ describe('every write records an audit row', () => {
     const { app, db, adminToken } = await createTestApp()
     const s = await seedEvent(db)
     const url = `/api/events/${s.eventId}`
-    // The console posts the whole form, so the date repeats what is stored.
     await call(app, 'PATCH', url, { name: 'Fall Duals 2026', date: '2026-10-03' }, adminToken)
     const edits = (await rows(db, s.eventId)).filter(r => r.action === 'event_edit')
     expect(edits.map(r => r.detail)).toEqual([{ name: 'Fall Duals 2026' }])
@@ -215,7 +211,6 @@ describe('every write records an audit row', () => {
     expect(await actions(db, s.eventId)).toEqual(['admin far'])
     expect((await last(db, s.eventId)).detail).toEqual({ far: 1.1 })
 
-    // Repeating the same value is not a move, so a form posted back unchanged writes nothing.
     await call(app, 'PATCH', url, { far: 1.1 }, adminToken)
     expect((await rows(db, s.eventId)).filter(r => r.action === 'far')).toHaveLength(1)
 
@@ -305,8 +300,6 @@ describe('every write records an audit row', () => {
   it('records an advance the Live panel asked for', async () => {
     const { app, db, adminToken } = await createTestApp()
     const s = await seedEvent(db, { matCount: 1, live: true })
-    // An idle mat: nothing loaded, and a pending match waiting for it. That is the state
-    // the Live panel's Call the next match exists for.
     await db.update(matches).set({ status: 'pending' }).where(eq(matches.id, s.matchIds[0])).run()
     await db.update(mats).set({ currentMatchId: null }).where(eq(mats.id, s.matIds[0])).run()
     const advanced = await call(app, 'POST', `/api/mats/${s.matIds[0]}/advance`, undefined, adminToken)

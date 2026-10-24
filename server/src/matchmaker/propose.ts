@@ -8,20 +8,13 @@ import { maximumWeightMatching } from './blossom.js'
 import { classGap, weightClass } from '../shared/weight-class.js'
 import type { Proposal, ProposalSide, Style } from '../shared/types.js'
 
-// Weight class first, then age: a class is worth five years of age, and belt and rating
-// only settle ties between pairs the first two already agree on.
 const CLASS_WEIGHT = 10
 const AGE_WEIGHT = 2
 const BELT_WEIGHT = 0.5
 const ERP_WEIGHT = 0.1
 
-// A pair costing more than this is never offered: two classes, or one class and five
-// years. Past it the organizer asks for the match by hand and the Add match dialog warns.
-// Below it, every admitted pair weighs MAX_PAIR_COST + 1 - cost, so a kid without a pair
-// costs 10.5 and the matching makes a pair only when it beats both kids sitting out.
 export const MAX_PAIR_COST = 20
 
-// What a hand-designed pair is warned about. Neither ever blocks a write.
 const WARN_CLASS_GAP = 2
 const WARN_AGE_GAP = 3
 const ALREADY_MET = 'Already met'
@@ -37,11 +30,6 @@ export interface PairSide {
 const ageGapOf = (a: PairSide, b: PairSide) => a.age !== null && b.age !== null ? Math.abs(a.age - b.age) : null
 const classGapOf = (a: PairSide, b: PairSide) => a.weightLbs !== null && b.weightLbs !== null ? classGap(a.weightLbs, b.weightLbs) : null
 
-/**
- * How far apart a pair is, low is close. A kid missing an age or a weight contributes no
- * gap on that axis rather than an invented one: the proposer never sees such a kid, but a
- * swap can put one in a proposal by hand.
- */
 export function pairCost(a: PairSide, b: PairSide): number {
   const erpGap = a.erp !== null && b.erp !== null ? Math.abs(a.erp - b.erp) : 0
   return CLASS_WEIGHT * (classGapOf(a, b) ?? 0)
@@ -50,7 +38,6 @@ export function pairCost(a: PairSide, b: PairSide): number {
     + ERP_WEIGHT * erpGap
 }
 
-/** The one line the console prints between the two kids. */
 export function pairWhy(a: PairSide, b: PairSide): string {
   const parts: string[] = []
   const classes = classGapOf(a, b)
@@ -60,13 +47,6 @@ export function pairWhy(a: PairSide, b: PairSide): string {
   return parts.join(', ') || 'missing age or weight'
 }
 
-/**
- * What a person is told about a pair they picked themselves. The server never refuses on
- * these: the organizer knows something the roster does not, and the warning is there so
- * the choice is deliberate rather than accidental. `exceptMatchId` is the match being
- * edited, which would otherwise report itself as the earlier meeting. `style` scopes
- * "Already met" to that style: a gi rematch says nothing about a nogi pair.
- */
 export async function pairWarnings(
   db: DbLike, eventId: number, aId: number, bId: number, opts: { exceptMatchId?: number; style: Style },
 ): Promise<string[]> {
@@ -109,8 +89,6 @@ function proposalSide(a: AthleteRow): ProposalSide {
 function serialize(row: ProposalRow, byId: Map<number, AthleteRow>): Proposal | null {
   const a = byId.get(row.athleteAId)
   const b = byId.get(row.athleteBId)
-  // A kid taken off their team after the draft was made leaves a row nothing can confirm.
-  // It is left in the table for the next propose to replace rather than written to here.
   if (!a || !b || a.teamId === null || b.teamId === null) return null
   const c = row.athleteCId === null ? null : byId.get(row.athleteCId)
   if (row.athleteCId !== null && (!c || c.teamId === null)) return null
@@ -122,7 +100,6 @@ async function athletesById(db: DbLike, eventId: number): Promise<Map<number, At
   return new Map(rows.map(a => [a.id, a]))
 }
 
-/** Cost order, which is the order Confirm all works through. */
 export async function loadProposals(db: DbLike, eventId: number): Promise<Proposal[]> {
   const rows = await db.select().from(proposals).where(eq(proposals.eventId, eventId))
     .orderBy(asc(proposals.cost), asc(proposals.id)).all()
@@ -139,16 +116,6 @@ export async function loadProposal(db: DbLike, proposalId: number): Promise<Prop
 const pairKey = (a: number, b: number) => a < b ? `${a}:${b}` : `${b}:${a}`
 const genderKey = (g: string) => g.trim().toLowerCase().charAt(0)
 
-/**
- * The pairing of this style's free kids with the lowest total cost, where a kid left
- * without a pair costs half of MAX_PAIR_COST plus a half: a maximum weight matching over
- * the general graph, since teams number two to eight. Deterministic: the edges enter the
- * matching in cost then athlete id order, so the same roster proposes the same rows.
- *
- * One transaction: the event's drafts of this style are replaced whole, because a
- * proposal only means anything against the pool as it stands now. A draft of the other
- * style is a separate set and is left alone.
- */
 export async function proposeMatches(db: DbLike, eventId: number, style: Style): Promise<Proposal[]> {
   return db.transaction(async tx => {
     const ev = await tx.select().from(events).where(eq(events.id, eventId)).get()
@@ -162,9 +129,6 @@ export async function proposeMatches(db: DbLike, eventId: number, style: Style):
       .innerJoin(divisions, eq(divisionMembers.divisionId, divisions.id))
       .where(eq(divisions.eventId, eventId)).all()
     const inDivision = new Set(divisionRows.map(r => r.athleteId))
-    // A kid with a match of this style already has one, whatever its status: the proposer
-    // never offers a second one in the same style, and a division kid is never offered at
-    // all. "Already met" is the same rule read as a pair, kept for the loop below.
     const sameStyle = matchRows.filter(m => m.style === style)
     const busy = new Set(sameStyle.flatMap(m => [m.a, m.b]).filter((id): id is number => id !== null))
     const met = new Set(sameStyle.flatMap(m => m.a === null || m.b === null ? [] : [pairKey(m.a, m.b)]))
@@ -191,9 +155,6 @@ export async function proposeMatches(db: DbLike, eventId: number, style: Style):
     }
     candidates.sort((p, q) => p.cost - q.cost || p.lighter - q.lighter || p.a.id - q.a.id || p.b.id - q.b.id)
 
-    // Integer weights keep the matching exact. The cost term is scaled so that no sum of
-    // tie-break terms can outweigh one thousandth of cost, and the tie-break prefers the
-    // earlier candidate, which is how a tie between equal pairs stays explainable.
     const index = new Map(free.map((k, i) => [k.id, i]))
     const scale = Math.floor(free.length / 2) * candidates.length + 1
     const mate = maximumWeightMatching(free.length, candidates.map((c, rank) => ({

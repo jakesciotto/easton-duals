@@ -20,8 +20,6 @@ import { EVENT_FINISHED } from './scorer/actions'
 import { scorerRefusals } from './scorer/refusals'
 import { useFitsScorer } from './scorer/viewport'
 
-// The two screens that stand instead of the scorer both send the reader to the board, which
-// is the one surface that goes on being useful from a phone or after the event is over.
 function BoardNote({ eventId }: { eventId: number }) {
   const path = `/board/${eventId}`
   const origin = typeof window === 'undefined' ? '' : window.location.origin
@@ -34,8 +32,6 @@ function BoardNote({ eventId }: { eventId: number }) {
   )
 }
 
-// 6.16: below 900 CSS px, or out of landscape, the honest answer is a plain page. A phone
-// cannot hold a 20mm target in a three up grid, and this route is where a QR scan lands.
 function WrongDevice({ binding }: { binding: MatBinding }) {
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-6">
@@ -51,13 +47,6 @@ function WrongDevice({ binding }: { binding: MatBinding }) {
   )
 }
 
-/**
- * 6.16, refuse rather than reject, at the scale of the whole afternoon. After Finish the
- * server turns down every write, so a scorer that went on showing its buttons would let a
- * volunteer tap through a match and meet an error a second later for every one of them. The
- * screen states the fact instead and offers the two things that still work: the board, and
- * the person at the desk.
- */
 function EventFinished({ eventId, contact }: { eventId: number; contact: EventContact | null }) {
   const line = contactLine(contact)
   return (
@@ -76,14 +65,8 @@ function Scorer({ binding }: { binding: MatBinding }) {
   const { snapshot, connected, lastSuccessAt } = useSnapshot(binding.eventId)
   const s = useScorer(binding, snapshot, connected)
   const { remainingMs } = useClock(s.current?.clock ?? null, snapshot?.now ?? null)
-  // Which match we last sounded an expiry for, and whether the clock has run since then.
-  // Gating on "ran since" (not just "already fired for this match id") means a genuine second
-  // expiry on the same match can still surface, while merely re-rendering with the clock
-  // still frozen at zero can't retrigger it.
   const firedForId = useRef<number | null>(null)
   const ranSinceFire = useRef(false)
-  // The length the last alarm was armed against. An extension moves the expiry, so the tone
-  // has to be armed again for the new one rather than counted as already sounded.
   const firedForLength = useRef<number | null>(null)
 
   useEffect(() => {
@@ -92,14 +75,6 @@ function Scorer({ binding }: { binding: MatBinding }) {
     return () => window.removeEventListener('pointerdown', unlock)
   }, [])
 
-  // STILL OPEN 8: this is the screen that must never sleep while a mat is being
-  // scored, and it held no lock of its own -- the one MatPickPage acquired is
-  // released the instant that route unmounts on the navigate() into this one.
-  // Ask on mount, which is all Chromium needs (recent activation from the bind
-  // form usually still covers it), and again on the mat's own first tap or key
-  // press, which is all Safari needs since it refuses the request outside a
-  // gesture. The hook's own in-flight guard (R6) makes it safe for this effect
-  // to ask again even if a request from the handoff is already in flight.
   const wakeLock = useWakeLock()
   useEffect(() => {
     if (wakeLock.active) return
@@ -113,9 +88,6 @@ function Scorer({ binding }: { binding: MatBinding }) {
     }
   }, [wakeLock.active, wakeLock.request])
 
-  // G04: an expired token and a token another iPad took over are both facts about this
-  // device's binding, not about the write that met them. The binding goes, and the tablet
-  // lands on the mat pick with the reason on the URL so a reload keeps it.
   useEffect(() => {
     if (!s.bindingLost) return
     clearMatBinding()
@@ -123,18 +95,11 @@ function Scorer({ binding }: { binding: MatBinding }) {
   }, [s.bindingLost, binding.eventId, navigate])
 
   const m = s.current
-  // Server confirmed, not merely counted down: m.clock.elapsedMs only reaches the length
-  // once a snapshot carries the pause the server wrote, so this waits for the real thing
-  // rather than guessing off the locally ticking countdown.
   const expired = m !== null && m.status === 'live' && !m.pendingTerminal
     && remainingMs <= 0 && m.clock.elapsedMs >= m.clock.lengthMs
 
-  // 6.16: the alarm is the frame and the Alert, both of which hold until the result is
-  // recorded. The tone is a near field cue for whoever is holding the tablet, and it plays
-  // exactly once per expiry -- no flash, no toast, no repeat.
   useEffect(() => {
     if (m?.clock.startedAt) ranSinceFire.current = true
-    // An extension is a new expiry, so the alarm is armed for it.
     if (m && firedForLength.current !== null && firedForLength.current !== m.clock.lengthMs) {
       firedForId.current = null
     }
@@ -146,8 +111,6 @@ function Scorer({ binding }: { binding: MatBinding }) {
     playExpired()
   }, [expired, m])
 
-  // Certified is finished with a signature on it, so the tablet shows the same screen:
-  // nothing more is scored on it either way.
   if (snapshot !== null && isFinished(snapshot.event.status)) {
     return <EventFinished eventId={binding.eventId} contact={snapshot.event.contact} />
   }
@@ -160,8 +123,6 @@ function Scorer({ binding }: { binding: MatBinding }) {
     last: s.lastAction,
     expired,
   })
-  // G05: a mat with nothing on it and nothing queued is finished for the day, and telling
-  // its volunteer to wait for the organizer is telling them to wait for nothing.
   const idleNote = s.mat && s.mat.current === null && s.mat.onDeck.length === 0
     ? `Mat ${s.mat.number} complete`
     : 'No match on this mat. Waiting for the organizer.'
@@ -169,9 +130,6 @@ function Scorer({ binding }: { binding: MatBinding }) {
   return (
     <main className="relative flex h-dvh select-none flex-col overflow-hidden bg-background">
       <Connecting connected={connected} />
-      {/* A refused lock is the failure that ends the afternoon quietly, so it is
-          said in words. It sits above the score sides rather than over them,
-          because nothing may cover a control the scorer taps without looking. */}
       {wakeLock.failed && !wakeLock.active && (
         <div role="status" className="shrink-0 bg-gray-1 px-4 py-1.5 text-center t2 text-attend">
           Screen may sleep. Keep this tablet awake in its settings.

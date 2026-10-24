@@ -22,9 +22,6 @@ const swapSchema = z.object({
 
 const proposeSchema = z.object({ style: z.enum(['gi', 'nogi']).default('gi') })
 
-// Older clients, and every real caller today, send no body at all: the Gi | Nogi segment
-// only reaches the route once the console picks it up. A body is read only when it says
-// it is JSON and actually holds something, so an absent body never touches c.req.json().
 async function proposeStyle(c: Context<Env>): Promise<{ style: Style } | Response> {
   const type = c.req.header('content-type') ?? ''
   const raw = type.includes('application/json') ? (await c.req.text()).trim() : ''
@@ -40,20 +37,11 @@ async function proposeStyle(c: Context<Env>): Promise<{ style: Style } | Respons
 const eventExists = async (db: DbLike, eventId: number) =>
   Boolean(await db.select({ id: events.id }).from(events).where(eq(events.id, eventId)).get())
 
-// One sentence for both guards, so the console reads the same refusal wherever the server
-// is the one choosing the pair.
 const busyMessage = (kid: AthleteRow) => `${kid.firstName} ${kid.lastName} already has a match`
 
 const firstRuleset = (db: DbLike, eventId: number) =>
   db.select({ id: rulesets.id }).from(rulesets).where(eq(rulesets.eventId, eventId)).orderBy(asc(rulesets.id)).get()
 
-// A confirmed draft becomes a match on the same path the Add match dialog uses, and stops
-// being a draft in the same transaction.
-//
-// The draft was written against a pool that has moved on since. A kid the organizer has
-// given a match by hand in the meantime is spoken for, and the server is the one choosing
-// this pair, so it refuses rather than warns. The check sits inside the insert's
-// transaction so two confirms racing over the same kid cannot both pass it.
 const confirm = (db: DbLike, row: ProposalRow, rulesetId: number) =>
   createMatch(
     db,
@@ -109,9 +97,6 @@ proposalRoutes.post('/events/:eventId/proposals/confirm-all', requireAdmin, asyn
   if (!ruleset) return errorJson(c, 409, 'match_state', 'event needs a ruleset')
   const rows = await db.select().from(proposals).where(eq(proposals.eventId, eventId))
     .orderBy(asc(proposals.cost), asc(proposals.id)).all()
-  // Closest first, one match at a time, so each match lands on the mat that is emptiest
-  // once the one before it has been placed. A draft this cannot confirm stays a draft, so
-  // the organizer can swap or remove it; `skipped` is how many the panel still holds.
   let created = 0
   for (const row of rows) {
     const result = row.athleteCId === null ? await confirm(db, row, ruleset.id) : await confirmTrio(db, row)
@@ -144,8 +129,6 @@ proposalRoutes.patch('/proposals/:proposalId', requireAdmin, validate('json', sw
   await assertNotCertified(db, row.eventId)
   if (row.athleteCId !== null) return errorJson(c, 422, 'validation', 'a round robin draft has no swap; remove it and add the division by hand')
   const body = c.req.valid('json')
-  // Only a kid coming in has to be free. The ones already in this draft are not new, and
-  // refusing on their account would strand a draft the organizer is trying to fix.
   const incoming = [body.athleteAId, body.athleteBId]
     .filter((id): id is number => id !== undefined && id !== row.athleteAId && id !== row.athleteBId)
   const busy = await busyAthlete(db, row.eventId, incoming)
@@ -158,8 +141,6 @@ proposalRoutes.patch('/proposals/:proposalId', requireAdmin, validate('json', sw
   const a = sides.find(k => k.id === pair.a)!
   const b = sides.find(k => k.id === pair.b)!
 
-  // The kid coming in can only be in one draft, so the one they are leaving goes, and the
-  // console is told which row vanished from under it.
   const clash = incoming.length === 0 ? [] : await db.select({ id: proposals.id }).from(proposals).where(and(
     eq(proposals.eventId, row.eventId),
     ne(proposals.id, row.id),

@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 
-// Pointer events, not HTML5 drag events, because dragstart never fires on touch and
-// the organizer runs this screen on a tablet.
 const THRESHOLD = 8
 
 export const DROP_ATTR = 'data-drop-team'
@@ -12,7 +10,6 @@ export function dropZoneValue(teamId: number | null): string {
 }
 
 function zoneAt(x: number, y: number): string | null {
-  // jsdom has no elementFromPoint, and neither does a headless snapshot render.
   const at = typeof document.elementFromPoint === 'function' ? document.elementFromPoint(x, y) : null
   return at?.closest(`[${DROP_ATTR}]`)?.getAttribute(DROP_ATTR) ?? null
 }
@@ -41,8 +38,6 @@ export function useRosterDrag(onDrop: (athleteId: number, teamId: number | null)
       if (!active.current) {
         const dx = Math.abs(e.clientX - p.x)
         const dy = Math.abs(e.clientY - p.y)
-        // A touch that travels mostly downward is the organizer scrolling the list,
-        // so only a sideways intent picks a competitor up.
         if (dx < THRESHOLD || (p.touch && dx < dy)) return
         active.current = true
         setDragging(true)

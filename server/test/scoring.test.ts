@@ -6,17 +6,11 @@ import { buildSnapshot, publicName } from '../src/live/snapshot.js'
 import { events, mats } from '../src/db/schema.js'
 
 describe('a mat binding dies when another tablet takes the mat', () => {
-  // A mat token is a write credential. In a desk event the desk is already typing the
-  // results, so a second writer would fight it over the same matches. The tablet refuses
-  // too, but that guard is advisory: a stale tab or a bookmarked link reaches the endpoint
-  // without it.
   it('refuses a bind on an event that runs from the desk, after checking the code', async () => {
     const { app, db } = await createTestApp()
     const s = await seedEvent(db)
     await db.update(events).set({ mode: 'entry' }).where(eq(events.id, s.eventId)).run()
 
-    // A wrong code still fails as a wrong code, so an unauthenticated caller learns nothing
-    // about how the event is run.
     const bad = await call(app, 'POST', `/api/events/${s.eventId}/mats/${s.matIds[0]}/bind`, { code: '9999' })
     expect(bad.status).toBe(401)
 
@@ -25,8 +19,6 @@ describe('a mat binding dies when another tablet takes the mat', () => {
     expect(refused.body.error.code).toBe('desk_mode')
     expect(refused.body.error.message).toMatch(/runs from the desk/)
 
-    // Switching back hands out a token again, because the desk path is a fallback rather
-    // than a one way door.
     await db.update(events).set({ mode: 'live' }).where(eq(events.id, s.eventId)).run()
     expect((await call(app, 'POST', `/api/events/${s.eventId}/mats/${s.matIds[0]}/bind`, { code: '0420' })).status).toBe(200)
   })
@@ -44,7 +36,6 @@ describe('a mat binding dies when another tablet takes the mat', () => {
     expect((await call(app, 'POST', `/api/mats/${s.matIds[1]}/heartbeat`, {}, ok.body.token)).status).toBe(403)
     expect((await call(app, 'GET', `/api/events/${s.eventId}/snapshot`)).body.snapshot.mats[0].bound).toBe(true)
     for (let i = 0; i < 18; i++) await call(app, 'POST', `/api/events/${s.eventId}/mats/${s.matIds[0]}/bind`, { code: '9999' })
-    // Nineteen wrong codes so far, and the correct ones in between never spent the budget.
     expect((await call(app, 'POST', `/api/events/${s.eventId}/mats/${s.matIds[0]}/bind`, { code: '0420', takeOver: true })).status).toBe(200)
     await call(app, 'POST', `/api/events/${s.eventId}/mats/${s.matIds[0]}/bind`, { code: '9999' })
     expect((await call(app, 'POST', `/api/events/${s.eventId}/mats/${s.matIds[0]}/bind`, { code: '0420' })).status).toBe(429)
@@ -106,11 +97,9 @@ describe('unbind', () => {
     expect(first.status).toBe(200)
     expect((await call(app, 'POST', `/api/mats/${s.matIds[0]}/unbind`, {}, first.body.token)).status).toBe(200)
     expect((await call(app, 'GET', `/api/events/${s.eventId}/snapshot`)).body.snapshot.mats[0].bound).toBe(false)
-    // No takeover needed: the mat is free, not held by a silent tablet.
     const again = await call(app, 'POST', bind, { code: '0420' })
     expect(again.status).toBe(200)
     expect(again.body.token).not.toBe(first.body.token)
-    // The token the tablet dropped is dead too.
     const stale = await call(app, 'POST', `/api/mats/${s.matIds[0]}/heartbeat`, {}, first.body.token)
     expect(stale.status).toBe(401)
     expect(stale.body.error.code).toBe('token_stale')

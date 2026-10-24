@@ -1,6 +1,5 @@
 import type { Style } from '../shared/types.js'
 
-// Re-exported so a caller reading a PendingMatch has the type of its style field to hand.
 export type { Style }
 
 export interface PendingMatch {
@@ -31,9 +30,6 @@ export interface SchedulePlan {
   gaps: { wave: number; matId: number | null; waitingOn: number }[]
 }
 
-// Lowest first: style, then age (a match with no known age runs last in its style), then
-// round and division position (null ahead of any real one), then number as the final,
-// always-unique tiebreaker.
 function comparePriority(a: PendingMatch, b: PendingMatch): number {
   const styleA = a.style === 'gi' ? 0 : 1
   const styleB = b.style === 'gi' ? 0 : 1
@@ -61,14 +57,12 @@ export function planSchedule(input: PlanInput, names: (athleteId: number) => str
   const placed = new Set<number>()
   const waveOfMatch = new Map<number, number>()
 
-  // A live kid is fixed at wave -1 for the rest rule, whatever match they are in.
   const occupiedWave = new Map<number, number>()
   const occupiedMatchNumber = new Map<number, number>()
   for (const l of input.live) for (const aid of l.athleteIds) occupiedWave.set(aid, -1)
 
   let unplacedGi = priority.filter(m => m.style === 'gi').length
 
-  // A feeder that is neither pending nor live has already run: it clears immediately.
   const feederWave = (feedId: number): number => {
     const placedWave = waveOfMatch.get(feedId)
     if (placedWave !== undefined) return placedWave
@@ -86,8 +80,6 @@ export function planSchedule(input: PlanInput, names: (athleteId: number) => str
       const occ = occupiedWave.get(aid)
       if (occ === undefined) return true
       if (!relaxed) return occ !== wave && occ !== wave - 1
-      // Relaxed still never doubles a kid into the same wave, and a live kid never
-      // starts a new match before wave 1: there is no wave number to warn about yet.
       if (wave === 0 && occ === -1) return false
       return occ !== wave
     })
@@ -95,7 +87,7 @@ export function planSchedule(input: PlanInput, names: (athleteId: number) => str
   const findCandidate = (wave: number, relaxed: boolean): PendingMatch | null => {
     for (const m of priority) {
       if (placed.has(m.id)) continue
-      if (m.style === 'nogi' && unplacedGi > 0) break // gi is sorted first; the rest are all nogi
+      if (m.style === 'nogi' && unplacedGi > 0) break
       if (!feedersReady(m, wave)) continue
       if (!restOk(m, wave, relaxed)) continue
       return m
@@ -157,8 +149,6 @@ export function planSchedule(input: PlanInput, names: (athleteId: number) => str
       waveMaxLength.push(waveMax)
       emptyWaves = 0
     } else if (++emptyWaves > 1) {
-      // A feeder placed at wave w frees its dependent at w + 2, so a placeable set never
-      // idles two waves running. A second empty wave means a feed that can never clear.
       const stuck = priority.find(m => !placed.has(m.id))
       throw new Error(`schedule cannot place M${stuck?.number}`)
     }

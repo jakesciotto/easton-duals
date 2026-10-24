@@ -11,18 +11,12 @@ import { seedEvent } from './fixtures.js'
 const NORTH = { kBusiness: '100001', title: 'North', city: 'Northtown' }
 const SOUTH = { kBusiness: '100002', title: 'South', city: 'Southtown' }
 
-// Three children on the books, two at North and one at South, stored the way
-// WellnessLiving stores a name: in title case, whatever case the roster types.
 const GYM = [
   { uid: '9', firstName: 'Zoe', lastName: 'Martin', kBusiness: NORTH.kBusiness },
   { uid: '13', firstName: 'Iris', lastName: 'Delgado', kBusiness: NORTH.kBusiness },
   { uid: '11', firstName: 'Ana', lastName: 'Martin', kBusiness: SOUTH.kBusiness },
 ]
 
-// What the report's own where clause asks for: a record answers when the filter names its
-// uid, or one of the filter's tokens appears in one of its names. The name comparison
-// lowers both sides, exactly as the query's lower() does, because WellnessLiving's own
-// like is case sensitive and a bare column would answer nothing for a title case name.
 const answers = (filter: WlNameFilter, r: WlBeltRecord) =>
   filter.uids.includes(r.uid)
   || filter.lastTokens.some(t => r.lastName.toLowerCase().includes(t.toLowerCase()))
@@ -131,8 +125,6 @@ describe("the sync asks WellnessLiving for the roster's own names only", () => {
     expect(r.status).toBe(503)
     expect(r.body.error.code).toBe('wl_error')
     expect(r.body.error.message).toBe('WellnessLiving returned no locations for this business')
-    // Nobody was asked, so no row may carry the time of a look, and the linked row keeps
-    // the profile it had rather than being reported gone from an empty pool.
     const rows = await db.select().from(athletes).where(eq(athletes.eventId, s.eventId)).all()
     expect(rows.every(a => a.syncedAt === null)).toBe(true)
     expect(rows.every(a => a.syncChanges === null)).toBe(true)
@@ -142,16 +134,12 @@ describe("the sync asks WellnessLiving for the roster's own names only", () => {
   })
 
   it('gives up mid-location once the sync budget is spent, not only between locations', async () => {
-    // Real start point: the admin token's expiry is checked against this same clock.
     const clock = { ms: Date.now() }
     const slowWl = {
       async listLocations() {
         return ['100001', '100002', '100003'].map((kBusiness, i) => ({ kBusiness, title: `Site ${i + 1}`, city: 'Northtown' }))
       },
       async fetchKidsBeltRecords() { return [] },
-      // Mirrors the real WlClient: several sleeps inside one location's own search, each
-      // one checking the deadline the route passed down, rather than one lump sum that
-      // only the between-locations check could ever catch.
       async searchKidsBeltRecords(kBusiness: string, location: string, _filter: WlNameFilter, deadlineMs?: number) {
         const polls = kBusiness === '100001' ? 2 : 4
         for (let poll = 0; poll < polls; poll++) {
@@ -169,10 +157,6 @@ describe("the sync asks WellnessLiving for the roster's own names only", () => {
       const r = await call(app, 'POST', `/api/events/${s.eventId}/roster/sync`, undefined, adminToken)
       expect(r.status).toBe(503)
       expect(r.body.error.code).toBe('wl_error')
-      // Location 1 completes (140_000ms) and passes the between-locations check at 300_000ms.
-      // Location 2 needs 280_000ms to run to completion (420_000ms total) but is aborted at
-      // its third poll -- 350_000ms in, well before it would ever return and well before a
-      // location 3 would even start.
       expect(r.body.error.message).toContain('1 of 3 locations')
       expect(clock.ms - start).toBe(350_000)
     } finally {
@@ -188,7 +172,6 @@ describe("the sync asks WellnessLiving for the roster's own names only", () => {
     let rows = await db.select().from(rosterCandidates).where(eq(rosterCandidates.eventId, s.eventId)).all()
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ wlUid: '9', belt: 'grey' })
-    // A second sync that finds nobody replaces the first, it does not add to it.
     const { app: app2 } = await createTestApp({ db, roster: { wl: wlFake([NORTH], []), leaderboard: null, syncBudgetMs: null } })
     await call(app2, 'POST', `/api/events/${s.eventId}/roster/sync`, undefined, adminToken)
     rows = await db.select().from(rosterCandidates).where(eq(rosterCandidates.eventId, s.eventId)).all()
@@ -236,7 +219,6 @@ describe("the sync asks WellnessLiving for the roster's own names only", () => {
   it('compares a name through lower() on both sides, because the report\'s like is case sensitive', () => {
     const [q] = searchQuery(filter({ lastTokens: ['Delgado'] }))
     expect(q).toContain("lower(`o_client.text_last`) like '%delgado%'")
-    // A bare column here answers nothing for a name WellnessLiving stores in title case.
     expect(q).not.toContain('`o_client.text_last` like')
   })
 

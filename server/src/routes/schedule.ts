@@ -14,8 +14,6 @@ import { planSchedule, type PendingMatch, type PlanInput, type SchedulePlan } fr
 
 const applySchema = z.object({ apply: z.boolean().default(false) })
 
-// The planner refuses a set it can never lay out rather than looping. Its message names
-// the match, which is the one thing the organizer can act on.
 const CANNOT_PLACE = 'schedule cannot place'
 
 const mean = (values: number[]): number | null =>
@@ -24,15 +22,9 @@ const mean = (values: number[]): number | null =>
 export interface ScheduleRequest {
   input: PlanInput
   names: (athleteId: number) => string
-  /** The live and done rows, in the order they already stand in. */
   settled: MatchRow[]
 }
 
-/**
- * The event as the planner reads it. Everything the plan needs is here rather than in the
- * planner, which stays pure: the ages, the division a bracket match belongs to, and which
- * feeds are still owed a kid.
- */
 export async function scheduleRequest(db: DbLike, eventId: number): Promise<ScheduleRequest> {
   const rows = await db.select().from(matches).where(eq(matches.eventId, eventId))
     .orderBy(asc(matches.orderIndex), asc(matches.id)).all()
@@ -42,8 +34,6 @@ export async function scheduleRequest(db: DbLike, eventId: number): Promise<Sche
   const divisionRows = await db.select().from(divisions).where(eq(divisions.eventId, eventId)).all()
   const positionOf = new Map(divisionRows.map(d => [d.id, d.position]))
 
-  // A bracket match whose sides are not filled in yet still has an age: the kids who will
-  // fight it are somewhere in the division, so the set's mean is the best read there is.
   const divisionAge = new Map<number, number | null>()
   for (const d of divisionRows) {
     const memberIds = await db.select({ athleteId: divisionMembers.athleteId }).from(divisionMembers)
@@ -64,7 +54,6 @@ export async function scheduleRequest(db: DbLike, eventId: number): Promise<Sche
     number: m.number,
     style: m.style,
     athleteIds: [m.athleteAId, m.athleteBId],
-    // A feeder that has already run filled its side when it ended, so it holds nothing up.
     feeds: [m.feedAMatchId, m.feedBMatchId].filter((id): id is number => {
       const status = id === null ? undefined : statusOf.get(id)
       return status === 'pending' || status === 'live'
@@ -94,12 +83,6 @@ export async function scheduleRequest(db: DbLike, eventId: number): Promise<Sche
 
 export const scheduleRoutes = new Hono<Env>()
 
-/**
- * One press writes the whole running order. The matches already fought or being fought
- * keep the order they stand in and go first; everything pending takes the plan's order and
- * the plan's mat, overriding any mat set by hand, because the point of the press is that
- * the day is laid out as one thing rather than row by row.
- */
 scheduleRoutes.post('/events/:eventId/schedule', requireAdmin, validate('json', applySchema), async c => {
   const { db } = c.get('ctx')
   const eventId = Number(c.req.param('eventId'))
@@ -130,7 +113,6 @@ scheduleRoutes.post('/events/:eventId/schedule', requireAdmin, validate('json', 
       detail: { waves: plan.waves, minutes: plan.minutes, matches: plan.order.length },
     })
     await bumpVersion(tx, eventId)
-    // A live event starts whatever the new order and the new mats let it start.
     await releaseIdleMats(tx, eventId, 'admin')
   })
   return c.json({ ...plan, applied: true })

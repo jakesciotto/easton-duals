@@ -15,28 +15,17 @@ const feedOf = (m: MatchRow, side: Side) => side === 'a'
 
 const sideColumn = (side: Side) => side === 'a' ? 'athleteAId' as const : 'athleteBId' as const
 
-/** The matches whose empty sides this one fills, in the order a person reads them. */
 export async function dependentsOf(db: DbLike, matchId: number): Promise<MatchRow[]> {
   return db.select().from(matches)
     .where(or(eq(matches.feedAMatchId, matchId), eq(matches.feedBMatchId, matchId)))
     .orderBy(asc(matches.number)).all()
 }
 
-/**
- * Nothing downstream may have acted on this result yet. A dependent that is live or done
- * has a kid on a mat or a score in the record, and rewriting the side it came in on would
- * make the sheet describe a match that never happened.
- */
 export async function assertDependentsPending(db: DbLike, matchId: number): Promise<void> {
   const ran = (await dependentsOf(db, matchId)).find(m => m.status !== 'pending')
   if (ran) throw new MatchStateError(`M${ran.number} already ran on this result`)
 }
 
-/**
- * Writes this match's winner and loser into the sides that wait on them, inside the same
- * transaction that ended it, then gives every idle mat a chance to start what is now
- * runnable. One audit row per feeder end, naming every side it filled.
- */
 export async function fillDependents(db: DbLike, match: MatchRow, actor: AuditActor): Promise<void> {
   const winner = match.winnerAthleteId
   const filled: { matchId: number; side: Side; athleteId: number }[] = []
@@ -64,10 +53,6 @@ export async function fillDependents(db: DbLike, match: MatchRow, actor: AuditAc
   await releaseIdleMats(db, match.eventId, actor)
 }
 
-/**
- * Empties the sides this match filled. A reopened feeder has no result to hand on, and
- * the next end fills them again.
- */
 export async function clearDependents(db: DbLike, matchId: number): Promise<void> {
   for (const dependent of await dependentsOf(db, matchId)) {
     const update: Partial<typeof matches.$inferInsert> = {}

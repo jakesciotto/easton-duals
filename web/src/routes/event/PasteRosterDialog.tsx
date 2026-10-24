@@ -14,7 +14,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
-/** 4.2. The header case names its columns and, when any were dropped, names those too. */
 function mappingLine(mapping: PasteMapping): string {
   if (!mapping.header) return 'No header row. Reading First Last, age, weight, belt, gender.'
   const columns = mapping.columns.filter((f): f is Field => f !== null).map(f => FIELD_LABEL[f]).join(', ')
@@ -73,10 +72,6 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
           {capProblems.map(p => <p key={p} className="t2 text-fault">{p}</p>)}
 
           {lines.length > 0 && (
-            // finding 4: the caller's vertical scroll folds into Table's own wrapper
-            // instead of adding a second scrolling div around it. Two nested scroll
-            // containers leave the sticky head stuck to the inner one, which has no
-            // scrolling room of its own, so it scrolls away on the first wheel tick.
             <Table wrapperClassName="max-h-[224px] overflow-y-auto">
               <TableHeader>
                 <TableRow>
@@ -84,10 +79,6 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
                   <TableHead numeric className="w-[var(--col-num-s)]">Line</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead numeric className="w-[var(--col-num-s)]">Age</TableHead>
-                  {/* finding 3: "Weight" at the body's own t2 mono step is still wider
-                      than the col-num-m track it sits on, so the head keeps overriding
-                      it. "lb" is the label the roster and candidate heads already use
-                      for this same track. */}
                   <TableHead numeric className="w-[var(--col-num-m)]">lb</TableHead>
                   <TableHead>Belt</TableHead>
                   <TableHead>Gender</TableHead>
@@ -109,9 +100,6 @@ export function PasteRosterDialog({ detail, open, onOpenChange }: { detail: Even
                     ) : (
                       <>
                         <TableCell className="text-gray-12">{l.row?.firstName} {l.row?.lastName}</TableCell>
-                        {/* A missing value is a state, not a value: it renders in the
-                            attend colour, the way the roster row marks the same gap. It
-                            used to inherit white and read brighter than the name. */}
                         <TableCell numeric className={l.row?.age == null ? 'text-attend' : undefined}>{l.row?.age ?? '--'}</TableCell>
                         <TableCell numeric className={l.row?.weightLbs == null ? 'text-attend' : undefined}>{l.row?.weightLbs ?? '--'}</TableCell>
                         <TableCell className="text-gray-11">{beltLabel(l.row?.belt ?? null)}</TableCell>

@@ -24,12 +24,6 @@ export async function heartbeatMat(db: DbLike, matId: number, eventId: number, n
   })
 }
 
-// Binding is what settles who scores a mat, so it reads the mat's live state rather than
-// the stored flag alone: a tablet whose heartbeats stopped more than the reap window ago
-// has already lost the mat, whether or not a poll has swept it yet. Returns the epoch the
-// caller's token must carry, or null when a tablet is still on the mat and the caller did
-// not ask to take it over. Every successful bind mints the next epoch, so the token any
-// earlier tablet still holds stops working the moment this one starts.
 export async function bindMat(db: DbLike, matId: number, eventId: number, nowMs: number, takeOver: boolean): Promise<BindResult | null> {
   return db.transaction(async tx => {
     const row = await tx.select().from(mats).where(eq(mats.id, matId)).get()
@@ -47,10 +41,6 @@ export async function bindMat(db: DbLike, matId: number, eventId: number, nowMs:
   })
 }
 
-// The tablet's own way off a mat. Without it a device that unbound locally kept the
-// server's flag for the whole reap window, so the Live tab said "No scorer" a minute late
-// and the same tablet re-entering the code was refused with a sentence about another iPad.
-// The epoch moves so the token the tablet just dropped stops being accepted too.
 export async function unbindMat(db: DbLike, matId: number, eventId: number, actor: AuditActor): Promise<void> {
   await db.transaction(async tx => {
     const row = await tx.select({ bindEpoch: mats.bindEpoch, number: mats.number }).from(mats).where(eq(mats.id, matId)).get()
@@ -68,9 +58,6 @@ export async function reapBound(db: DbLike, eventId: number, nowMs: number): Pro
   if (stale.length === 0) return
   try {
     await db.transaction(async tx => {
-      // The cutoff is repeated in the UPDATE so a heartbeat landing between the two
-      // statements is not clobbered back to unbound, and matched zero rows means it
-      // won that race -- nothing changed, so nothing to bump.
       const r = await tx.update(mats).set({ bound: false })
         .where(and(inArray(mats.id, stale.map(m => m.id)), lt(mats.lastHeartbeatAt, cutoff))).run()
       if (r.rowsAffected === 0) return
@@ -81,8 +68,6 @@ export async function reapBound(db: DbLike, eventId: number, nowMs: number): Pro
       await bumpVersion(tx, eventId)
     })
   } catch (e) {
-    // A concurrent poller holds the write lock, most likely expiring the same event's
-    // clocks or reaping the same mats; the next poll retries and loses nothing.
     if (isBusy(e)) return
     throw e
   }

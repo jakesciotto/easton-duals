@@ -9,18 +9,6 @@ import { Chip } from '@/components/ui/chip'
 import { FieldRow } from '@/components/ui/field-set'
 import { cn } from '@/lib/utils'
 
-/**
- * The Ledger Grid at the two-line rung (2.7). The tracks are declared here and on
- * the column head, and both elements carry the mono face, because `ch` resolves
- * against the element's own font and the sans zero is a different width.
- *
- * The Link cell is a fixed 56px rather than `auto` on purpose. The head is a separate grid
- * from the rows, so an intrinsic track resolves to 0 on the head and to the button's width
- * on the rows, and the numeric columns under it would then stop lining up with their
- * labels. It is reserved on every row because spec 4 offers Link on every unlinked row:
- * the pool is a subset now, so what the last sync cached says nothing about who the
- * picker can reach.
- */
 export const ROSTER_COLS =
   'grid grid-cols-[var(--col-select)_var(--col-state)_minmax(0,1fr)_var(--col-num-s)_var(--col-num-m)_56px_56px_var(--col-act)_var(--col-act)] gap-x-3 px-3'
 
@@ -28,12 +16,6 @@ const CELL = 'fig t2 h-6 w-full rounded-md px-1.5 text-right transition-colors d
 
 type Source = AthleteRow['ageSource']
 
-/**
- * A number the organizer reads far more often than they change, so it is text
- * that hovers rather than a permanently bordered box. Activation is a click, an
- * Enter, or any digit; Enter and blur commit; Escape reverts, which the bordered
- * box it replaces had no path to at all.
- */
 function EditableCell({ label, value, source, onSave }: {
   label: string
   value: number | null
@@ -86,10 +68,6 @@ function EditableCell({ label, value, source, onSave }: {
     <button
       ref={button}
       type="button"
-      // An aria-label REPLACES the name computed from the contents, so labelling the
-      // column alone discards the one thing the cell exists to say. The value, and an
-      // explicit word for the missing case, belong in the name: finding the
-      // competitors with no weight is the task this screen is for.
       aria-label={`${label}, ${value === null ? 'missing' : value}`}
       title={estimated ? 'Estimated from the leaderboard until it is typed over' : undefined}
       onClick={() => setDraft(value === null ? '' : String(value))}
@@ -113,27 +91,16 @@ function EditableCell({ label, value, source, onSave }: {
 
 export const NOT_IN_WL = 'Not in WellnessLiving'
 
-/** 7.3. The near match the sync could not settle, as the row says it. */
 export function looksLikeLine(candidate: { firstName: string; lastName: string; wlLocation: string }): string {
   return `Looks like ${athleteName(candidate)}, ${candidate.wlLocation}`
 }
 
-// The server's own refusal, printed before the write rather than after it. It hangs on the
-// cell rather than on the control, because a disabled control takes no pointer events and
-// so can never show a title of its own.
 export const SCORING_FULL = 'a team scores with at most ten athletes'
 
-/**
- * Spec 4's designation, in the Scoring track on the rows where it means something. A team
- * inside the cap scores with every competitor and the pool scores with nobody, so neither
- * offers it at all; the column head says which of the two a column is. The competitor is
- * in the control's name: eleven controls called "Scoring" say nothing about which child.
- */
 function ScoringCell({ id, name, scoring, full, onChange }: {
   id: number
   name: string
   scoring: boolean
-  /** The team has its ten, so an unmarked competitor cannot join them until one lets go. */
   full: boolean
   onChange: (v: boolean) => void
 }) {
@@ -152,11 +119,6 @@ function ScoringCell({ id, name, scoring, full, onChange }: {
   )
 }
 
-/**
- * Spec A. What the pool holds for a linked row wherever it disagrees, so an organizer
- * editing a cell by hand can see WellnessLiving would write something else. A field the
- * pool never measured is skipped rather than read as a disagreement.
- */
 export function wlMismatchTitle(kid: AthleteRow, record: RosterCandidate): string | null {
   const diffs = [
     record.age !== null && record.age !== kid.age ? `${record.age}y` : null,
@@ -171,26 +133,15 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
   kid: AthleteRow
   selected: boolean
   fault: boolean
-  /** The server refuses a delete for anyone sitting in a match, so the row refuses first. */
   inMatch: boolean
-  /** Spec C. A kid the desk has already paired refuses Move to Unassigned too. */
   busy: boolean
-  /**
-   * The candidate `suggestedWlUid` names, once the pool has been read. The row can act on
-   * the stored uid without it, so the controls stand from the first render and only the
-   * words arrive late.
-   */
   suggestion: RosterCandidate | undefined
-  /** Spec A. The same pool, read by the row's own wlUid rather than a pending suggestion's. */
   wlRecord: RosterCandidate | undefined
-  /** Spec 4. Whether this column designates its scorers at all: a team past the cap does. */
   scoringToggle: boolean
-  /** Spec 4. Whether the team already has its ten marked. */
   scoringFull: boolean
   onSelect: (v: boolean, range: boolean) => void
   onPatch: (body: Partial<AthleteRow>) => void
   onRemove: () => void
-  /** Spec C. A team column's row control moves the kid to Unassigned rather than deleting them. */
   onUnassign: () => void
   onLink: () => void
   onConfirm: (wlUid: string) => void
@@ -200,17 +151,12 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
 }) {
   const suggested = kid.suggestedWlUid
   const unlinked = kid.wlUid === null && suggested === null
-  // Spec 4. The word is what a sync came back with, not a guess: only a row a sync has
-  // looked up is known to be missing from WellnessLiving.
   const missing = unlinked && kid.syncedAt !== null
   const name = athleteName(kid)
   const range = useRef(false)
   const state = fault ? 'fault' : kid.age === null || kid.weightLbs === null ? 'attend' : 'ok'
   const mismatch = kid.wlUid !== null && wlRecord !== undefined ? wlMismatchTitle(kid, wlRecord) : null
   const inTeam = kid.teamId !== null
-  // The meta line is the belt as a dot and the rating as a chip. The words after them are
-  // states a sync left behind, not facts about the child, and each one is its own segment
-  // so the line never joins text into one string.
   const metaParts: ReactNode[] = [
     <BeltDot key="belt" belt={kid.belt} />,
     kid.erp === null ? null : <Chip key="erp" value={kid.erp.toFixed(1)} size="t1" />,
@@ -235,9 +181,6 @@ export function RosterRow({ kid, selected, fault, inMatch, busy, suggestion, wlR
       className={cn(
         ROSTER_COLS,
         'group/row touch-pan-y py-2 font-mono t2 focus-within:bg-accent',
-        // A row waiting on a person carries a control line of its own. Two sm buttons need
-        // about 168px, and the three-up column at 1280 has 394px against 246px of fixed
-        // tracks, so they cannot sit beside the numbers without emptying the name.
         suggested === null ? 'h-14' : 'min-h-14 gap-y-2',
       )}
     >

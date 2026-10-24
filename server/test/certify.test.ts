@@ -10,13 +10,8 @@ import { recordAudit } from '../src/audit/log.js'
 
 type App = Awaited<ReturnType<typeof createTestApp>>['app']
 
-// The proposal and division routes are addressed by a draft or a division rather than by
-// the event, so the locked event has to hold one of each for the refusal to be the thing
-// under test.
 type Certified = Seeded & { proposalId: number; divisionId: number }
 
-// One certified event with a settled match, one draft and one division, which is the state
-// the pilot ends the afternoon in.
 async function certified(): Promise<{ app: App; db: Db; adminToken: string; s: Certified }> {
   const { app, db, adminToken } = await createTestApp()
   const seeded = await seedEvent(db, { matCount: 1, live: true })
@@ -35,16 +30,8 @@ async function certified(): Promise<{ app: App; db: Db; adminToken: string; s: C
   return { app, db, adminToken, s: { ...seeded, proposalId: draft.id, divisionId: division.id } }
 }
 
-// message overrides the certification refusal text this write expects. Delete says
-// "unlock the results first" instead of the standard CERTIFIED_MESSAGE, because deleting
-// a certified event has an obvious next step the generic lock message does not name.
 interface Write { name: string; method: string; path: (s: Certified) => string; body?: (s: Certified) => unknown; mat?: boolean; message?: string }
 
-// The write routes certification deliberately leaves alone. Heartbeat and unbind stay open
-// so a bound tablet can keep saying it is there and can always hand its mat back; the two
-// certification routes are the lock itself; signing in is not a write on an event; a new
-// event has nothing to certify yet; and Smoothcomp standings reads an external service and
-// writes only its own audit row, so a certified event's results are not at risk from it.
 const EXCLUDED = new Set([
   'POST /api/auth/admin',
   'POST /api/events',
@@ -55,9 +42,6 @@ const EXCLUDED = new Set([
   'POST /api/mats/:matId/unbind',
 ])
 
-// Every write route the server has, minus the ones above. The list below is checked
-// against the app's own route table, so a route added without a guard fails here rather
-// than at the gym.
 const WRITES: Write[] = [
   { name: 'scoring event', method: 'POST', path: s => `/api/matches/${s.matchIds[0]}/events`, body: s => ({ id: 'score-0002', type: 'score', athleteId: s.a1, actionKey: 'mount', lastSeq: 2 }), mat: true },
   { name: 'undo', method: 'DELETE', path: s => `/api/matches/${s.matchIds[0]}/events/last`, body: () => ({ lastSeq: 2 }), mat: true },
@@ -103,8 +87,6 @@ const WRITES: Write[] = [
   { name: 'division delete', method: 'DELETE', path: s => `/api/divisions/${s.divisionId}` },
 ]
 
-// Ids that cannot collide with a path segment of their own, so a concrete url matches one
-// route pattern and no other.
 const SHAPE = { eventId: 1, teamA: 2, teamB: 3, rulesetId: 4, matIds: [5, 6], a1: 7, a2: 8, b1: 9, b2: 10, matchIds: [11, 12], proposalId: 13, divisionId: 14 } as Certified
 
 function nonGetRoutes(app: App): string[] {
@@ -130,7 +112,6 @@ describe('the write routes this suite covers', () => {
     }
     const unguarded = nonGetRoutes(app).filter(r => !covered.has(r) && !EXCLUDED.has(r))
     expect(unguarded, 'a write route is in neither WRITES nor EXCLUDED').toEqual([])
-    // An exclusion that no longer names a real route is a stale claim about the lock.
     expect([...EXCLUDED].filter(r => !nonGetRoutes(app).includes(r))).toEqual([])
   })
 })
@@ -151,19 +132,12 @@ describe('a certified event refuses every write', () => {
     expect(unlocked.status).toBe(200)
     const token = w.mat ? matToken(s.eventId, s.matIds[0]) : adminToken
     const r = await call(app, w.method, w.path(s), w.body?.(s), token)
-    // Some of these still refuse for their own reasons on a finished event, which is the
-    // state an unlock returns to. What must be gone is the certification refusal.
     expect(r.body?.error?.message).not.toBe(CERTIFIED_MESSAGE)
   })
 
-  // An unlock returns the event to done, which takes a correction of a settled match but
-  // still refuses a new result. Certification is the lock; Finish is only the end of the
-  // afternoon.
   it('reopens the record and the running order, and still refuses a new result', async () => {
     const { app, adminToken, s } = await certified()
     await call(app, 'POST', `/api/events/${s.eventId}/uncertify`, { pin: TEST_PIN, reason: 'mat 1 winner was wrong' }, adminToken)
-    // Every match of the event, the division's included: the running order is the whole
-    // list or it is refused.
     const ids = (await call(app, 'GET', `/api/events/${s.eventId}`, undefined, adminToken)).body.matches.map((m: { id: number }) => m.id)
     const reordered = await call(app, 'POST', `/api/events/${s.eventId}/matches/reorder`, { ids: [...ids].reverse() }, adminToken)
     expect(reordered.status).toBe(200)
@@ -191,8 +165,6 @@ describe('a certified event refuses every write', () => {
     const { db, adminToken, s } = await certified()
     await db.update(events).set({ smoothcompUrl: 'https://smoothcomp.com/en/event/29499' }).where(eq(events.id, s.eventId)).run()
     const fetchFn = (async () => new Response(JSON.stringify({ brackets: [] }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
-    // The db carries the certified event; a fresh app on the same db swaps in a fake fetch,
-    // since the certified() fixture builds its own app with no Smoothcomp config.
     const { app } = await createTestApp({ db, smoothcomp: { fetchFn, backoffMs: 0 } })
     const r = await call(app, 'POST', `/api/events/${s.eventId}/smoothcomp/standings`, undefined, adminToken)
     expect(r.status).toBe(200)
@@ -230,7 +202,6 @@ describe('certify and uncertify', () => {
     for (let i = 0; i < 9; i++) await call(app, 'POST', `/api/events/${s.eventId}/certify`, { pin: '000000' }, adminToken)
     const limited = await call(app, 'POST', `/api/events/${s.eventId}/certify`, { pin: TEST_PIN }, adminToken)
     expect(limited.status).toBe(429)
-    // The window is an hour, so the wait it names has to be the real one.
     expect(limited.body.error.message).toBe('Too many attempts. Try again in 60 minutes.')
     const unlock = await call(app, 'POST', `/api/events/${s.eventId}/uncertify`, { pin: TEST_PIN, reason: 'locked out' }, adminToken)
     expect(unlock.status).toBe(429)

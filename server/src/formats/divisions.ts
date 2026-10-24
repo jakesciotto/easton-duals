@@ -22,8 +22,6 @@ const FORMAT_LABELS: Record<DivisionFormat, string> = {
   double_elim: 'double elimination',
 }
 
-// A division is running once one of its matches has been started or settled, which is
-// when regenerating it would rewrite a record somebody has already fought.
 const RUNNING = 'division is running'
 
 async function loadRow(db: DbLike, divisionId: number): Promise<DivisionRow> {
@@ -42,10 +40,6 @@ async function assertNotRunning(db: DbLike, divisionId: number): Promise<MatchRo
   return rows
 }
 
-/**
- * The kids of a division, in the order they were listed. Every one has to be on the event
- * and on a team, because a kid with no team has nobody to score for.
- */
 async function loadMembers(db: DbLike, eventId: number, athleteIds: number[], format: DivisionFormat): Promise<AthleteRow[]> {
   const [min, max] = DIVISION_LIMITS[format]
   if (new Set(athleteIds).size !== athleteIds.length) throw new ValidationError('a kid can only be in a division once')
@@ -67,7 +61,6 @@ const generateMembers = (kids: AthleteRow[]): GenerateMember[] => kids.map((k, i
   athleteId: k.id, teamId: k.teamId as number, seed: i + 1, name: `${k.firstName} ${k.lastName}`,
 }))
 
-/** Generation numbers its own matches, so a feed resolves to the id the insert returned. */
 async function insertMatches(db: DbLike, row: DivisionRow, kids: AthleteRow[]): Promise<{ ids: number[]; warnings: string[] }> {
   const { matches: generated, warnings } = generateDivision({
     name: row.name, format: row.format, styles: row.styles, members: generateMembers(kids),
@@ -99,8 +92,6 @@ async function replaceMembers(db: DbLike, divisionId: number, kids: AthleteRow[]
   await db.insert(divisionMembers).values(kids.map((k, i) => ({ divisionId, athleteId: k.id, seed: i + 1 }))).run()
 }
 
-// The division's matches go one at a time with a row each, so the sheet reads the same
-// whether a match was removed by hand or by an edit to the set it belonged to.
 async function deleteMatches(db: DbLike, row: DivisionRow, rows: MatchRow[]): Promise<void> {
   if (rows.length === 0) return
   await db.delete(matches).where(inArray(matches.id, rows.map(m => m.id))).run()
@@ -131,11 +122,6 @@ export async function createDivision(db: DbLike, eventId: number, input: Divisio
   })
 }
 
-/**
- * A division is edited by being generated again: the set decides the matches, so there is
- * no such thing as editing one match of it. Every match it holds is deleted and rebuilt
- * with new numbers, which is why it is only allowed while none of them has run.
- */
 export async function regenerateDivision(db: DbLike, divisionId: number, patch: DivisionPatch): Promise<{ division: DivisionView; warnings: string[] }> {
   return db.transaction(async tx => {
     const row = await loadRow(tx, divisionId)
@@ -185,11 +171,6 @@ async function memberRows(db: DbLike, divisionId: number) {
     .orderBy(asc(divisionMembers.seed)).all()
 }
 
-/**
- * The warnings are recomputed rather than stored, so a division always describes the set
- * it holds now. Generation is pure and deterministic, so this reads the same as the run
- * that made the matches.
- */
 function viewOf(row: DivisionRow, members: DivisionMember[], divisionMatchRows: MatchRow[]): DivisionView {
   const { warnings } = generateDivision({
     name: row.name,

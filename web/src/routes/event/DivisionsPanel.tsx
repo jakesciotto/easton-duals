@@ -36,15 +36,8 @@ const STYLES: { value: DivisionStyles; label: string }[] = [
 interface Sides { a: string; b: string }
 type SidesOf = (row: MatchRow) => Sides
 
-/** What a division's matches are grouped into before they are drawn. */
 interface Column { key: string; label: string; matches: MatchRow[] }
 
-/**
- * A bracket reads left to right through the winners rounds, then the losers rounds
- * underneath, then the grand final on its own. `roundLabel` names each one by its
- * distance from the final, so a semifinal is a semifinal in a division of four and in a
- * division of sixteen.
- */
 export function bracketColumns(format: DivisionFormat, members: number, matches: MatchRow[]): { winners: Column[]; losers: Column[]; grandFinal: MatchRow[] } {
   const rounds = bracketRounds(members)
   const losersRounds = format === 'double_elim' ? 2 * (rounds - 1) : 0
@@ -66,7 +59,6 @@ function ResultLine({ row, sides }: { row: MatchRow; sides: Sides }) {
   return <span className="truncate t2 text-gray-11">{winner} {winTypeLabel(row.winType)}</span>
 }
 
-/** The number and, where a division runs both, the style: every match names itself. */
 function MatchTags({ row, showStyle }: { row: MatchRow; showStyle: boolean }) {
   return (
     <span className="flex shrink-0 items-center gap-1.5">
@@ -94,7 +86,6 @@ function BracketMatch({ row, sides, showStyle }: { row: MatchRow; sides: Sides; 
 
 function BracketRow({ columns, sidesOf, showStyle }: { columns: Column[]; sidesOf: SidesOf; showStyle: boolean }) {
   return (
-    // Wide brackets scroll inside their own card rather than widening the tab.
     <div className="flex min-w-0 gap-3 overflow-x-auto">
       {columns.map(c => (
         <div key={c.key} className="grid w-[196px] shrink-0 content-start gap-2">
@@ -156,7 +147,6 @@ function MemberRow({ member, team, index, count, locked, onMove }: {
   )
 }
 
-/** Name, format and styles. The members are reordered on the card, not in here. */
 function EditDivisionDialog({ division, open, pending, error, onOpenChange, onSave }: {
   division: DivisionView
   open: boolean
@@ -169,8 +159,6 @@ function EditDivisionDialog({ division, open, pending, error, onOpenChange, onSa
   const [format, setFormat] = useState<DivisionFormat>(division.format)
   const [styles, setStyles] = useState<DivisionStyles>(division.styles)
 
-  // Opening is the only thing that resets the form, so an arriving refetch cannot wipe a
-  // half typed name out from under the operator.
   useEffect(() => {
     if (!open) return
     setName(division.name)
@@ -221,7 +209,6 @@ function EditDivisionDialog({ division, open, pending, error, onOpenChange, onSa
 }
 
 interface Writes {
-  /** `then` hears the outcome, so a write made inside a dialog reports inside it. */
   patch: (divisionId: number, body: Record<string, unknown>, then?: (error: Error | null) => void) => void
   seed: (divisionId: number) => void
   remove: (divisionId: number) => void
@@ -232,14 +219,11 @@ function DivisionCard({ division, detail, certified, refusal, writes }: {
   division: DivisionView
   detail: EventDetail
   certified: boolean
-  /** What the last write on THIS card was refused with, or null. */
   refusal: string | null
   writes: Writes
 }) {
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<Error | null>(null)
-  // 6.8: a certified event refuses rather than asks, and a running division is locked for
-  // the same reason. Either way the controls go rather than sitting there dead.
   const locked = certified || division.running
   const pointer = useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   const sensors = useSensors(...(locked ? [] : [pointer]))
@@ -284,7 +268,6 @@ function DivisionCard({ division, detail, certified, refusal, writes }: {
           <span className="ml-auto flex flex-wrap items-center gap-2">
             <Button size="sm" variant="ghost" disabled={writes.pending} onClick={() => writes.seed(division.id)}>Seed by rating</Button>
             <Button size="sm" variant="ghost" onClick={() => { setEditError(null); setEditing(true) }}>Edit</Button>
-            {/* 7.7: a destructive control never sits flush against the row's most repeated one. */}
             <Button size="sm" variant="destructive" className="ml-4" disabled={writes.pending} onClick={() => writes.remove(division.id)}>Delete</Button>
           </span>
         )}
@@ -339,16 +322,8 @@ function DivisionCard({ division, detail, certified, refusal, writes }: {
   )
 }
 
-/**
- * Spec 9's Divisions panel, above the drafts on the Matches tab. A division is created by
- * the paste; this is where it is read, reseeded, edited and deleted, and where its bracket
- * is drawn. Everything is locked the moment one of its matches is live or done, because
- * redrawing a division is deleting its matches and generating them again.
- */
 export function DivisionsPanel({ detail, certified }: { detail: EventDetail; certified: boolean }) {
   const eventId = detail.event.id
-  // A refusal belongs to the card it was refused on rather than to a banner over the
-  // panel, because the card is still there and reading it is what happens next.
   const [refusals, setRefusals] = useState<Record<number, string>>({})
   const divisions = [...detail.divisions].sort((x, y) => x.position - y.position)
 

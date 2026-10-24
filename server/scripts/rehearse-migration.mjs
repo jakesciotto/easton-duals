@@ -8,14 +8,6 @@ import { createClient } from '@libsql/client'
 import { createDb, dbUrlFromEnv, initDb, migrateDb } from '../dist/db/client.js'
 import { loadDotEnv } from '../dist/lib/env.js'
 
-// Rehearses the newest migration on a copy of a live database before it runs for real.
-// The source is only ever read. Its rows land in a fresh file database migrated to the
-// journal entry named by --at, the rest of the journal runs there, and the counts and the
-// links between tables are compared. Nothing about a person is printed, only counts.
-//
-//   node server/scripts/rehearse-migration.mjs --at 0011_multi_team [--source <url>]
-//
-// The source defaults to the .env target, which for this repo is production.
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 loadDotEnv(path.resolve(here, '../../.env'))
@@ -34,7 +26,6 @@ const sourceOpts = flag('--source') ? { url: flag('--source') } : dbUrlFromEnv(p
 const sourceName = sourceOpts.url.startsWith('file:') ? `file (${sourceOpts.url})` : new URL(sourceOpts.url).host
 console.log(`rehearsal reading ${sourceName}`)
 
-// Parents before children, so every foreign key resolves while the copy is written.
 const TABLES = ['events', 'teams', 'athletes', 'rulesets', 'mats', 'matches', 'match_events', 'proposals']
 
 const drizzleDir = path.resolve(here, '../drizzle')

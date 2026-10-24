@@ -4,8 +4,6 @@ import { cn } from "@/lib/utils"
 
 type Density = "compact" | "default"
 
-// The head row always matches its body rung (2.7), so density is set once on
-// the root and read by every row through context rather than repeated per row.
 const DensityContext = React.createContext<Density>("compact")
 
 const rowHeight: Record<Density, string> = {
@@ -19,14 +17,6 @@ function Table({
   density = "compact",
   ...props
 }: React.ComponentProps<"table"> & { density?: Density; wrapperClassName?: string }) {
-  // 7.13 / finding 4: overflow-x-auto alone still computes overflow-y to auto (the
-  // CSS rule that promotes a visible axis when the other is not visible), so this div
-  // is a scroll container on both axes whether or not it ever actually scrolls
-  // vertically. A caller that wraps the table in its OWN vertically scrolling box
-  // therefore nests two scroll containers, and the sticky head sticks to this inner,
-  // unconstrained one -- which has no scrolling room of its own -- instead of the
-  // caller's. wrapperClassName lets the caller fold its vertical scroll (and any
-  // max-height) into this single div instead of adding a second one around it.
   return (
     <div className={cn("overflow-x-auto", wrapperClassName)}>
       <DensityContext.Provider value={density}>
@@ -75,19 +65,6 @@ function TableRow({
   )
 }
 
-// numeric marks the register tick (2.7) and switches the cell to the figure
-// face; every numeric column head and its body cells must agree on this flag
-// or the digits land off the track.
-//
-// A numeric track is declared with `ch`, which resolves against the element's
-// OWN font, so a head at `t1` and a body cell at `t2` resolve the identical
-// `var(--col-num-*)` to two different pixel widths (2.7's resolved-widths
-// table: t1 col-num-m is 43.8px, t2 is 47.4px) and the browser's table auto
-// layout then gives the column whichever is larger, stranding the register
-// tick off the digits it marks (finding 3). So a numeric head is pinned to
-// `t2`, the body's own step, instead of the general `t1` column-head size;
-// callers that want the visible label smaller wrap it in its own `t1` span,
-// same as the roster and candidate row heads already do.
 function TableHead({
   className,
   numeric,

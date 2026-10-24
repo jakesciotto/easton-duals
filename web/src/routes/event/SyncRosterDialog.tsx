@@ -19,19 +19,10 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CandidateHead, CandidateRow } from './CandidateRow'
 
-/** The route's answer. The pool it replaces is read by name instead, so only these two are used. */
 interface SyncAnswer { candidates: RosterCandidate[]; warnings: string[]; report?: SyncReport }
 
-// The server's own budget for a sync over every location. 28 times Nielsen's 10 second
-// attention limit, which is why this dialog owes the operator a percent-done readout
-// and an interrupt rather than a spinner.
 export const SYNC_DEADLINE_MS = 280_000
 
-/**
- * The sync is one all-or-nothing POST that replaces the cached pool wholesale, so there
- * is no per-location progress to read. The honest determinate measure is the budget the
- * sync has spent, which is monotone, bounded, and the same number the server gives up on.
- */
 export function pullProgress(elapsedMs: number): number {
   return Math.min(100, Math.round((elapsedMs / SYNC_DEADLINE_MS) * 100))
 }
@@ -40,11 +31,6 @@ export function SyncRosterDialog({ detail, open, onOpenChange, onReport }: {
   detail: EventDetail
   open: boolean
   onOpenChange: (o: boolean) => void
-  /**
-   * 7.1. The report is read on the tab, not here, because the organizer acts on it row by
-   * row and the dialog covers the rows. It travels on the close rather than on the answer,
-   * so the alert never appears behind the surface that produced it.
-   */
   onReport: (report: SyncReport) => void
 }) {
   const eventId = detail.event.id
@@ -59,11 +45,6 @@ export function SyncRosterDialog({ detail, open, onOpenChange, onReport }: {
   const search = useWlSearch(eventId)
   const already = useMemo(() => new Set(detail.athletes.map(a => a.wlUid).filter((uid): uid is string => uid !== null)), [detail.athletes])
   const add = useAdminMutation(eventId, (cands: RosterCandidate[]) => adminApi(`/api/events/${eventId}/athletes`, { method: 'POST', body: { candidates: cands } }))
-  // A plain boolean ignore flag is not enough here: closing then reopening before a sync
-  // resolves would reset the flag along with everything else, and the stale response would
-  // land anyway. A generation counter that only ever increases survives any number of
-  // closes and reopens across the same sync, and Stop bumps it too, so an abandoned sync
-  // can never report behind the operator.
   const generation = useRef(0)
   const qc = useQueryClient()
 
@@ -79,8 +60,6 @@ export function SyncRosterDialog({ detail, open, onOpenChange, onReport }: {
       setWarnings(r.warnings)
       setReport(r.report ?? null)
       setAnswered(true)
-      // The sync links what it can, so the roster behind this dialog is stale the moment
-      // it lands: the "on roster" badge reads it.
       await qc.invalidateQueries({ queryKey: qk.event(eventId) })
     } catch (e) {
       if (generation.current === mine) setError(e instanceof ApiError ? e.message : 'Could not reach the server')
@@ -89,8 +68,6 @@ export function SyncRosterDialog({ detail, open, onOpenChange, onReport }: {
     }
   }, [eventId, qc])
 
-  // Spec 4: opening the dialog is the press. The filter is the roster itself, so there is
-  // nothing to pick first.
   useEffect(() => {
     if (!open) return
     generation.current += 1
@@ -104,9 +81,6 @@ export function SyncRosterDialog({ detail, open, onOpenChange, onReport }: {
     search.setQ('')
     add.reset()
     void sync()
-    // A close with no Stop, and an unmount mid-sync, both land here. Bumping the generation
-    // is exactly what Stop does, and it is what makes an abandoned sync unreadable: nothing
-    // it comes back with reaches this component's state.
     return () => { generation.current += 1 }
   }, [open, eventId])
 
@@ -129,8 +103,6 @@ export function SyncRosterDialog({ detail, open, onOpenChange, onReport }: {
     else n.delete(candidate.wlUid)
     return n
   })
-  // Every way out runs through here: the Close button, Escape, the backdrop, and the add
-  // that closes on success. A report the operator never sees would be a run with no answer.
   const close = (o: boolean) => {
     if (!o && report !== null) onReport(report)
     onOpenChange(o)

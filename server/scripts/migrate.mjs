@@ -8,11 +8,6 @@ import { loadDotEnv } from '../dist/lib/env.js'
 const here = path.dirname(fileURLToPath(import.meta.url))
 loadDotEnv(path.resolve(here, '../../.env'))
 
-// `--to <tag>` stops after that migration. A release whose newest migration drops a
-// column the running build still reads has to land in two steps: the additive files
-// before the deploy, the drop after it. Drizzle runs whatever the journal lists, so the
-// stop is a temporary folder holding the same files with the journal cut at the tag; the
-// hash it records per file is the file's own SQL, so a later full run skips them.
 const args = process.argv.slice(2)
 const toIndex = args.indexOf('--to')
 const upTo = toIndex === -1 ? null : args[toIndex + 1]

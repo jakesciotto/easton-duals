@@ -22,44 +22,27 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [faults, setFaults] = useState<Set<number>>(new Set())
   const [addOpen, setAddOpen] = useState(false)
-  // Spec B. Which team the Add competitor dialog opens on: a column's own control passes
-  // its team, the toolbar's passes Unassigned.
   const [addTeamId, setAddTeamId] = useState<number | null>(null)
   const [pasteOpen, setPasteOpen] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
   const [removing, setRemoving] = useState<AthleteRow[]>([])
   const [linking, setLinking] = useState<AthleteRow | null>(null)
   const [profileFor, setProfileFor] = useState<AthleteRow | null>(null)
-  // What the last sync did. It is the answer to one press, so the next roster write takes
-  // it down rather than leaving a stale account of a roster that has moved on.
   const [report, setReport] = useState<SyncReport | null>(null)
-  // The name a mid-loop failure stopped on. The server's message says what went wrong
-  // and never who, which on a bulk remove is the only fact the organizer needs.
   const [stoppedOn, setStoppedOn] = useState<string | null>(null)
-  // What the last Create match press did: the pair's names plus any warning, a plain
-  // confirmation, or the server's own refusal. One slot, cleared the same way as report.
   const [matchNotice, setMatchNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const anchor = useRef<number | null>(null)
   const eventId = detail.event.id
   const assign = useAdminMutation(eventId, (v: { ids: number[]; teamId: number | null }) => adminApi(`/api/events/${eventId}/athletes/assign`, { method: 'POST', body: v }))
   const patch = useAdminMutation(eventId, (v: { id: number; body: Partial<AthleteRow> }) => adminApi(`/api/athletes/${v.id}`, { method: 'PATCH', body: v.body }))
   const remove = useAdminMutation(eventId, (id: number) => adminApi(`/api/athletes/${id}`, { method: 'DELETE' }))
-  // Spec 4's bar actions. The server takes the whole selection or none of it, so the
-  // refusal is one message about one press rather than a row-by-row account.
   const mark = useAdminMutation(eventId, (v: { ids: number[]; scoring: boolean }) =>
     adminApi(`/api/events/${eventId}/athletes/scoring`, { method: 'POST', body: v }))
   const confirm = useAdminMutation(eventId, (v: { id: number; wlUid: string }) => adminApi(`/api/athletes/${v.id}/link`, { method: 'POST', body: { wlUid: v.wlUid } }))
   const dismiss = useAdminMutation(eventId, (v: { id: number; wlUid: string }) => adminApi(`/api/athletes/${v.id}/dismiss`, { method: 'POST', body: { wlUid: v.wlUid } }))
-  // A hand-designed match can drop a proposal on either competitor, so this write
-  // invalidates the draft list the same way propose, confirm and swap already do.
   const createMatch = useAdminMutation(eventId, (v: { athleteAId: number; athleteBId: number }) =>
     adminApi<{ warnings?: string[] }>(`/api/events/${eventId}/matches`, { method: 'POST', body: v }), { proposals: true })
 
-  // A suggestion is stored as a uid, and the name behind it lives in the pool the sync
-  // cached; a linked row's own WellnessLiving dot (spec A) reads the same pool by its own
-  // wlUid. The key is every uid either one cares about, so a sync that replaces the pool
-  // reads the new one, a confirm that leaves the rest standing does not refetch, and a
-  // roster with neither a linked nor a waiting row makes no request at all.
   const poolKey = detail.athletes.flatMap(a => [a.suggestedWlUid, a.wlUid]).filter(u => u !== null).join(',')
   const [suggestions, setSuggestions] = useState<Map<string, RosterCandidate>>(new Map())
   const [poolError, setPoolError] = useState<string | null>(null)
@@ -77,13 +60,10 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   }, [eventId, poolKey])
 
   const byTeam = (teamId: number | null) => detail.athletes.filter(a => a.teamId === teamId).sort((x, y) => x.lastName.localeCompare(y.lastName) || x.firstName.localeCompare(y.firstName))
-  // One column per team, in the order the event holds them, and the pool last: an event
-  // carries two to eight teams, so the columns are a list rather than a fixed A, pool, B.
   const groups = [
     ...detail.teams.map(t => ({ key: `t${t.id}`, title: t.name, color: t.color as string | null, teamId: t.id as number | null, kids: byTeam(t.id) })),
     { key: 'u', title: 'Unassigned', color: null as string | null, teamId: null as number | null, kids: byTeam(null) },
   ]
-  // Reading order, which is also the order a shift-click range walks.
   const order = groups.flatMap(g => g.kids.map(k => k.id))
 
   const onSelect = (id: number, v: boolean, range: boolean) => {
@@ -123,8 +103,6 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   }
 
   const onPatch = (id: number, body: Partial<AthleteRow>) => { clearMessages(); patch.mutate({ id, body }, {
-    // A refused write is the row's own state, not a banner the organizer has to
-    // match back to a name, so the state rule carries it until the row saves.
     onError: () => setFaults(f => new Set(f).add(id)),
     onSuccess: () => setFaults(f => {
       if (!f.has(id)) return f
@@ -136,8 +114,6 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
 
   const drag = useRosterDrag((id, teamId) => moveTo([id], teamId))
 
-  // Cancel, the backdrop, Escape, and a successful remove all close through here,
-  // so a failed remove's message never outlives the dialog it was shown in.
   const closeRemove = () => {
     setRemoving([])
     setStoppedOn(null)
@@ -169,26 +145,14 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
     else setRemoving(removing.filter(k => !done.includes(k.id)))
   }
 
-  // The server refuses a delete for anyone sitting in a match, so the client computes
-  // the same set from the detail it already holds rather than discovering it one 409 at
-  // a time in the middle of a bulk loop.
   const inMatch = useMemo(
     () => new Set(detail.matches.flatMap(matchAthleteIds)),
     [detail.matches],
   )
-  // inMatch above spans every status, which is right for a delete the server refuses for
-  // good even once a match is done. Create match and Move to Unassigned (spec C) both ask
-  // a narrower question instead: a kid whose only match is done is free to be paired or
-  // moved again, so this one set, shared by both, is scoped to the two statuses nobody has
-  // settled yet.
   const unfought = useMemo(
     () => new Set(detail.matches.filter(m => m.status === 'pending' || m.status === 'live').flatMap(matchAthleteIds)),
     [detail.matches],
   )
-  // Gated on rows that still exist in detail.athletes, not on selected.size: a pick
-  // another admin session removed (or a sync/paste replaced) drops out here the same way
-  // it already does for removable below, so a vanished pick makes the button disappear
-  // instead of rendering enabled and silently doing nothing on click.
   const selectedRows = detail.athletes.filter(a => selected.has(a.id))
   const [pairAId, pairBId] = selectedRows.length === 2 ? order.filter(id => selected.has(id)) : []
   const pairA = detail.athletes.find(a => a.id === pairAId)
@@ -218,12 +182,6 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
   const removable = selectedRows.filter(a => !inMatch.has(a.id))
   const blockedCount = selectedRows.length - removable.length
   const needsData = detail.athletes.filter(a => a.age === null || a.weightLbs === null).length
-  // A react-query mutation holds its error until that same mutation runs again, so
-  // `assign.error ?? patch.error` pinned the banner to whichever failed FIRST: a refused
-  // move at 10:00 was still reading "The move failed" over a weight edit refused ten
-  // minutes later for a different reason, and the operator read the wrong reason for the
-  // wrong action. submittedAt is the moment each failing run started, so the newer failure
-  // wins and the title always names the action that actually failed.
   const failure = [
     assign.error ? { title: 'The move failed', message: writeErrorMessage(assign.error), at: assign.submittedAt } : null,
     patch.error ? { title: 'The edit was not saved', message: writeErrorMessage(patch.error), at: patch.submittedAt } : null,
@@ -232,8 +190,6 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
     mark.error ? { title: 'The scoring change was not saved', message: writeErrorMessage(mark.error), at: mark.submittedAt } : null,
   ].filter((f): f is { title: string; message: string; at: number } => f !== null)
     .sort((x, y) => y.at - x.at)[0] ?? null
-  // 7.12: one polite region per screen, phrased as a sentence, present and empty from
-  // the first render, so the toolbar becoming a selection bar is not a silent change.
   const announcement = selected.size === 0
     ? ''
     : `${selected.size} ${selected.size === 1 ? 'competitor' : 'competitors'} selected.`
@@ -244,8 +200,6 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
       {selected.size > 0 ? (
         <div role="group" aria-label="Selection" className="flex min-h-10 flex-wrap items-center gap-3">
           <span className="t3 font-medium!"><span className="fig">{selected.size}</span> selected</span>
-          {/* 6.9: eight teams plus the pool is nine destinations, which is a menu rather
-              than a row of nine identical buttons across the toolbar. */}
           <OverflowMenu
             label="Move to"
             items={[
@@ -262,8 +216,6 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
           )}
           <Button size="sm" variant="ghost" disabled={removable.length === 0} onClick={() => setRemoving(removable)}>Remove</Button>
           <Button size="sm" variant="ghost" onClick={clearSelection}>Clear</Button>
-          {/* Refuse rather than ask (6.8): the blocked competitors are dropped from the
-              set and the count that was dropped is printed beside the control. */}
           {blockedCount > 0 && (
             <span className="t2 text-gray-10">
               <span className="fig">{blockedCount}</span> already in a match
@@ -277,16 +229,12 @@ export function RosterTab({ detail }: { detail: EventDetail }) {
             {needsData > 0 && ` · ${needsData} need age or weight`}
           </span>
           <span className="ml-auto flex flex-wrap gap-2">
-            {/* 7.1: one press, always offered. An event with no WellnessLiving behind it
-                is reported by the dialog itself rather than by a missing button. */}
             <Button size="sm" variant="secondary" onClick={() => setSyncOpen(true)}>Sync from WellnessLiving</Button>
             <Button size="sm" variant="secondary" onClick={() => setPasteOpen(true)}>Paste roster</Button>
             <Button size="sm" onClick={() => { setAddTeamId(null); setAddOpen(true) }}>Add competitor</Button>
           </span>
         </div>
       )}
-      {/* Outside the toolbar swap: a refused assign leaves the selection standing,
-          and the message has to outlive the bar it was triggered from. */}
       {failure && (
         <Alert>
           <AlertTitle>{failure.title}</AlertTitle>

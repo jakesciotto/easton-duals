@@ -13,11 +13,6 @@ import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, Dia
 
 const MAT_COLS = 'grid grid-cols-[minmax(0,1fr)_auto] gap-3'
 
-/**
- * How long the plan says the event runs, at the resolution anybody can act on. The hour
- * part is dropped under an hour rather than printed as a zero, and one wave on one mat is
- * one wave on one mat: a sentence the room reads has to be a sentence.
- */
 export function wavesLine(plan: SchedulePlan): string {
   const hours = Math.floor(plan.minutes / 60)
   const minutes = plan.minutes % 60
@@ -27,17 +22,11 @@ export function wavesLine(plan: SchedulePlan): string {
   return `${waves}, about ${time} on ${mats}`
 }
 
-/** A mat that idles for a wave, and the match the whole lane is waiting on. */
 export function gapLine(plan: SchedulePlan, gap: SchedulePlan['gaps'][number]): string {
   const number = plan.perMat.find(m => m.matId === gap.matId)?.number ?? 1
   return `Mat ${number} waits on M${gap.waitingOn}`
 }
 
-/**
- * Spec 9's preview. Ordering the matches rewrites the mat and the running order of every
- * pending match at once, so it is stated before it is written: what each mat is given,
- * how long the plan takes, what it had to bend, and where a mat sits idle.
- */
 export function ScheduleDialog({ detail, open, onOpenChange }: { detail: EventDetail; open: boolean; onOpenChange: (o: boolean) => void }) {
   const eventId = detail.event.id
   const [plan, setPlan] = useState<SchedulePlan | null>(null)
@@ -45,8 +34,6 @@ export function ScheduleDialog({ detail, open, onOpenChange }: { detail: EventDe
   const apply = useAdminMutation(eventId, () =>
     adminApi<ScheduleAnswer>(`/api/events/${eventId}/schedule`, { method: 'POST', body: { apply: true } }))
 
-  // Opening asks for the plan. It is a read that has to be a POST, so it runs here rather
-  // than as a query: nothing caches a preview of a write nobody has made yet.
   useEffect(() => {
     if (!open) return
     let ignore = false

@@ -20,8 +20,6 @@ export function extractBracketIds(json: unknown): number[] {
   return [...ids]
 }
 
-// A related bracket link comes from the payload, not the admin, so it gets the same host
-// check the pasted URL got.
 export function relatedBrackets(json: unknown, origin: string): { id: number; link: string }[] {
   const related = (json as { bracketInfo?: { relatedBrackets?: unknown } })?.bracketInfo?.relatedBrackets
   if (!Array.isArray(related)) return []
@@ -35,9 +33,6 @@ export function relatedBrackets(json: unknown, origin: string): { id: number; li
 
 export interface PullOptions { fetchFn?: typeof fetch; concurrency: number; deadlineAt: number; backoffMs?: number }
 
-// One call for the bracket list, then every bracket at the given concurrency. A related
-// bracket outside the list is fetched in a second pass, same host only, at most ten per
-// bracket. Matches are collected by id, so a match reached twice counts once.
 export async function fetchEventMatches(target: { origin: string; eventId: string }, opts: PullOptions): Promise<{ matches: SmoothcompMatch[]; brackets: { read: number; failed: number[] } }> {
   const client = { fetchFn: opts.fetchFn, backoffMs: opts.backoffMs, deadlineAt: opts.deadlineAt }
   const ids = extractBracketIds(await fetchJson(bracketListUrl(target.origin, target.eventId), client))

@@ -5,16 +5,12 @@ import { rateLimits } from '../db/schema.js'
 const WINDOW_MS = 60 * 60 * 1000
 const LIMITS: Record<LimitScope, number> = { pin: 10, bind: 20, certify: 10 }
 
-// 'certify' is its own bucket rather than sharing 'pin': locking somebody out of signing
-// the record off because a tablet mistyped the mat code all afternoon helps nobody.
 export type LimitScope = 'pin' | 'bind' | 'certify'
 
 function where(scope: LimitScope, key: string) {
   return and(eq(rateLimits.scope, scope), eq(rateLimits.key, key))
 }
 
-// Only a failed attempt spends the budget, so a room full of organizers signing in
-// correctly can never lock itself out. checkLimit reads; recordFailure charges.
 export async function checkLimit(db: DbLike, scope: LimitScope, key: string, nowMs: number): Promise<{ allowed: boolean; retryAfterSec: number }> {
   const row = await db.select().from(rateLimits).where(where(scope, key)).get()
   if (!row) return { allowed: true, retryAfterSec: 0 }
@@ -30,8 +26,6 @@ export async function recordFailure(db: DbLike, scope: LimitScope, key: string, 
     return
   }
   const stale = nowMs - Date.parse(row.windowStart) >= WINDOW_MS
-  // Two concurrent failures can both read the same count and both write count + 1 once;
-  // that last-attempt race is accepted at this scale rather than adding compare-and-swap.
   await db.update(rateLimits).set({
     windowStart: stale ? new Date(nowMs).toISOString() : row.windowStart,
     count: stale ? 1 : row.count + 1,

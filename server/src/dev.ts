@@ -2,8 +2,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { applyDevDefaults } from './lib/env.js'
 
-// The dev entry. It decides the database before the server entry loads .env, and the
-// loader keeps a variable that is already set, so the local default survives it.
 const local = applyDevDefaults(process.env)
 if (local === null) {
   console.log('dev: remote database from .env (DUALS_DEV_REMOTE=1)')

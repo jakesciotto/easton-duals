@@ -12,8 +12,6 @@ const rowsOf = (db: Db, eventId: number) =>
 const versionOf = async (db: Db, eventId: number) =>
   (await db.select({ version: events.version }).from(events).where(eq(events.id, eventId)).get())?.version
 
-// A settled match, a live one, and a bracket of four still to run: the state an event is
-// in when somebody presses Order matches halfway through the afternoon.
 async function midEvent() {
   const { app, db, adminToken } = await createTestApp()
   const s = await seedEvent(db, { matCount: 2, live: true })
@@ -61,7 +59,6 @@ describe('the schedule route', () => {
       const row = after.find(m => m.id === slot.matchId)!
       expect([row.orderIndex, row.matId]).toEqual([slot.orderIndex, slot.matId])
     }
-    // A feeder is laid out at least two waves ahead of the match it fills.
     const waveOf = new Map<number, number>(applied.body.order.map((o: { matchId: number; wave: number }) => [o.matchId, o.wave]))
     const final = after.find(m => m.feedAMatchId !== null)!
     expect(waveOf.get(final.id)!).toBeGreaterThanOrEqual(waveOf.get(final.feedAMatchId!)! + 2)
@@ -81,8 +78,6 @@ describe('the schedule route', () => {
     const first = (await rowsOf(db, s.eventId))[0]
     const slotFor = (r: { body: { order: { matchId: number; matId: number }[] } }) =>
       r.body.order.find(o => o.matchId === first.id)!.matId
-    // The mat the plan wants for this match, then the other one set by hand, so the apply
-    // has something to override rather than agreeing with by luck.
     const planned = slotFor(await call(app, 'POST', `/api/events/${s.eventId}/schedule`, { apply: false }, adminToken))
     const byHand = s.matIds.find(id => id !== planned)!
     expect((await call(app, 'PATCH', `/api/matches/${first.id}`, { matId: byHand }, adminToken)).status).toBe(200)
@@ -112,8 +107,6 @@ describe('the schedule route', () => {
       name: 'Novice', format: 'single_elim', styles: 'gi', athleteIds: [s.a1, s.a2, s.b1, s.b2],
     })
     const rows = await rowsOf(db, s.eventId)
-    // The final already feeds from this semifinal; pointing the semifinal back at the final
-    // makes a pair of matches neither of which can ever go first.
     await db.update(matches)
       .set({ athleteAId: null, feedAMatchId: rows[2].id, feedATake: 'winner' })
       .where(eq(matches.id, rows[0].id)).run()

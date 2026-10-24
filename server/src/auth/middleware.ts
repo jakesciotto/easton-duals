@@ -12,11 +12,6 @@ export function errorJson(c: Context, status: Status, code: string, message: str
   return c.json({ error: { code, message, ...extra } }, status)
 }
 
-// Behind a proxy (Vercel) the TCP peer is the proxy, so every caller would share one
-// rate-limit bucket; the forwarded headers carry the real client. On the LAN there is no
-// proxy, so those same headers are attacker-controlled -- any device on the gym wifi could
-// send a fresh x-forwarded-for on every request and never spend its own limiter budget.
-// Only trust them when ctx.publicUrl marks this deployment as sitting behind one.
 export function clientIp(c: Context<Env>): string {
   if (c.get('ctx').publicUrl) {
     const forwarded = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
@@ -52,8 +47,6 @@ export function requireMatOrAdmin(resolveMatId: (c: Context<Env>) => number | nu
     if (auth.role === 'admin') return next()
     const matId = await resolveMatId(c)
     if (matId === null || auth.matId !== matId) return errorJson(c, 403, 'forbidden', 'token is for another mat')
-    // One tablet scores a mat at a time. A later bind mints a higher epoch, so the token
-    // the earlier tablet is still holding stops here rather than fighting over the match.
     const mat = await c.get('ctx').db.select({ bindEpoch: mats.bindEpoch }).from(mats).where(eq(mats.id, matId)).get()
     if (mat && auth.epoch !== mat.bindEpoch) {
       return errorJson(c, 401, 'token_stale', 'Another iPad took this mat over. Bind again to score from here.')

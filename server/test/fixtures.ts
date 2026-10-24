@@ -12,11 +12,7 @@ export interface Seeded {
   eventId: number
   teamA: number
   teamB: number
-  // Only when the caller asks for it. The two-team default is what twenty other test
-  // files read, so a third team is opt in.
   teamC?: number
-  // Only with `divisions`: a fifth kid, on the third team, so a division of four spans
-  // three teams the way a real one does.
   c1?: number
   divisionId?: number
   rulesetId: number
@@ -28,12 +24,6 @@ export interface Seeded {
   matchIds: number[]
 }
 
-// @libsql/client's local driver opens a fresh connection after every db.transaction()
-// call. A plain ':memory:' url gives that fresh connection its own empty database
-// (so post-transaction reads see no tables), and ':memory:?cache=shared' shares one
-// anonymous database process-wide (so unrelated tests collide). A unique temp file
-// per db avoids both: reopening the same path reconnects to the same data, and every
-// freshDb() call gets its own file.
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'duals-test-'))
 process.on('exit', () => fs.rmSync(TMP_DIR, { recursive: true, force: true }))
 
@@ -45,12 +35,6 @@ export async function freshDb(): Promise<Db> {
   return db
 }
 
-// Two teams, two kids each, one default ruleset, `matCount` mats, up to two matches
-// (a1 vs b1 on mat 1, a2 vs b2 on mat 2 or mat 1). `live` marks the event live and
-// loads the first match on each mat without going through match/mats.ts. `thirdTeam`
-// adds an empty third team for the tests that need more than a duel. `divisions` adds a
-// fifth kid on that third team and one single elimination of four across all three,
-// generated through the real path, which is what every division surface is built against.
 export async function seedEvent(db: Db, opts: { matCount?: number; live?: boolean; matches?: number; mode?: EventMode; thirdTeam?: boolean; divisions?: boolean } = {}): Promise<Seeded> {
   const matCount = opts.matCount ?? 2
   const ev = await db.insert(events).values({

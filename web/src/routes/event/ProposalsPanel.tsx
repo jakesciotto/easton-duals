@@ -14,27 +14,17 @@ import { FieldHead, FieldRow, FieldSet } from '@/components/ui/field-set'
 import { OverflowMenu } from '@/components/OverflowMenu'
 import { TeamPlate } from '@/components/TeamPlate'
 
-/** The style, two competitors and the sentence between them, the three actions at the right. */
 const PROPOSAL_COLS = 'grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3'
 
-// Gi first, because gi runs first: spec 5 places every gi match before any nogi one.
 const STYLE_OPTIONS: { value: Style; label: string }[] = [
   { value: 'gi', label: styleLabel('gi') },
   { value: 'nogi', label: styleLabel('nogi') },
 ]
 
-// Which slot a swap is filling, and the two facts the picker needs: the team the kid
-// staying in the pairing is on, and who is in the slot now.
 interface Swap { proposalId: number; side: 'a' | 'b'; exclude: number; held: number }
 
 interface SwapResult { proposal: Proposal; removed: number[]; warnings: string[] }
 
-/**
- * What the last write on one row left behind: what the server warned about a swap, what
- * that swap deleted, and the sentence a refused confirm answered with. A refusal belongs
- * to its own row rather than to a banner over the panel, because the row is still there
- * and swapping or removing it is what the organizer does next.
- */
 interface RowNote { warnings: string[]; removed: number; refusal: string | null }
 
 const EMPTY_NOTE: RowNote = { warnings: [], removed: 0, refusal: null }
@@ -42,8 +32,6 @@ const EMPTY_NOTE: RowNote = { warnings: [], removed: 0, refusal: null }
 const sideName = (s: ProposalSide) => `${s.firstName} ${s.lastName}`.trim()
 const proposalLabel = (p: Proposal) => p.c ? `${sideName(p.a)}, ${sideName(p.b)} and ${sideName(p.c)}` : `${sideName(p.a)} versus ${sideName(p.b)}`
 
-// A kid sits in at most one proposal, so a swap frees one draft at most. The plural is
-// carried anyway because the server answers a list.
 function removalNotice(removed: number): string {
   return removed === 1
     ? 'One other proposal was removed to free this competitor.'
@@ -55,17 +43,10 @@ function proposedLine(count: number): string {
   return `${count} ${count === 1 ? 'proposal' : 'proposals'} ready.`
 }
 
-// A kid can pick up a match between the proposer running and the press, so confirm all
-// leaves those drafts standing and says how many it left.
 function confirmedLine(created: number, skipped: number): string {
   return skipped > 0 ? `Confirmed ${created}, skipped ${skipped}.` : `Confirmed ${created}.`
 }
 
-/**
- * 7.1: the whole side is the swap control rather than a fourth button in the row's
- * cluster. One Swap button cannot say which of the two competitors it is replacing, and
- * the organizer is already pointing at the one they want changed.
- */
 function SideLine({ side, team, disabled, onSwap }: {
   side: ProposalSide
   team: TeamRow | undefined
@@ -92,19 +73,9 @@ function SideLine({ side, team, disabled, onSwap }: {
   )
 }
 
-/**
- * Spec 6's draft field, above the running order on the Matches tab and inside the setup
- * step. Nothing here is running or scheduled: a proposal is a suggestion the organizer
- * confirms, swaps, removes, or replaces by proposing again.
- */
 export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
   detail: EventDetail
   certified: boolean
-  /**
-   * Whether the replace confirm is up. A host that is itself a dialog closes its own while
-   * this one stands, because two open Dialog.Root fight over the focus trap and the
-   * backdrop, and the setup steps already answer that the same way.
-   */
   onConfirmOpenChange?: (open: boolean) => void
 }) {
   const eventId = detail.event.id
@@ -125,8 +96,6 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
 
   const teams = new Map(detail.teams.map(t => [t.id, t]))
   const has = proposals.length > 0
-  // Proposing replaces only the drafts of the style it is asked for, so what the button
-  // says, and whether it asks first, is a question about that style alone.
   const inStyle = proposals.filter(p => p.style === style).length
 
   const openConfirm = (o: boolean) => {
@@ -167,9 +136,6 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
     setSwapping(null)
   }
 
-  // A react-query mutation holds its error until that same mutation runs again, so the
-  // newest failure has to win by the moment it started or the banner names the wrong
-  // action. While the confirm dialog is open a failed propose belongs inside it.
   const failure = [
     confirmOpen || !propose.error ? null : { title: 'The proposals did not come back', error: propose.error, at: propose.submittedAt },
     confirmAll.error ? { title: 'The proposals were not confirmed', error: confirmAll.error, at: confirmAll.submittedAt } : null,
@@ -194,10 +160,7 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
         <Button size="sm" variant="secondary" disabled={certified || !has || confirmAll.isPending} onClick={onConfirmAll}>
           Confirm all
         </Button>
-        {/* 6.8: the reason a control is dead is printed once, beside the controls it
-            kills, rather than waiting for somebody to press one and read a banner. */}
         {certified && <span className="t2 text-gray-10">{CERTIFIED_REFUSAL}</span>}
-        {/* 7.12: one polite region, in the DOM and empty from the first render. */}
         <span aria-live="polite" className="t2 text-gray-10">{summary ?? ''}</span>
       </div>
 
@@ -257,9 +220,6 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
                         >
                           Confirm
                         </Button>
-                        {/* A pairing has two sides, so Swap has to say which one it is
-                            replacing. The plates above are the shortcut; this is the
-                            labelled control, and it names both competitors. */}
                         <OverflowMenu
                           label={`Swap ${label}`}
                           text="Swap"
@@ -269,8 +229,6 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
                             { key: 'b', label: `Swap ${sideName(p.b)}`, disabled: false, onSelect: () => setSwapping({ proposalId: p.id, side: 'b', exclude: p.a.teamId, held: p.b.athleteId }) },
                           ]}
                         />
-                        {/* 7.7: a destructive control never sits flush against the row's
-                            most repeated one. */}
                         <Button
                           size="sm" variant="destructive" className="ml-4" aria-label={`Remove ${label}`}
                           title={certified ? CERTIFIED_REFUSAL : undefined}

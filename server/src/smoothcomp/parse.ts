@@ -1,11 +1,3 @@
-// Pure. JSON in, rows out. No network, no I/O, so smoothcomp-fixtures.ts can pin the
-// behaviour with invented payloads.
-//
-// Smoothcomp returns two bracket shapes. An elimination bracket carries state.matches, an
-// array of match objects. A round robin or best-of-three bracket carries state.rounds
-// instead (an object keyed by round number, whose values are arrays of the same match
-// shape) and has no state.matches at all. allMatches() reconciles both shapes into one
-// flat list and answers null for neither.
 
 export interface SmoothcompSeat { type: 'registration' | 'bye'; name: string; firstName: string; lastName: string; club: string; registrationId: number | null; won: boolean }
 export interface SmoothcompMatch { id: number; bracketId: number; division: string; state: string; isBye: boolean; wonBy: string; score: { left: number; right: number } | null; left: SmoothcompSeat | null; right: SmoothcompSeat | null }
@@ -22,7 +14,6 @@ export function allMatches(json: unknown): unknown[] | null {
   return null
 }
 
-// Smoothcomp writes a score as "6–0" with a hyphen, an en dash or an em dash.
 const SCORE = /^\s*(\d+)\s*[-–—]\s*(\d+)\s*$/
 
 function parseScore(v: unknown): { left: number; right: number } | null {

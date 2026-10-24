@@ -11,17 +11,6 @@ import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTi
 
 export const CONTACT_TITLE = 'Who do volunteers call?'
 
-/**
- * 6.4's escalation contact, set after the event exists.
- *
- * The New event dialog asks for it once, on the morning nobody has decided yet who is
- * running the desk, so the only version of this field that gets filled in is the one an
- * organizer can reach from the event itself. Event-night volunteer practice requires
- * every volunteer to have a named person to escalate to or they simply stop working.
- *
- * Either half empty clears the line: a name with no number, or a number with no name,
- * gives a volunteer nothing to act on, and the server reads a blank string as a clear.
- */
 export function ContactDialog({ open, onOpenChange, detail }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -33,8 +22,6 @@ export function ContactDialog({ open, onOpenChange, detail }: {
   const save = useAdminMutation(eventId, (body: { contactName: string; contactPhone: string }) =>
     adminApi(`/api/events/${eventId}`, { method: 'PATCH', body }))
 
-  // Opening is the only thing that seeds the form, so a refetch landing behind the dialog
-  // never overwrites what the organizer is halfway through typing.
   useEffect(() => {
     if (!open) return
     setName(detail.event.contact?.name ?? detail.event.contactName ?? '')
@@ -93,7 +80,6 @@ export function ContactDialog({ open, onOpenChange, detail }: {
   )
 }
 
-/** 6.4: "Questions at the desk: [organizer first name], [phone]." Null with no pair. */
 export function contactFooter(detail: EventDetail): string | null {
   const contact = detail.event.contact
     ?? (detail.event.contactName && detail.event.contactPhone
