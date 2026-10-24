@@ -9,6 +9,8 @@ import { validate } from '../lib/validate.js'
 import { errorJson, requireAdmin } from '../auth/middleware.js'
 import { assertNotCertified } from '../audit/certify.js'
 import { createMatch } from '../match/create.js'
+import { createDivision } from '../formats/divisions.js'
+import { weightClass } from '../shared/weight-class.js'
 import { busyAthlete, resolvePair } from '../match/pairs.js'
 import { loadProposal, loadProposals, pairCost, pairWarnings, pairWhy, proposeMatches } from '../matchmaker/propose.js'
 import type { Style } from '../shared/types.js'
@@ -65,6 +67,18 @@ const confirm = (db: DbLike, row: ProposalRow, rulesetId: number) =>
     },
   )
 
+const confirmTrio = (db: DbLike, row: ProposalRow) =>
+  db.transaction(async tx => {
+    const ids = [row.athleteAId, row.athleteBId, row.athleteCId as number]
+    const busy = await busyAthlete(tx, row.eventId, ids)
+    if (busy) return { ok: false as const, code: 'match_state' as const, message: busyMessage(busy) }
+    const kid = await tx.select({ weightLbs: athletes.weightLbs }).from(athletes).where(eq(athletes.id, row.athleteAId)).get()
+    const band = kid?.weightLbs == null ? 'Round robin' : `${weightClass(kid.weightLbs).label} round robin`
+    const { division, warnings } = await createDivision(tx, row.eventId, { name: band, format: 'round_robin', styles: row.style, athleteIds: ids })
+    await tx.delete(proposals).where(eq(proposals.id, row.id)).run()
+    return { ok: true as const, division, warnings }
+  })
+
 const refuse = (c: Parameters<typeof errorJson>[0], r: { code: 'validation' | 'match_state'; message: string }) =>
   errorJson(c, r.code === 'match_state' ? 409 : 422, r.code, r.message)
 
@@ -100,7 +114,8 @@ proposalRoutes.post('/events/:eventId/proposals/confirm-all', requireAdmin, asyn
   // the organizer can swap or remove it; `skipped` is how many the panel still holds.
   let created = 0
   for (const row of rows) {
-    if ((await confirm(db, row, ruleset.id)).ok) created++
+    const result = row.athleteCId === null ? await confirm(db, row, ruleset.id) : await confirmTrio(db, row)
+    if (result.ok) created++
   }
   return c.json({ created, skipped: rows.length - created }, 201)
 })
@@ -112,6 +127,11 @@ proposalRoutes.post('/proposals/:proposalId/confirm', requireAdmin, async c => {
   await assertNotCertified(db, row.eventId)
   const ruleset = await firstRuleset(db, row.eventId)
   if (!ruleset) return errorJson(c, 409, 'match_state', 'event needs a ruleset')
+  if (row.athleteCId !== null) {
+    const result = await confirmTrio(db, row)
+    if (!result.ok) return refuse(c, result)
+    return c.json({ division: result.division, warnings: result.warnings }, 201)
+  }
   const result = await confirm(db, row, ruleset.id)
   if (!result.ok) return refuse(c, result)
   return c.json({ match: result.match }, 201)
@@ -122,6 +142,7 @@ proposalRoutes.patch('/proposals/:proposalId', requireAdmin, validate('json', sw
   const row = await db.select().from(proposals).where(eq(proposals.id, Number(c.req.param('proposalId')))).get()
   if (!row) return errorJson(c, 404, 'not_found', 'proposal not found')
   await assertNotCertified(db, row.eventId)
+  if (row.athleteCId !== null) return errorJson(c, 422, 'validation', 'a round robin draft has no swap; remove it and add the division by hand')
   const body = c.req.valid('json')
   // Only a kid coming in has to be free. The ones already in this draft are not new, and
   // refusing on their account would strand a draft the organizer is trying to fix.

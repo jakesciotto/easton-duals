@@ -155,7 +155,7 @@ export interface ProposalSide {
   belt: string | null
   erp: number | null
 }
-export interface Proposal { id: number; eventId: number; cost: number; why: string; style: Style; a: ProposalSide; b: ProposalSide }
+export interface Proposal { id: number; eventId: number; cost: number; why: string; style: Style; a: ProposalSide; b: ProposalSide; c: ProposalSide | null }
 export interface LeaderboardRow { teamId: number; rank: number; teamPoints: number; wins: number; points: number }
 
 export interface ManualKid {

@@ -197,6 +197,7 @@ export const proposals = sqliteTable('proposals', {
   eventId: integer('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   athleteAId: integer('athlete_a_id').notNull().references(() => athletes.id, { onDelete: 'cascade' }),
   athleteBId: integer('athlete_b_id').notNull().references(() => athletes.id, { onDelete: 'cascade' }),
+  athleteCId: integer('athlete_c_id').references(() => athletes.id, { onDelete: 'cascade' }),
   cost: real('cost').notNull(),
   why: text('why').notNull(),
   style: text('style', { enum: ['gi', 'nogi'] }).$type<Style>().notNull().default('gi'),

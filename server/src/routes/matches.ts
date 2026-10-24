@@ -86,7 +86,7 @@ matchRoutes.post('/events/:eventId/matches', requireAdmin, validate('json', crea
       const sides = [match.athleteAId, match.athleteBId].filter((id): id is number => id !== null)
       const stale = await tx.select({ id: proposals.id }).from(proposals).where(and(
         eq(proposals.eventId, eventId),
-        or(inArray(proposals.athleteAId, sides), inArray(proposals.athleteBId, sides)),
+        or(inArray(proposals.athleteAId, sides), inArray(proposals.athleteBId, sides), inArray(proposals.athleteCId, sides)),
       )).all()
       if (stale.length > 0) await tx.delete(proposals).where(inArray(proposals.id, stale.map(p => p.id))).run()
       removedProposals = stale.length

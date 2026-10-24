@@ -1,0 +1,1 @@
+ALTER TABLE `proposals` ADD `athlete_c_id` integer REFERENCES athletes(id) ON DELETE CASCADE;
