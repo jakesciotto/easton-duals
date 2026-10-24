@@ -297,7 +297,7 @@ describe('the proposer offers each free kid at most once, across teams only, and
 
     const rows = await db.select().from(auditLog).where(eq(auditLog.eventId, s.eventId)).all()
     expect(rows.map(r => r.action)).toEqual(['propose', 'propose'])
-    expect(rows[0].detail).toEqual({ count: 1, unmatched: 1 })
+    expect(rows[0].detail).toEqual({ count: 1, roundRobins: 1, unmatched: 0 })
     expect(rows.every(r => r.actor === 'admin' && r.matchId === null)).toBe(true)
     // Nothing the proposer does touches the running order.
     expect(await db.select().from(matches).where(eq(matches.eventId, s.eventId)).all()).toEqual([])
@@ -371,12 +371,13 @@ describe('the proposer makes the pairing with the lowest total cost where a kid 
         name: `K${i}`, team: (['A', 'B', 'C'] as const)[rand(3)], age: 5 + rand(9), lbs: 35 + rand(75), belt: belts[rand(belts.length)],
       }))
       const db = await freshDb()
-      const { s } = await pool(db, kids)
+      const { s, id } = await pool(db, kids)
       const out = await proposeMatches(db, s.eventId, 'gi')
       const sides = kids.map((k, i) => ({ id: i, age: k.age!, weightLbs: k.lbs!, belt: k.belt ?? null, erp: null }))
       const model = sides.map((a, i) => ({ id: i, team: kids[i].team, cost: (j: number) => pairCost(a, sides[j]) }))
       const expected = bestByBruteForce(model, (i, j) => pairCost(sides[i], sides[j]) <= MAX_PAIR_COST)
-      const actual = out.reduce((t, p) => t + p.cost, 0) + (size - 2 * out.length) * SIT_OUT
+      const at = new Map(kids.map((k, i) => [id(k.name), i]))
+      const actual = out.reduce((t, p) => t + pairCost(sides[at.get(p.a.athleteId)!], sides[at.get(p.b.athleteId)!]), 0) + (size - 2 * out.length) * SIT_OUT
       expect(actual, `pool ${round}: ${JSON.stringify(kids)}`).toBeCloseTo(expected, 6)
       expect(new Set(out.flatMap(p => [p.a.athleteId, p.b.athleteId])).size).toBe(out.length * 2)
     }

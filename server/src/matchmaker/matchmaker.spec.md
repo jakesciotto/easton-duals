@@ -26,6 +26,25 @@ The proposer that drafts cross-team pairs for the organizer to confirm, swap or 
   because: pairWarnings only returns warning strings and scopes Already met to the style, and resolvePair alone refuses a same-team, an off-event or a teamless pair with 422; this describe runs the Already met warning, and the refusals sit in the match routes test
   refuted: removed the style scope from the Already met query -> the test a hand-designed pair warns and never refuses went red (2026-10-22)
   kinds: none
+- three in a class: Three kids alone in a weight class from three teams become one round robin draft.
+  over: three identical kids from three teams; a third kid in another class, on a side's team, past the cost cap or behind the gender veto; and a four kid pool where the fourth sits two classes off
+  via: three kids alone in a class from three teams become a round robin draft
+  because: after the matching, proposeMatches joins each kid left without a pair to one chosen pair of the same weight class whose sides are on other teams, within the cost cap, the gender veto and the rematch rule, taking the pair with the lowest worst cost; the row carries the third kid in athlete_c_id (migration 0015) and the pair leaves the pair list
+  refuted: the trio pass skips every stranded kid -> the test three kids alone in a class from three teams become a round robin draft went red, 2 of 2 (2026-10-24)
+  kinds: none
+- round robin confirm: Confirming a round robin draft creates a round robin division of the three and refuses a swap.
+  over: a confirm that answers the division with three matches and no draft left, a swap that answers 422, and a confirm all that counts the draft
+  via: confirming a round robin draft creates a division
+  because: the confirm route runs createDivision inside one transaction with the busy guard and the draft delete, names the division after the weight class, and the swap route refuses a draft that carries a third kid because a swap of one side would change a set, not a pair
+  refuted: the swap route no longer refuses a draft with a third kid -> the test confirming a round robin draft creates a division went red, 1 of 2 (2026-10-24)
+  kinds: state
+  checklist: revalidated-permission dismissed: the busy guard reads the matches at confirm time
+  checklist: separation-of-duties dismissed: no approval policy exists on a confirm
+  checklist: legal-state-succession declared as round robin confirm
+  checklist: supersession-safety declared as round robin confirm
+  checklist: worker-fencing dismissed: no worker owns a draft
+  checklist: commit-ordered-effects dismissed: the division, its matches and the draft delete are rows in one transaction
+  checklist: resumption-coverage dismissed: a refused confirm leaves the draft, and the organizer presses Confirm again
 - busy guard on confirm: Confirming a draft refuses a kid who already holds an unfought match.
   over: a draft whose kid went live on another mat after the draft was written, one confirm that answers 409, and a confirm all that skips the stale draft and keeps it
   via: confirming

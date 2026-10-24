@@ -112,7 +112,9 @@ function serialize(row: ProposalRow, byId: Map<number, AthleteRow>): Proposal | 
   // A kid taken off their team after the draft was made leaves a row nothing can confirm.
   // It is left in the table for the next propose to replace rather than written to here.
   if (!a || !b || a.teamId === null || b.teamId === null) return null
-  return { id: row.id, eventId: row.eventId, cost: row.cost, why: row.why, style: row.style, a: proposalSide(a), b: proposalSide(b) }
+  const c = row.athleteCId === null ? null : byId.get(row.athleteCId)
+  if (row.athleteCId !== null && (!c || c.teamId === null)) return null
+  return { id: row.id, eventId: row.eventId, cost: row.cost, why: row.why, style: row.style, a: proposalSide(a), b: proposalSide(b), c: c ? proposalSide(c) : null }
 }
 
 async function athletesById(db: DbLike, eventId: number): Promise<Map<number, AthleteRow>> {
@@ -201,14 +203,42 @@ export async function proposeMatches(db: DbLike, eventId: number, style: Style):
     const chosen = candidates.filter(c => mate[index.get(c.a.id)!] === index.get(c.b.id))
     const taken = new Set(chosen.flatMap(c => [c.a.id, c.b.id]))
 
+    const sameGender = (x: AthleteRow, y: AthleteRow) => !ev.sameGender || !x.gender || !y.gender || genderKey(x.gender) === genderKey(y.gender)
+    const classOf = (k: AthleteRow) => weightClass(k.weightLbs!).index
+    type Trio = { pair: Candidate; c: AthleteRow; cost: number }
+    const trios: Trio[] = []
+    const joined = new Set<Candidate>()
+    for (const k of free) {
+      if (taken.has(k.id)) continue
+      let best: Trio | null = null
+      for (const pair of chosen) {
+        if (joined.has(pair)) continue
+        if (pair.a.teamId === k.teamId || pair.b.teamId === k.teamId) continue
+        if (classOf(pair.a) !== classOf(k) || classOf(pair.b) !== classOf(k)) continue
+        if (!sameGender(pair.a, k) || !sameGender(pair.b, k)) continue
+        if (met.has(pairKey(k.id, pair.a.id)) || met.has(pairKey(k.id, pair.b.id))) continue
+        const ca = pairCost(k, pair.a)
+        const cb = pairCost(k, pair.b)
+        if (ca > MAX_PAIR_COST || cb > MAX_PAIR_COST) continue
+        const cost = Math.max(pair.cost, ca, cb)
+        if (!best || cost < best.cost) best = { pair, c: k, cost }
+      }
+      if (!best) continue
+      joined.add(best.pair)
+      taken.add(k.id)
+      trios.push(best)
+    }
+
     await tx.delete(proposals).where(and(eq(proposals.eventId, eventId), eq(proposals.style, style))).run()
     const at = new Date().toISOString()
-    const inserted = chosen.length === 0 ? [] : await tx.insert(proposals).values(chosen.map(c => ({
-      eventId, athleteAId: c.a.id, athleteBId: c.b.id, cost: c.cost, why: c.why, style, createdAt: at,
-    }))).returning().all()
+    const rows = [
+      ...chosen.filter(c => !joined.has(c)).map(c => ({ eventId, athleteAId: c.a.id, athleteBId: c.b.id, athleteCId: null as number | null, cost: c.cost, why: c.why, style, createdAt: at })),
+      ...trios.map(t => ({ eventId, athleteAId: t.pair.a.id, athleteBId: t.pair.b.id, athleteCId: t.c.id as number | null, cost: t.cost, why: `round robin of three, ${weightClass(t.c.weightLbs!).label}`, style, createdAt: at })),
+    ]
+    const inserted = rows.length === 0 ? [] : await tx.insert(proposals).values(rows).returning().all()
     await recordAudit(tx, {
       eventId, actor: 'admin', action: 'propose',
-      detail: { count: inserted.length, unmatched: free.length - taken.size },
+      detail: { count: inserted.length, roundRobins: trios.length, unmatched: free.length - taken.size },
     })
     const byId = new Map(roster.map(a => [a.id, a]))
     return inserted.map(r => serialize(r, byId)).filter((p): p is Proposal => p !== null)

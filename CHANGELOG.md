@@ -4,6 +4,9 @@ All notable changes to Easton Duals. The format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+### Added
+- Three kids alone in a weight class from three teams become one round robin draft; confirming it creates a round robin division (migration 0015, additive).
+
 ### Fixed
 - The certified lock is rechecked inside every write transaction, so a certify that lands between a route's request guard and its write now refuses the write and rolls it back.
 

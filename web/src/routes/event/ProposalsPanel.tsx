@@ -40,7 +40,7 @@ interface RowNote { warnings: string[]; removed: number; refusal: string | null 
 const EMPTY_NOTE: RowNote = { warnings: [], removed: 0, refusal: null }
 
 const sideName = (s: ProposalSide) => `${s.firstName} ${s.lastName}`.trim()
-const proposalLabel = (p: Proposal) => `${sideName(p.a)} versus ${sideName(p.b)}`
+const proposalLabel = (p: Proposal) => p.c ? `${sideName(p.a)}, ${sideName(p.b)} and ${sideName(p.c)}` : `${sideName(p.a)} versus ${sideName(p.b)}`
 
 // A kid sits in at most one proposal, so a swap frees one draft at most. The plural is
 // carried anyway because the server answers a list.
@@ -263,7 +263,7 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
                         <OverflowMenu
                           label={`Swap ${label}`}
                           text="Swap"
-                          disabled={certified}
+                          disabled={certified || p.c !== null}
                           items={[
                             { key: 'a', label: `Swap ${sideName(p.a)}`, disabled: false, onSelect: () => setSwapping({ proposalId: p.id, side: 'a', exclude: p.b.teamId, held: p.a.athleteId }) },
                             { key: 'b', label: `Swap ${sideName(p.b)}`, disabled: false, onSelect: () => setSwapping({ proposalId: p.id, side: 'b', exclude: p.a.teamId, held: p.b.athleteId }) },
@@ -281,6 +281,15 @@ export function ProposalsPanel({ detail, certified, onConfirmOpenChange }: {
                         </Button>
                       </span>
                     </div>
+                    {p.c && (
+                      <div className={PROPOSAL_COLS}>
+                        <span />
+                        <SideLine side={p.c} team={teams.get(p.c.teamId)} disabled onSwap={() => {}} />
+                        <span className="truncate t2 text-gray-10">round robin</span>
+                        <span />
+                        <span />
+                      </div>
+                    )}
                     {note && (note.warnings.length > 0 || note.removed > 0 || note.refusal !== null) && (
                       <div className="flex flex-wrap items-center gap-3 pt-1">
                         {note.refusal !== null && <span className="t2 text-attend">{note.refusal}</span>}

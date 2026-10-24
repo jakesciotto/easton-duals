@@ -106,6 +106,13 @@
       "when": 1789593578313,
       "tag": "0014_smoothcomp_url",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1792854870753,
+      "tag": "0015_trio_proposals",
+      "breakpoints": true
     }
   ]
 }

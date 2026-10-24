@@ -236,7 +236,7 @@ describe('swapping a kid into a draft', () => {
     const { app, db, adminToken, s, id } = await pool([
       { name: 'Ines', team: 'A' },
       { name: 'Bruno', team: 'B' },
-      { name: 'Kai', team: 'C', age: 14 },
+      { name: 'Kai', team: 'C', age: 14, lbs: 75 },
     ])
     const made = await call(app, 'POST', `/api/events/${s.eventId}/proposals`, undefined, adminToken)
     await db.insert(matches).values({

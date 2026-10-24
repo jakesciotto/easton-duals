@@ -134,6 +134,7 @@ export interface Proposal {
   style: Style
   a: ProposalSide
   b: ProposalSide
+  c: ProposalSide | null
 }
 
 /** One kid in a division, in seed order. The seed is the listed order, 1 at the top. */
