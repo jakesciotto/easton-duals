@@ -4,6 +4,11 @@ All notable changes to Easton Duals. The format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-10-26
+
+### Changed
+- vitest 4.1.12 and fast-uri 3.1.9 (six development-scope advisories).
+
 ## [0.19.0] - 2026-10-26
 
 ### Changed

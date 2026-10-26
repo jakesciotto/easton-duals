@@ -17,7 +17,7 @@ import { proposalRoutes } from './routes/proposals.js'
 import { rosterRoutes } from './routes/roster.js'
 import { smoothcompRoutes } from './routes/smoothcomp.js'
 
-export const VERSION = '0.19.0'
+export const VERSION = '0.19.1'
 
 export function createApp(ctx: AppContext) {
   const app = new Hono<Env>()
