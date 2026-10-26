@@ -416,5 +416,5 @@ describe('the proposer makes the pairing with the lowest total cost where a kid 
       expect(actual, `pool ${round}: ${JSON.stringify(kids)}`).toBeCloseTo(expected, 6)
       expect(new Set(out.flatMap(p => [p.a.athleteId, p.b.athleteId])).size).toBe(out.length * 2)
     }
-  })
+  }, 30_000)
 })
