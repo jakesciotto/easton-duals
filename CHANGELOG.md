@@ -4,6 +4,8 @@ All notable changes to Easton Duals. The format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-10-26
+
 ### Changed
 - zod 4.6.7 for the whole tree (one root copy through an override); the server schemas and the issues shape are unchanged.
 
