@@ -4,6 +4,8 @@ All notable changes to Easton Duals. The format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-26
+
 ### Changed
 - No comments in code: about 4,750 comment lines left the server, the web, the scripts and the tests; the facts worth keeping moved into the specs and CLAUDE.md, and the design lint fails on any comment.
 
