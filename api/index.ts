@@ -1,4 +1,4 @@
-import { handle } from '@hono/node-server/vercel'
+import { getRequestListener } from '@hono/node-server'
 
 type App = Awaited<ReturnType<typeof buildApp>>
 
@@ -38,5 +38,6 @@ function getApp(): Promise<App> {
 export const config = { api: { bodyParser: false } }
 
 export default async function handler(req: unknown, res: unknown) {
-  return handle(await getApp())(req as never, res as never)
+  const app = await getApp()
+  return getRequestListener(app.fetch)(req as never, res as never)
 }

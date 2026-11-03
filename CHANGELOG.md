@@ -4,6 +4,13 @@ All notable changes to Easton Duals. The format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+### Security
+- `@hono/node-server` moves from 1.19.17 to 2.1.6. This closes GHSA-rmxm-3fg6-px4f (medium): `serveStatic` decoded the request path twice, so a request could pass a middleware on static paths. Only 2.1.3 and later fix it. The LAN entry is the only user of `serveStatic`, and no middleware guards its static paths.
+
+### Changed
+- 2.0 removes `@hono/node-server/vercel`. `api/index.ts` now builds the handler with `getRequestListener(app.fetch)` from `@hono/node-server`, which is the whole body of the removed adapter, so the Vercel function behaves as before.
+- On the LAN entry, `serveStatic` 2.x serves only GET and HEAD, rejects a path that still holds `%` after decoding, and answers 400 to a raw backslash. The built SPA holds no such file names.
+
 ## [0.19.2] - 2026-10-26
 
 ### Changed
